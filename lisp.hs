@@ -2,6 +2,7 @@ import Data.List
 import System.Console.Readline
 import Text.ParserCombinators.Parsec.Error
 
+import Control.Monad
 import Text.ParserCombinators.Parsec
 
 data Expr = Atom String | List [Expr] | Label String Expr | Bad
@@ -36,6 +37,8 @@ eval env = g where
 
   f "defun" [id, ps, e] =
     g $ List [Atom "label", id, List [Atom "lambda", ps, e]]
+
+  f "list" t = List t
 
   f _ _ = Bad
 
@@ -72,6 +75,16 @@ expectParen (Expect "\"(\"") = True
 expectParen (Expect "\")\"") = True
 expectParen _                = False
 
+addEnv (Label s e) = ((s, e):)
+addEnv _           = id
+
+-- Preload definitions such as "(defun cadr (x) (cdr (car x)))".
+preload = foldl' f [] $ concat $ genCadr <$> [2..4] where
+  f env s = let Right expr = parse oneExpr "" s in addEnv (eval env expr) env
+
+genCadr n = [concat ["(defun c", s, "r (x) (c", [h], "r (c", t, "r x)))"] |
+  s@(h:t) <- replicateM n "ad"]
+
 repl pre env = do
   ms <- readline $ if null pre then "> " else ""
   case ms of
@@ -85,9 +98,6 @@ repl pre env = do
       Right expr -> do
         let r = eval env expr
         print r
-        repl "" $ case r of
-          Bad        -> env
-          Label id e -> (id, e):env
-          _          -> env
+        repl "" $ addEnv r env
 
-main = repl "" []
+main = repl "" preload
