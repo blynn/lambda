@@ -1,3 +1,21 @@
+= Lisp in Haskell =
+
+http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[Functional programming languages began with John McCarthy's invention of Lisp].
+
+Haskell is Lisp with modern conveniences. Haskell is a fashionable five-star
+high-tech luxurious language, but stripping away its contemporary furnishings
+reveals a humble core surprisingly similar to Lisp.
+
+To study the roots of Haskell, we should study the roots of Lisp.
+http://www-formal.stanford.edu/jmc/recursive.html[McCarthy's classic 1960 paper]
+remains an excellent source, but Paul Graham's
+http://www.paulgraham.com/rootsoflisp.html['The Roots of Lisp']
+[http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf[PDF]] is far more
+accessible.
+
+We follow along Graham's paper, building a Lisp interpreter on the way:
+
+\begin{code}
 import Data.List
 import System.Console.Readline
 import Text.ParserCombinators.Parsec.Error
@@ -101,3 +119,4 @@ repl pre env = do
         repl "" $ addEnv r env
 
 main = repl "" preload
+\end{code}
