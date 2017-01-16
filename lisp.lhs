@@ -1,11 +1,12 @@
 = Lisp in Haskell =
 
-http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[Functional programming languages began with John McCarthy's invention of Lisp].
-
 Haskell is Lisp with modern conveniences. Haskell is a fashionable five-star
-high-tech luxurious language, but stripping away its contemporary furnishings
-reveals a humble core surprisingly similar to Lisp.
+high-tech luxurious language, but
+http://newartisans.com/2009/03/hello-haskell-goodbye-lisp/[stripping away its
+contemporary furnishings reveals a humble core surprisingly similar to Lisp].
 
+This is because
+http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[functional programming languages began with John McCarthy's invention of Lisp].
 Thus to study the roots of Haskell, we should study the roots of Lisp.
 http://www-formal.stanford.edu/jmc/recursive.html[McCarthy's classic 1960 paper]
 remains an excellent source, but Paul Graham's homage
@@ -13,7 +14,7 @@ http://www.paulgraham.com/rootsoflisp.html['The Roots of Lisp']
 [http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf[PDF]] is far more
 accessible, and corrects bugs in the original paper.
 
-We'll build an interpreter that can run Graham's Lisp code:
+We'll build a Lisp interpreter based on Graham's paper:
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -21,10 +22,18 @@ We'll build an interpreter that can run Graham's Lisp code:
 <p><button id="evalB">Run</button>
 <button id="surpriseB">Surprise Me!</button>
 </p>
-<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80"></textarea></p>
+<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80">(defun subst (x y z)  ; From "The Roots of Lisp" by Paul Graham.
+  (cond ((atom z)
+         (cond ((eq z y) x)
+               ('t z)))
+        ('t (cons (subst x y (car z))
+                  (subst x y (cdr z ))))))
+
+(subst 'm 'b '(a b (a b c) d))  ; We expect (a m (a m c) d).
+</textarea></p>
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
-<div id="surpriseP" hidden>; The Surprise. See Paul Graham, "The Roots of Lisp".
-; The "eval." function takes a Lisp expression and evaluates it.
+<div id="surpriseP" hidden>; The Surprise from "The Roots of Lisp" by Paul Graham.
+; The "eval." function evaluates a given Lisp expression.
 ; We demonstrate it by running it on the `subst` example in the paper.
 
 (defun null. (x)
@@ -87,7 +96,7 @@ We'll build an interpreter that can run Graham's Lisp code:
         ('t (cons (eval. (car m) a)
                   (evlis. (cdr m) a)))))
 
-; We expect "(a m (a m c) d)".
+; We expect (a m (a m c) d).
 (eval. '(
   (label subst (lambda (x y z)
     (cond ((atom z)
@@ -117,134 +126,250 @@ $ cabal install parsec readline
 $ ghc lisp.lhs
 ------------------------------------------------------------------------------
 
-Open `lisp.html` in a browser, or run "./lisp".
+Open `lisp.html` in a browser, or run `./lisp`.
 
 A single source file forces us to tolerate the presence of conditional
 compilation macros. For JavaScript, we need a few
-http://haste-lang.org/[Haste] imports:
+http://haste-lang.org/[Haste] imports.
+
+For our command-line interpreter, the GNU Readline library is a boon.
+Also, if it appears that an expression is incomplete, rather than complain
+immediately, our interpreter asks for another line. This feature requires
+importing the Parsec library's Error module.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
 #ifdef __HASTE__
 import Haste.DOM
 import Haste.Events
-\end{code}
-
-For our command-line interpreter, the GNU Readline makes life much easier.
-Also, if it appears that an expression is incomplete, rather than complain
-immediately, our interpreter will ask for another line. These require certain
-imports:
-
-\begin{code}
 #else
 import System.Console.Readline
 import Text.ParserCombinators.Parsec.Error
 #endif
 \end{code}
 
-Onwards to the common code.
+The interpreter itself only needs a few imports:
 
 \begin{code}
 import Control.Monad
 import Data.List
 import Text.ParserCombinators.Parsec
+\end{code}
 
-data Expr = Atom String | List [Expr] | Label String Expr | Bad
+== Tree Processor ==
+
+We define a data structure that will hold a Lisp expression. Lisp should
+really be called Trep: it processes trees, not lists!
+
+Atoms and the empty list are external nodes and non-empty lists are internal
+nodes on a full binary tree. The `atom` primitive of Lisp has a slightly
+confusing in that it returns true for all atoms and the empty list; presumably
+the name `is-external-node` is too unwieldy.
+
+To emphasize that Lisp expressions are binary trees, we construct external node
+with `Lf`, which stands for "leaf", and use the infix constructor `(:^)` to
+build internal nodes from left and right subtrees.
+
+The infix constructor also makes pattern matching easier. We give it
+right-associativity so we can write Lisp lists with fewer parentheses, because
+a flattened Lisp list is actually an unbalanced binary tree whose spine extends
+to the right and terminates with a sentinel node (`nil`), and the elements of
+the list are the left child nodes.
+
+Our interpreter accepts a sequence of expressions, and later expressions may
+use labels defined by earlier expressions. To help with this, we add the
+`Label` constructor. This design is unclean, as it means a `label` in the wrong
+place will cause problems, but it suffices for our demo.
+
+We also define `Bad` for crude but serviceable error-handling.
+
+\begin{code}
+infixr 5 :^
+data Expr = Lf String | Expr :^ Expr | Label String Expr | Bad
 
 instance Show Expr where
-  show (Label s _) = s
-  show (Atom s)    = s
-  show (List as)   = "(" ++ unwords (show <$> as) ++ ")"
   show Bad         = "?"
+  show (Label s _) = s
+  show (Lf "")     = "()"
+  show (Lf s)      = s
+  show (l :^ r)    = "(" ++ show l ++ " " ++ showR r ++ ")" where
+    showR (l :^ Lf "") = show l
+    showR (l :^ r)     = show l ++ " " ++ showR r
+    showR x            = show x
+\end{code}
 
-eval env = g where
+Haskell is more deserving of the term "list processor" because its lists
+are true singly-linked lists. This may not always be good:
+https://www.schoolofhaskell.com/user/bss/magma-tree[lists are less general than
+trees because monoids are fussier than magmas].
+
+While we can easily define other data structures, they will never be as
+easy to use as lists in Haskell. Aside from the extensive library support,
+notation such as `[1, 2, 3]` and `(h:t)` only applies to lists.
+
+Infix constructors, the FTP proposal, and view patterns have improved matters,
+but lists are still king. Indeed, initially I wrote the interpreter with:
+
+------------------------------------------------------------------------------
+data Expr = Atom String | List [Expr]
+------------------------------------------------------------------------------
+
+so I could write:
+
+------------------------------------------------------------------------------
   f "quote" [x] = x
-
   f "atom" [Atom _ ] = Atom "t"
   f "atom" [List []] = Atom "t"
   f "atom" [_      ] = List []
-
-  f "eq" [List [], List []] = Atom "t"
-  f "eq" [Atom x , Atom y ] | x == y    = Atom "t"
-                            | otherwise = List []
-  f "eq" [_      , _      ] = List []
-
+  f "atom" [Atom _ ] = Atom ""
   f "car"  [List (h:_)] = h
   f "cdr"  [List (_:t)] = List t
   f "cons" [h,  List t] = List (h:t)
+  ...
+------------------------------------------------------------------------------
 
-  f "cond" []                = List []
-  f "cond" (List [p, e]:rest) = case g p of Atom "t" -> g e
-                                            _        -> f "cond" rest
+This felt like cheating, so ultimately I opted to define tree structure from
+scratch.
 
-  f "label" [Atom id, e] = Label id e
+== 7 Primitive Operators ==
 
-  f "defun" [id, ps, e] =
-    g $ List [Atom "label", id, List [Atom "lambda", ps, e]]
+To take advantage of Haskell's pattern matching we introduce a function `f`
+to handle primitive operators. Some details will be handled later.
+For example, for `quote` and `cond`, we must avoid evaluating any arguments,
+while all other primitives require all their arguments to be evaluated first.
 
-  f "list" t = List t
+\begin{code}
+eval env = g where
+  f "quote" (x :^ Lf "") = x
+
+  f "atom" (Lf _ :^ Lf "") = Lf "t"
+  f "atom" _               = Lf ""
+
+  f "eq" (Lf x :^ Lf y :^ Lf "") | x == y    = Lf "t"
+                                 | otherwise = Lf ""
+  f "eq" (_    :^ _    :^ Lf "") = Lf ""
+
+  f "car"  ((l :^ r) :^ Lf "") = l
+  f "cdr"  ((l :^ r) :^ Lf "") = r
+  f "cons" ( l :^ r  :^ Lf "") = l :^ r
+
+  f "cond" ((l :^ r :^ Lf "") :^ rest) | Lf "t" <- g l = g r
+                                       | otherwise     = f "cond" rest
+\end{code}
+
+I could have added a `Nil` sentinel to the `Expr` data type and used it
+instead of `Lf ""`, but the code seemed more honest without it.
+
+The `f` function is also a good place to handle `label`, and some Lisp
+shorthand:
+
+\begin{code}
+  f "label" (Lf s :^ e :^ Lf "") = Label s e
+
+  f "defun" (s :^ etc) = g $ Lf "label" :^ s :^ (Lf "lambda" :^ etc) :^ Lf ""
+  f "list" x = x
 
   f _ _ = Bad
+\end{code}
 
-  -- Convenient, but we can live without these.
-  -- g t@(Atom "t") = t
-  -- g empty@(List []) = empty
+== Eval ==
 
-  g (List (Label id e:rest)) = eval ((id, e):env) $ List $ e:rest
-  g (Atom s) | Just b <- lookup s env = b
-             | otherwise              = Bad
-  g (List (List [Atom "lambda", List args, body]:t))
-    = eval (zip (fromAtom <$> args) (g <$> t) ++ env) body where
-     fromAtom (Atom p) = p
-  g (List (List h:t)) = g $ List $ g (List h):t
-  g (List (Atom h:t))
-    | Just b <- lookup h env                  = g $ List $ b:t
+Locally, we give the name `g` to the evaluation function for a given
+environment.
+
+For `lambda`, we modify the environment accordingly before recursing.
+Otherwise, it's clear when we should look up a binding in the environment, or
+evaluate other nodes of the tree before calling `f`.
+
+Again we see the overheads incurred by using a non-list data structure in
+Haskell. In my initial list-based code, I could simply use the default `map`
+instead of  `mapL`, and `fromTree` would be superfluous.
+
+\begin{code}
+  g (Label s e :^ r) = eval ((s, e):env) $ e :^ r
+  g (Lf s) | Just b <- lookup s env = b
+           | otherwise              = Bad
+
+  g ((Lf "lambda" :^ args :^ body :^ Lf "") :^ t) =
+    eval (zip (fromLeaf <$> fromTree args) (fromTree $ mapL g t) ++ env) body
+  g (Lf h :^ t)
+    | Just b <- lookup h env                  = g $ b :^ t
     | elem h $ words "cond quote defun label" = f h t
-    | otherwise                               = f h $ g <$> t
+    | otherwise                               = f h $ mapL g t
   g _ = Bad
 
+  fromTree (Lf "")  = []
+  fromTree (h :^ t) = h:fromTree t
+  fromLeaf (Lf x)   = x
+
+  mapL f (Lf "")  = Lf ""
+  mapL f a@(Lf _) = f a
+  mapL f (l :^ r) = f l :^ mapL f r
+\end{code}
+
+== Parser and User Interface ==
+
+A simple parser suits Lisp's simple grammar:
+
+\begin{code}
 expr :: Parser Expr
-expr = between ws ws $ atom <|> list <|> quote where
-  ws = many $ void space <|> comm
-  comm = void $ char ';' >> manyTill anyChar ((void $ char '\n') <|> eof)
-  atom = Atom <$> many1 (alphaNum <|> char '.')
-  list = List <$> between (char '(') (char ')') (many expr)
-  quote = char '\'' >> expr >>= pure . List . (Atom "quote":) . pure
-  qquote = do
-    char '\''
-    x <- expr
-    return $ List [Atom "quote", x]
+expr = between ws ws $ atom <|> list <|> quot where
+  ws   = many $ void space <|> comm
+  comm = void $ char ';' >> manyTill anyChar (void (char '\n') <|> eof)
+  atom = Lf <$> many1 (alphaNum <|> char '.')
+  list = foldr (:^) (Lf "") <$> between (char '(') (char ')') (many expr)
+  quot = char '\'' >> expr >>= pure . (Lf "quote" :^) . (:^ Lf "")
 
 oneExpr = expr >>= (eof >>) . pure
+\end{code}
 
+We use a list to store bindings. We permanently augment the global environment
+when the `eval` function returns a `Label`.
+
+We preload definitions of the
+form `(defun cadr (x) (cdr (car x)))` from `caar` to `cddddr`.
+
+\begin{code}
 addEnv (Label s e) = ((s, e):)
 addEnv _           = id
 
--- Preload definitions such as "(defun cadr (x) (cdr (car x)))".
 preload = foldl' f [] $ concat $ genCadr <$> [2..4] where
   f env s = let Right expr = parse oneExpr "" s in addEnv (eval env expr) env
 
 genCadr n = [concat ["(defun c", s, "r (x) (c", [h], "r (c", t, "r x)))"] |
   s@(h:t) <- replicateM n "ad"]
+\end{code}
 
+For this webpage, we set up one button to run the program supplied in the input
+textarea and place the results in the output textarea. Another button fills
+the input textarea with a predefined program.
+
+\begin{code}
 #ifdef __HASTE__
-main = withElems ["input", "output", "evalB", "surpriseB", "surpriseP"] $ \[iEl, oEl, evalB, surB, surP] -> do
-  surB  `onEvent` Click $ const $
+main = withElems ["input", "output", "evalB", "surpriseB", "surpriseP"] $
+  \[iEl, oEl, evalB, surB, surP] -> do
+  surB  `onEvent` Click $ const $ do
     getProp surP "innerHTML" >>= setProp iEl "value"
+    setProp oEl "value" ""
 
   evalB `onEvent` Click $ const $ do
     let
       run (out, env) expr = case r of
         Label _ _ -> (out, env1)
         r         -> (out ++ show r ++ "\n", env1)
-        where
-          r = eval env expr
-          env1 = addEnv r env
+        where r    = eval env expr
+              env1 = addEnv r env
     s <- getProp iEl "value"
     setProp oEl "value" $ case parse (many expr >>= (eof >>) . pure) "" s of
-      Left e -> "Error: " ++ show e ++ "\n"
+      Left  e  -> "Error: " ++ show e ++ "\n"
       Right es -> fst $ foldl' run ("", preload) es
 #else
+\end{code}
+
+The command-line variant of our program provides more immediate gratification,
+printing results on every newline if it terminates a valid expression.
+
+\begin{code}
 expectParen (Expect "\"(\"") = True
 expectParen (Expect "\")\"") = True
 expectParen _                = False
