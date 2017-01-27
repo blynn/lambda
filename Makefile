@@ -4,7 +4,7 @@ target: site
 HS2JS=-mv Main.jsmod /tmp; hastec --opt-all
 
 %.js: %.lhs ; $(HS2JS) $^
-%.html: %.lhs ; cobble mathbook ../haskell/menu $^
+%.html: %.lhs ../haskell/menu.html ; cobble mathbook ../haskell/menu $<
 
 LHSNAMES=lambda lisp
 LHSFILES=$(addsuffix .lhs, $(LHSNAMES)) $(addsuffix .html, $(LHSNAMES)) $(addsuffix .js, $(LHSNAMES))

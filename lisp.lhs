@@ -21,8 +21,10 @@ We'll build a Lisp interpreter based on Graham's paper:
 <script src="lisp.js"></script>
 <p><button id="evalB">Run</button>
 <button id="surpriseB">Surprise Me!</button>
+<button id="quoteB">Quote Quiz</button>
 </p>
 <p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80">(defun subst (x y z)  ; From "The Roots of Lisp" by Paul Graham.
+
   (cond ((atom z)
          (cond ((eq z y) x)
                ('t z)))
@@ -34,17 +36,11 @@ We'll build a Lisp interpreter based on Graham's paper:
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-A single file will serve as the source for:
-
-  - the text in this webpage
-  - the JavaScript for this webpage
-  - a command-line Lisp interpreter
-
 To build everything yourself, install http://haste-lang.org/[Haste] and
 http://asciidoc.org[AsciiDoc], and then type:
 
 ------------------------------------------------------------------------------
-$ haste-cabal install parsec 
+$ haste-cabal install parsec
 $ wget https://crypto.stanford.edu/~blynn/haskell/lisp.lhs
 $ hastec lisp.lhs
 $ sed 's/^\\.*{code}$/-----/' lisp.lhs | asciidoc -o - - > lisp.html
@@ -118,10 +114,10 @@ instance Show Expr where
   show (Label s _) = s
   show (Lf "")     = "()"
   show (Lf s)      = s
-  show (l :^ r)    = "(" ++ show l ++ " " ++ showR r ++ ")" where
-    showR (l :^ Lf "") = show l
-    showR (l :^ r)     = show l ++ " " ++ showR r
-    showR x            = show x
+  show (l :^ r)    = "(" ++ show l ++ showR r ++ ")" where
+    showR (Lf "")  = ""
+    showR (l :^ r) = " " ++ show l ++ showR r
+    showR x        = " " ++ show x
 \end{code}
 
 Haskell is more deserving of the term "list processor" because its lists
@@ -198,26 +194,24 @@ shorthand:
 == Eval ==
 
 Locally, we give the name `g` to the evaluation function for a given
-environment.
+environment:
 
-For labels, we add a binding to the environment, then evaluate the newly
+ * For labels, we add a binding to the environment, then evaluate the newly
 bound function on the given arguments.
 
-For atoms, we look up its binding in the environment.
+ * For atoms, we look up its binding in the environment.
 
-For `lambda`, we modify the environment accordingly before recursing.
+ * For `lambda`, we modify the environment accordingly before recursing.
 
-Otherwise we expect the left child of the root to be a leaf. If it has a
+ * Otherwise we expect the left child of the root to be a leaf. If it has a
 binding in the environment, we recursively evaluate it on the rest of the tree.
-(This means it's possible to override the builtin functions.)
-
-If it's `cond`, `quote`, `defun`, or `label`, then we call `f` without
-evaluating its arguments first. If not, then we do evaluate the arguments first
-before calling `f`.
+(This means it's possible to override the builtin functions.) If it's `cond`,
+`quote`, `defun`, or `label`, then we call `f` without evaluating its arguments
+first. If not, then we do evaluate the arguments first before calling `f`.
 
 Again we see the overheads incurred by using a non-list data structure in
 Haskell. In my initial list-based code, I could simply use the default `map`
-instead of  `mapL`, and `fromTree` would be superfluous.
+instead of  `mapL`, and `fromTree` would be unneeded.
 
 \begin{code}
   g (Label s e :^ r) = eval ((s, e):env) $ e :^ r
@@ -280,11 +274,14 @@ the input textarea with a predefined program.
 
 \begin{code}
 #ifdef __HASTE__
-main = withElems ["input", "output", "evalB", "surpriseB", "surpriseP"] $
-  \[iEl, oEl, evalB, surB, surP] -> do
+main = withElems ["input", "output", "evalB",
+                  "surpriseB", "surpriseP",
+                  "quoteB", "quoteP"] $
+  \[iEl, oEl, evalB, surB, surP, quoB, quoP] -> do
   surB  `onEvent` Click $ const $ do
-    getProp surP "innerHTML" >>= setProp iEl "value"
-    setProp oEl "value" ""
+    getProp surP "innerHTML" >>= setProp iEl "value" >> setProp oEl "value" ""
+  quoB  `onEvent` Click $ const $ do
+    getProp quoP "innerHTML" >>= setProp iEl "value" >> setProp oEl "value" ""
 
   evalB `onEvent` Click $ const $ do
     let
@@ -304,7 +301,7 @@ main = withElems ["input", "output", "evalB", "surpriseB", "surpriseP"] $
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <textarea id="surpriseP" hidden>; The Surprise from "The Roots of Lisp" by Paul Graham.
 ; The "eval." function evaluates a given Lisp expression.
-; We demonstrate it by running it on the `subst` example in the paper.
+; We demonstrate it on the `subst` example in the paper.
 
 (defun null. (x)
   (eq x '()))
@@ -435,7 +432,7 @@ ourRemoveIf fn lst =
       ((:) (head lst) (ourRemoveIf fn (tail lst)))))
 ------------------------------------------------------------------------------
 
-but adding generous servings of syntax sugar is a boon for comprehension:
+but it's better to add generous servings of Haskell syntax sugar.
 
 ------------------------------------------------------------------------------
 ourRemoveIf _ []                 = []
@@ -443,18 +440,14 @@ ourRemoveIf f (x:xs) | f x       = ourRemoveIf f xs
                      | otherwise = x : ourRemoveIf f xs
 ------------------------------------------------------------------------------
 
-In this small example we can see various sweeteners:
+In this small example we can see various sweeteners: meaningful indentation;
+pattern matching; guards; infix and prefix notation; concise notation for
+lists.
 
-  - indentation detection
-  - pattern matching
-  - guards
-  - infix and prefix notation
-  - concise notation for lists
-
-There is in fact some substance behind the style. Patterns are sophisticated
-enough to be useful, yet simple enough that compilers can detect overlapping
-patterns or incomplete patterns in a function definition. This catches bugs
-that would go unnoticed in a `cond` (or `case` in Haskell).
+There is in fact some substance behind the delicious style. Patterns are
+sophisticated enough to be useful, yet elementary enough so compilers can
+detect overlapping patterns or incomplete patterns in a function definition.
+This catches bugs that would go unnoticed in a `cond` (or `case` in Haskell).
 
 With this in mind, we see the source of our interpreter is almost the same as
 The Surprise, except it's less cluttered and more robust. For example, for
@@ -495,8 +488,7 @@ data Bind b = NonRec b (Expr b)
 Parallels with the Lisp are obvious, for example, `Lam` is `lambda`, `Case` is
 `cond`, and `App` is the first cons cell in a Lisp list, There's bookkeeping
 for types, and source annotation (`Tick`) for profilers and similar tools, but
-otherwise Core and Lisp share the same minmalist
-https://en.wikipedia.org/wiki/Lambda_calculus[lambda-calculus]-based design.
+otherwise Core and Lisp share the same minmalist design.
 
 == Core changes ==
 
@@ -514,8 +506,8 @@ science.
 
  - The discovery that the
    https://en.wikipedia.org/wiki/Monad_(category_theory)[monads of category
-   theory] could be used in programming was vital for practically handling
-   I/O in Haskell.
+   theory] applied to programming meant Haskell could stay pure yet handle I/O
+   beautifully.
 
  - Lazy evaluation largely obviates the need for macros. Good language support
    for pure functions is a prerequisite for effective lazy evaluation.
@@ -549,3 +541,51 @@ science.
    simply a subtree. We have
    https://en.wikipedia.org/wiki/Combinatory_logic[combinatory logic] to thank
    for left-associative function application.
+
+ - Lisp is perhaps the best language for appreciating the equivalence of code
+   and data, since a program is its own representation. However, although
+   artistically and intellectually engaging, this muddying of the use-mention
+   waters trips up everyone from students
+   (https://www.cs.kent.ac.uk/people/staff/dat/miranda/wadler87.pdf[who have
+   trouble with `quote`]) and theorists
+   (http://www.cs.bc.edu/~muller/research/papers.html#toplas[who have trouble
+   formally reasoning about it]). Haskell wisely chose
+   http://research.microsoft.com/en-us/um/people/simonpj/papers/meta-haskell/[a
+   more explicit form of metaprogramming].
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="quoteP" hidden>
+; Students are confused by these exercises by Abelson and Sussman.
+; Philip Wadler, "Why calculating is better than scheming".
+
+; What are the values of the following expressions?
+
+(car ''abracadabra)
+(cdddr '(this list contains '(a quote)))
+(car (quote (a b)))
+</textarea>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ - Lisp was inspired by link:lambda.html['lambda calculus']: we've seen the
+   language is mostly `lambda` plus seven primitives. Scheme inches a little
+   closer. Haskell has the courage of its convictions to go (almost) all the
+   way: Haskell is a typed lambda calculus (plus let statements, allowing
+   unrestricted recursion).
+
+ - McCarthy's `eval` function must have been astonishing for its time.
+   Graham calls it The Surprise. By adding a handful of primitives to lambda
+   calculus, we can write a self-interpreter that fits on a page. Try doing
+   that with Turing machines! But it turns with plain unadulterated lambda
+   calculus, we can write
+   http://repository.readscheme.org/ftp/papers/topps/D-128.pdf[a
+   self-interpreter that fits on one line]: +
+------------------------------------------------------------------------------
+(λf.(λx.f(xx))(λx.f(xx)))(λem.m(λx.x)(λmn.em(en))(λmv.e(mv)))
+------------------------------------------------------------------------------
+
+A casual observer might accuse Lisp of being too expedient. But criticism is
+easy with hindsight. Would Haskell ever been designed without the lessons
+learned from Lisp? Without Lisp, would we still be stuck with Turing machines
+for the theory of computation? Would language researchers have bothered to
+rummage through logic and category theory?
