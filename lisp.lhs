@@ -568,7 +568,7 @@ science.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
  - Lisp was inspired by link:lambda.html['lambda calculus']: we've seen the
-   language is mostly `lambda` plus seven primitives. Scheme inches a little
+   language is mostly `lambda` plus 7 primitives. Scheme inches a little
    closer. Haskell has the courage of its convictions to go (almost) all the
    way: Haskell is a typed lambda calculus (plus let statements, allowing
    unrestricted recursion).

@@ -1,16 +1,15 @@
 = Lambda Calculus =
 
-Back when I took computer science courses, they taught us Turing machines.
+They taught us Turing machines in my computer science classes.
 Despite being purely theoretical, Turing machines are important:
 
  - A state machine reading to and writing from cells on an infinite tape is a
  useful abstraction of a CPU reading from and writing to RAM.
- - Even at higher levels, popular programming languages closely adhere to the
- same model: a program writes data to memory, then later reads it to decide a
- future course of action.
+ - Many high-level programming languages adhere to the same model: code writes
+   data to memory, then later reads it to decide a future course of action.
  - We immediately see how to measure algorithmic complexity.
  - Encoding a Turing machine on a tape is straightforward, and gently guides
- us to see the equivalence of code and data, with all its deep implications.
+ us to the equivalence of code and data, with all its deep implications.
 
 All the same, I wish they had also taught us an alternative model of
 computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calculus']:
@@ -21,21 +20,22 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 <p><button id="evalB">Run</button>
 <button id="factB">Factorial</button>
 <button id="surB">Surprise Me!</button></p>
-<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="16" cols="80">2 = \f x -> f (f x)
+<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80">2 = \f x -> f (f x)
 3 = \f x -> f (f (f x))
 exp = \m n -> n m
-exp 2 3
+exp 2 3  -- Compute 2^3.
 </textarea></p>
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 == Why Lambda Calculus? ==
 
-Lambda calculus is historical significant. Alonzo Church was Alan Turing's
-doctoral advisor, and his lambda calculus predates Turing machines. But more
-importantly, working through the theory from its original viewpoint exposes
-us to different ways of thinking. Aside from a healthy mental workout, we find
-the lambda calculus approach is sometimes superior.
+Lambda calculus is historically significant. Alonzo Church was Alan Turing's
+doctoral advisor, and his lambda calculus predates Turing machines.
+
+But more importantly, working through the theory from its original viewpoint
+exposes us to different ways of thinking. Aside from a healthy mental workout,
+we find the lambda calculus approach is sometimes superior.
 
 For example, soon after teaching Turing machines, educators often show why the
 halting problem is undecidable. But my textbooks seemed to leave the story
@@ -43,12 +43,11 @@ unfinished. Vexing questions spring to mind. Have we just learned we can
 never trust software? How can we rely on a program to control spacecraft or
 medical equipment if it can unpredictably loop forever?
 
-One might claim extensive testing is the answer: we check a bunch of common
-cases and edge cases work as intended, then hope for the best. But though
-helpful, testing alone is rarely satisfactory. An untested case may occur
-naturally and cause our code to behave badly. Worse still, a malicious user
-could scour the untested cases to find ways to deliberately sabotage our
-program.
+One might claim extensive testing is the answer: we check a variety of cases
+work as intended, then hope for the best. But though helpful, testing alone is
+rarely satisfactory. An untested case may occur naturally and cause our code to
+behave badly. Worse still, a malicious user could scour the untested cases to
+find ways to deliberately sabotage our program.
 
 The only real fix is to rein in those unruly Turing machines. By constraining
 what can appear in our code, we can prove it behaves. We could ban GOTO
@@ -66,10 +65,14 @@ In school, we're accustomed to evaluating functions. In fact, one might argue
 they focus too much on making students memorize and apply formulas such as
 $\sqrt{a^2 + b^2}$ for $a = 3$ and $b = 4$.
 
-In lambda calculus, this is called 'beta reduction', though instead of numbers
-like 3 and 4, we plug in other formulas. This is almost all there is to lambda
-calculus! The details will become clear as we build our interpreter.
-Afterwards, we'll see how to compute anything with it.
+In lambda calculus, this is called 'beta reduction', and we'd write this
+example as:
+
+\[ (\lambda a b . \sqrt{a^2 + b^2}) 3 \enspace 4 \]
+
+This is almost all there is to lambda calculus! The details will become clear
+as we build our interpreter. Afterwards, we'll see how to compute anything
+with it.
 
 I was surprised this substitution process learned in childhood is all we need
 for computing anything. A Turing machine has states, a tape of cells, and a
@@ -168,11 +171,15 @@ There is one exception: if the variable `true` is the left child of a lambda
 abstraction, then it remains unexpanded and counts as a variable; ideally we'd
 pick a different name to avoid confusion.
 
+Our parser accepts empty lines, which should be ignored by the interpreter.
+
 \begin{code}
-line :: Parser (Maybe (String, Term))
-line = (((eof >>) . pure) =<<) . (ws >>) $ optionMaybe $ do
+data LambdaLine = Let String Term | Run Term | Empty
+
+line :: Parser LambdaLine
+line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   t <- term
-  option ("", t) $ str "=" >> (,) (getV t) <$> term where
+  option (Run t) $ str "=" >> Let (getV t) <$> term where
   getV (Var s) = s
   term = lam <|> app
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term where
@@ -265,7 +272,8 @@ rename x x1 term = case term of
 Our `eval` function terminates once no more top-level function applications
 (beta reductions) are possible. We recursively call `eval` on child nodes to
 reduce other function applications throughout the tree, resulting in the
-'normal form' of the lambda term. The normal form is unique in some sense.
+'normal form' of the lambda term. The normal form is unique up to variable
+renaming (which is called 'alpha-conversion').
 
 \begin{code}
 norm env term = case eval env term of
@@ -312,9 +320,9 @@ main = withElems ["input", "output", "evalB",
       run (out, env) (Left err) =
         (out ++ "parse error: " ++ show err ++ "\n", env)
       run (out, env) (Right m) = case m of
-        Nothing         -> (out, env)
-        Just ("", term) -> (out ++ show (norm env term) ++ "\n", env)
-        Just (s , term) -> (out, (s, term):env)
+        Empty      -> (out, env)
+        Run term   -> (out ++ show (norm env term) ++ "\n", env)
+        Let s term -> (out, (s, term):env)
     es <- map (parse line "") . lines <$> getProp iEl "value"
     setProp oEl "value" $ fst $ foldl' run ("", []) es
 #else
@@ -328,11 +336,11 @@ repl env = do
         Left err  -> do
           putStrLn $ "parse error: " ++ show err
           repl env
-        Right Nothing -> repl env
-        Right (Just ("", term)) -> do
+        Right Empty -> repl env
+        Right (Run term) -> do
           print $ norm env term
           repl env
-        Right (Just (s,  term)) -> repl ((s, term):env)
+        Right (Let s term) -> repl ((s, term):env)
 
 main = repl []
 #endif
@@ -341,8 +349,8 @@ main = repl []
 == A Lesson Learned ==
 
 Until I wrote an interpreter, my understanding of renaming was flawed. I knew
-that we compute with closed labmda expressions, that is terms with no free
-variables, so I had thought this meant I could skip implementing renaming.  No
+that we compute with closed labmda expressions, that is, terms with no free
+variables, so I had thought this meant I could skip implementing renaming. No
 free variables can become bound because they're all bound to begin with, right?
 
 In an early version of this interpreter, I tried to normalize:
@@ -358,9 +366,9 @@ My old program mistakenly returned:
 ------------------------------------------------------------------------------
 
 It's probably obvious to others, but it was only at this point I realized that
-recursive beta reductions implies that in the right subtree of a lambda
-abstraction, a variable may be free, even though it is bound when the entire
-tree is considered. With renaming, my program gave the correct answer:
+the recursive nature of beta reductions implies that in the right subtree of a
+lambda abstraction, a variable may be free, even though it is bound when the
+entire tree is considered. With renaming, my program gave the correct answer:
 
 ------------------------------------------------------------------------------
 \x x1 -> x x1
@@ -369,8 +377,10 @@ tree is considered. With renaming, my program gave the correct answer:
 == Computing with lambda calculus ==
 
 When starting out with lambda calculus, we soon miss the symbols of Turing
-machines. We seem to endlessly substitute functions in other functions; they
-never seem to ``bottom out''. Even 1 + 1 seems hard to represent!
+machines. We endlessly substitute functions in other functions. They never
+``bottom out''. Apart from punctuation, we only see a soup of variable names
+and lambdas. No numbers nor arithmetic operations. Even computing 1 + 1 seems
+impossible!
 
 The trick is to use functions to represent data. This is less intuitive than
 encoding Turing machines on a tape, but well worth learning. The original and
@@ -393,16 +403,18 @@ not = \p -> p false true
 notAlt = \p x y -> p y x
 ------------------------------------------------------------------------------
 
-Integers can be encoded in a unary manner. The predecessor function is far
-slower than the successor function, as it constructs the answer by starting
-from 0 and epeatedly computing the successor. There is no quick way to ``strip
-off'' one layer of a function application.
+Integers can be encoded in a unary manner:
 
 ------------------------------------------------------------------------------
 0 = \f x -> x
 1 = \f x -> f x
 2 = \f x -> f (f x)
 -- ...and so on.
+------------------------------------------------------------------------------
+
+We can perform arithmetic on them with the following:
+
+------------------------------------------------------------------------------
 succ = \n f x -> f(n f x)
 pred = \n f x -> n(\g h -> h (g f)) (\u -> x) (\u ->u)
 add = \m n f x -> m f(n f x)
@@ -414,7 +426,11 @@ le = \m n -> is0 (sub m n)
 eq = \m n -> and (le m n) (le n m)
 ------------------------------------------------------------------------------
 
-Also, we can pair up any two terms:
+The predecessor function is far slower than the successor function, as it
+constructs the answer by starting from 0 and repeatedly computing the successor.
+There is no quick way to ``strip off'' one layer of a function application.
+
+We can pair up any two terms as follows:
 
 ------------------------------------------------------------------------------
 pair = \x y z -> z x y
@@ -434,9 +450,9 @@ pred = \n -> n (\x -> x) 0
 is0 = \n -> n (\x -> false) true
 ------------------------------------------------------------------------------
 
-We could encode numbers in binary, say, by using lists of booleans. This is
-of course more efficient, but then we lose the elegant spartan equations for
-arithmetic that remind us of the Peano axioms.
+Instead of unary, we could encode numbers in binary by using lists of booleans.
+This is of course more efficient, but then we lose the elegant spartan
+equations for arithmetic that remind us of the Peano axioms.
 
 == Recursion ==
 
@@ -449,7 +465,7 @@ factrec = \n -> if (is0 n) 1 (mul n (factrec (pred n)))
 
 But we stress this is not a lambda calculus term. If we tried to expand the let
 definitions, we'd be forever replacing `factrec` with an expression containing
-a `factrec`. We can never eliminate all the function names and reach a valid
+a `factrec`. We'd never eliminate all the function names and reach a valid
 lambda calculus term.
 
 Instead, we need something like the
@@ -470,7 +486,6 @@ function that carries out the state transitions.
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <textarea id="factP" hidden>
--- We use the Church encoding.
 true = \x y -> x
 false = \x y -> y
 0 = \f x -> x
@@ -481,8 +496,7 @@ mul = \m n f -> m(n f)
 is0 = \n -> n (\x -> false) true
 Y = \f -> (\x -> x x)(\x -> f(x x))
 fact = Y(\f n -> (is0 n) 1 (mul n (f (pred n))))
--- Compute 4!
-fact (succ (succ (succ 1)))
+fact (succ (succ (succ 1)))  -- Compute 4!
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -502,7 +516,7 @@ variables, applications, and lambda abstractions, respectively:
 \end{align}
 \]
 
-where $a, b, c$ are chosen to avoid clashing with any free variables in
+where $a, b, c$ may be renamed to avoid clashing with any free variables in
 the term being encoded. In our code, this translates to:
 
 \begin{code}
@@ -544,17 +558,14 @@ encoding of a closed term. See Mogensen's paper for details.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <textarea id="surP" hidden>-- See Mogensen, "Efficient Self-Interpretation in Lambda Calculus".
 Y = \f -> (\x -> f(x x))(\x -> f(x x))
--- Self-interpreter.
 E = Y(\e m -> m (\x -> x) (\m n -> (e m)(e n)) (\m v -> e (m v)))
--- Self-reducer.
 P = Y(\p m -> (\x -> x(\v -> p(\a b c -> b m(v (\a b -> b))))m))
 RR = Y(\r m -> m (\x -> x) (\m n -> (r m) (\a b -> a) (r n)) (\m -> (\g x -> x g(\a b c -> c(\w -> g(P (\a b c -> a w))(\a b -> b)))) (\v -> r(m v) )))
 R = \m -> RR m (\a b -> b)
--- Demo.
 1 = \f x -> f x
 succ = \n f x -> f(n f x)
-E (encode (succ (succ (succ 1))))
-R (encode (succ (succ (succ 1))))
+E (encode (succ (succ (succ 1))))  -- Self-interpreter demo.
+R (encode (succ (succ (succ 1))))  -- Self-reducer demo.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
