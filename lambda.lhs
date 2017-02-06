@@ -171,10 +171,11 @@ There is one exception: if the variable `true` is the left child of a lambda
 abstraction, then it remains unexpanded and counts as a variable; ideally we'd
 pick a different name to avoid confusion.
 
-Our parser accepts empty lines, which should be ignored by the interpreter.
+Our parser accepts empty lines, let definitions, or terms that should be
+evaluated immediately.
 
 \begin{code}
-data LambdaLine = Let String Term | Run Term | Empty
+data LambdaLine = Empty | Let String Term | Run Term
 
 line :: Parser LambdaLine
 line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do

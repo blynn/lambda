@@ -544,8 +544,9 @@ science.
 
  - Lisp is perhaps the best language for appreciating the equivalence of code
    and data, since a program is its own representation. However, although
-   artistically and intellectually engaging, this muddying of the use-mention
-   waters trips up everyone from students
+   artistically and intellectually engaging, this blurring of the
+   https://en.wikipedia.org/wiki/Use%E2%80%93mention_distinction[use-mention
+   distinction] trips up everyone from students
    (https://www.cs.kent.ac.uk/people/staff/dat/miranda/wadler87.pdf[who have
    trouble with `quote`]) and theorists
    (http://www.cs.bc.edu/~muller/research/papers.html#toplas[who have trouble
