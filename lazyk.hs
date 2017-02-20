@@ -1,8 +1,7 @@
 import Data.Char
 import System.Console.Readline
+import System.IO
 import Text.ParserCombinators.Parsec
-
-import Debug.Trace
 
 infixl 5 :@
 data Term = Leaf String | Term :@ Term
@@ -55,18 +54,14 @@ super = do
   char '='
   Super name args <$> ccexpr
 
-main = repl []
-
 eval env t = f t [] where
   f (m :@ n) stack = f m (n:stack)
   f (Leaf s) stack | Just t <- lookup s env = f t stack
   f (Leaf "I") (n:stack)     = f n stack
-  f (Leaf "K") [x]           = Leaf "K" :@ x
   f (Leaf "K") (x:_:stack)   = f x stack
-  f (Leaf "S") [x]           = Leaf "S" :@ x
-  f (Leaf "S") [x, y]        = Leaf "S" :@ x :@ y
   f (Leaf "S") (x:y:z:stack) = f (x :@ z :@ (y :@ z)) stack
   f (Leaf "i") (x:stack)     = f (x :@ Leaf "S" :@ Leaf "K") stack
+  f (Leaf "*V*") (x:y:z:stack) = f (z :@ x :@ y) stack
   f t@(Leaf _) stack         = foldl (:@) t stack
 
 norm env term = case eval env term of
@@ -118,3 +113,34 @@ repl env = do
         Right (Run term) -> do
           print $ norm env term
           repl env
+
+main = do
+  hSetBuffering stdout NoBuffering
+  repl []
+  --let Right (Run term) = parse top "" rev
+  --putStrLn $ io [] "stressed" term
+
+-- e.g.
+--  Right term = parse top "" rev
+--  putStrLn $ io env "stressed" term
+
+io env inp term = f $ eval env $ term :@ g inp where
+  g []     = Leaf "*V*" :@ church 256     :@ g []
+  g (x:xs) = Leaf "*V*" :@ church (ord x) :@ g xs
+  f c | h == 256  = ""
+      | otherwise = chr h:f t
+    where
+    h = fcount $ norm env $ c :@ Leaf "K" :@ Leaf "*" :@ Leaf "`"
+    t = eval env $ c :@ (Leaf "K" :@ Leaf "I")
+    fcount (Leaf "`") = 0
+    fcount (Leaf "*" :@ t) = 1 + fcount t
+
+church 0 = Leaf "K" :@ Leaf "I"
+church n = Leaf "S" :@ (Leaf "S" :@ (Leaf "K" :@ Leaf "S") :@ Leaf "K")
+  :@ church (n - 1)
+
+
+rev="1111100011111111100000111111111000001111111000111100111111000111111100011110011111000111111100011110011100111111100011110011111111100011111111100000111111111000001111111100011111111100000111111111000001111111000111111100011110011111000111001111111110000011111110001111001111110001111111110000011100111001111111000111100111111000111100111111000111111100011111110001111111110000011110011100111100111111100011110011111100011111111100000111001111111000111100111111000111100111111000111100111001111111000111111100011110011111000111111100011110011111100011110011111000111111100011111110001111001111100011111110001111001110011111110001111001111100011111110001111001110011111110001111111110000011111111100000111100111111100011110011111100011111110001111001111100011111110001111001111110001111111110000011111111000111110001111110001111111110000011110011100111111100011110011100111001111001111001111111000111111111000001111001111001111111110000011110011111111000111111111000001111111110000011111111000111111111000001111111110000011111110001111111000111100111110001110011111111100000"
+
+
+pri="K(SII(S(K(S(S(K(SII(S(S(KS)(S(K(S(KS)))(S(K(S(S(KS)(SS(S(S(KS)K))(KK)))))(S(S(KS)(S(KK)(S(KS)(S(S(KS)(S(KK)(S(KS)(S(S(KS)(S(KK)(SII)))(K(SI(KK)))))))(K(S(K(S(S(KS)(S(K(SI))(S(KK)(S(K(S(S(KS)K)(S(S(KS)K)I)(S(SII)I(S(S(KS)K)I)(S(S(KS)K)))))(SI(K(KI)))))))))(S(KK)K)))))))(K(S(KK)(S(SI(K(S(S(S(S(SSK(SI(K(KI))))(K(S(S(KS)K)I(S(S(KS)K)(S(S(KS)K)I))(S(K(S(SI(K(KI)))))K)(KK))))(KK))(S(S(KS)(S(K(SI))(S(KK)(S(K(S(S(KS)K)))(SI(KK))))))(K(K(KI)))))(S(S(KS)(S(K(SI))(SS(SI)(KK))))(S(KK)(S(K(S(S(KS)K)))(SI(K(KI)))))))))(K(K(KI))))))))))(K(KI)))))(SI(KK)))))(S(K(S(K(S(K(S(SI(K(S(K(S(S(KS)K)I))(S(SII)I(S(S(KS)K)I)))))))K))))(S(S(KS)(S(KK)(SII)))(K(SI(K(KI)))))))(SII(S(K(S(S(KS)(S(K(S(S(SI(KK))(KI))))(SS(S(S(KS)(S(KK)(S(KS)(S(K(SI))K)))))(KK))))))(S(S(KS)(S(K(S(KS)))(S(K(S(KK)))(S(S(KS)(S(KK)(SII)))(K(S(S(KS)K)))))))(K(S(S(KS)(S(K(S(S(SI(KK))(KI))))(S(KK)(S(K(SII(S(K(S(S(KS)(S(K(S(K(S(S(KS)(S(KK)(S(KS)(S(K(SI))K))))(KK)))))(S(S(KS)(S(KK)(S(K(SI(KK)))(SI(KK)))))(K(SI(KK))))))))(S(S(KS)(S(K(S(KS)))(S(K(S(KK)))(S(S(KS)(S(KK)(SII)))(K(SI(K(KI))))))))(K(K(SI(K(KI)))))))))(S(K(SII))(S(K(S(K(SI(K(KI))))))(S(S(KS)(S(KK)(SI(K(S(K(S(SI(K(KI)))))K)))))(K(S(K(S(SI(KK))))(S(KK)(SII)))))))))))(K(SI(K(KI))))))))(S(S(KS)K)I)(SII(S(K(S(K(S(SI(K(KI)))))K))(SII)))))"

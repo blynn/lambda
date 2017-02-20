@@ -3,7 +3,7 @@
 They taught us Turing machines in my computer science classes.
 Despite being purely theoretical, Turing machines are important:
 
- - A state machine reading to and writing from cells on an infinite tape is a
+ - A state machine reading and writing symbols on an infinite tape is a
  useful abstraction of a CPU reading from and writing to RAM.
  - Many high-level programming languages adhere to the same model: code writes
    data to memory, then later reads it to decide a future course of action.
@@ -11,7 +11,7 @@ Despite being purely theoretical, Turing machines are important:
  - Encoding a Turing machine on a tape is straightforward, and gently guides
  us to the equivalence of code and data, with all its deep implications.
 
-All the same, I wish they had also taught us an alternative model of
+All the same, I wish they had given equal weight to an alternative model of
 computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calculus']:
 
 [pass]
@@ -55,8 +55,8 @@ statements, or try something more heavy-handed like a type system.
 
 Unfortunately, programmers appear to have invented some restrictions without
 paying any heed to theory. Could this be caused by education systems
-ignoring lambda calculus? Restricting lambda calculus is easier than
-restricting Turing machines.
+ignoring lambda calculus? Unlike Turing machines, lambda calculus is easily
+tamed.
 
 == Beta reduction ==
 
@@ -219,11 +219,10 @@ We store the let definitions in an associative list named `env`, and perform
 lookups on demand to see if a given string is a variable or shorthand for
 another term.
 
-We're supposed to expand all such definitions before beginning evaluation, so
-that we can be sure the input is a valid term, but this lazy approach enables
-recursive let definitions. Thus our interpreter actually runs more than plain
-lambda calculus, in the same way that Haskell allows unrestricted recursion
-tacked on a typed variant of lambda calculus.
+These on-demand lookups and the way we update `env` means recursive let
+definitions are possible. Thus our interpreter actually runs more than plain
+lambda calculus; a true lambda calculus term is unable to refer to itself.
+Haskell similarly permits unrestricted recursion via let expressions.
 
 The first line is a special feature that will be explained later.
 
@@ -535,7 +534,7 @@ encode env t = case t of
                      | otherwise    = s
 \end{code}
 
-With this encoding the following lambda term `E` is a self-interpreter,
+With this encoding the following lambda term is a self-interpreter,
 that is, $E \lceil M \rceil$ evaluates to the normal form of $M$ if it exists:
 
 ------------------------------------------------------------------------------
@@ -570,13 +569,15 @@ R (encode (succ (succ (succ 1))))  -- Self-reducer demo.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-== Taming Turing Machines ==
+== Solving the halting problem ==
 
-Type systems are where lambda calculus really outshines Turing machines.
-
-In the aptly named
+Unlike Turing machines, we can easily modify lambda calculus so that all
+programs halt while retaining some power. We'll walk through the solution that
+was first discovered, the aptly named
 https://en.wikipedia.org/wiki/Simply_typed_lambda_calculus[simply typed lambda
-calculus], we start with 'base types', say `Int` and `Bool`, from which we
+calculus].
+
+We start with 'base types', say `Int` and `Bool`, from which we
 build other types with the `(->)` 'type constructor', such as:
 
 ------------------------------------------------------------------------------
@@ -651,13 +652,10 @@ features of the theory: notably, some programs that would halt with a
 normal-order evaluation strategy will loop forever.
 
 It turns out there are other solutions that keep functions pure and hence
-stay true to theory. Haskell chose one such solution. As a result, normal-order
-evaluation works in Haskell.
+stay true to theory. Haskell chose one such solution: monads. As a result,
+normal-order evaluation works in Haskell.
 
-Additionally, Haskell is built on an advanced typed lambda calculus that is
-expressive yet strongly normalizing (though unrestricted recursion means
-programs can loop forever).
-
-We've only scratched the surface. Lambda calculus is but one interesting node
-in a giant tree that includes combinatory logic, type inference, richer type
-systems, provably correct programs, and more.
+Haskell is based on System F, a typed lambda calculus that is expressive yet
+strongly normalizing. However, Haskell's let expressions, as well as its
+support for recursive types mean that unrestricted recursion is possible, that
+is, programs might never halt.
