@@ -16,7 +16,7 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<script src="lambda.js"></script>
+<script src="index.js"></script>
 <p><button id="evalB">Run</button>
 <button id="factB">Factorial</button>
 <button id="surB">Surprise Me!</button></p>
@@ -35,28 +35,41 @@ doctoral advisor, and his lambda calculus predates Turing machines.
 
 But more importantly, working through the theory from its original viewpoint
 exposes us to different ways of thinking. Aside from a healthy mental workout,
-we find the lambda calculus approach is sometimes superior.
+we find the lambda calculus approach is sometimes superior:
 
-For example, soon after teaching Turing machines, educators often show why the
-halting problem is undecidable. But my textbooks seemed to leave the story
-unfinished. Vexing questions spring to mind. Have we just learned we can
-never trust software? How can we rely on a program to control spacecraft or
-medical equipment if it can unpredictably loop forever?
+ * *simple*: Here's how to multiply two numbers in lambda calculus:
+ $\lambda m.\lambda n.\lambda f.m(n f)$.
+ With a little syntax sugar, lambda calculus becomes
+ a practical programming language.
+ In contrast, sweetened Turing machines would probably still be unpalatable.
+ Spare a thought for computer science students who are forced to go through the
+ grueling exercise of designing Turing machines to multiply two numbers.
 
-One might claim extensive testing is the answer: we check a variety of cases
-work as intended, then hope for the best. But though helpful, testing alone is
-rarely satisfactory. An untested case may occur naturally and cause our code to
-behave badly. Worse still, a malicious user could scour the untested cases to
-find ways to deliberately sabotage our program.
+ * *one-line universal program*: A poignant example of the above is
+ the self-interpreter due to Mogensen:
+ $(\lambda f.(\lambda x.f(xx))(\lambda x.f(xx)))(\lambda em.m(\lambda x.x)(\lambda mn.em(en))(\lambda mv.e(mv)))$.
+ In contrast, universal Turing machines are so tedious that textbooks often
+ skip the details and just explain why they exist.
 
-The only real fix is to rein in those unruly Turing machines. By constraining
-what can appear in our code, we can prove it behaves. We could ban GOTO
-statements, or try something more heavy-handed like a type system.
+ * *representing data with functions* can lead to rich algebras where we
+ can achieve a lot with very little, as demonstrated by
+ http://projects.haskell.org/diagrams/gallery.html[a functional approach to
+ drawing diagrams].
 
-Unfortunately, programmers appear to have invented some restrictions without
-paying any heed to theory. Could this be caused by education systems
-ignoring lambda calculus? Unlike Turing machines, lambda calculus is easily
-tamed.
+ * link:simply.html[*solves the halting problem*]: By adding types, we can
+ ensure lambda calculus programs always halt. It's unclear how we can
+ similarly tame Turing machines.
+
+ * *provably correct*: More generally, typed lambda calculus turns out to be
+ deeply connected to the foundations of mathematics. Sufficiently advanced
+ types leads to a language where bugs are impossible to express, that is, every
+ valid program is correct. This connection is harder to see from a
+ Turing-machine viewpoint.
+
+As the importance of software grows in our world, so does the importance of
+the advantages of lambda calculus, and in particular, its connections with the
+foundations of mathematics. Computer science without lambda calculus is like
+engineering without physics.
 
 == Beta reduction ==
 
@@ -70,9 +83,9 @@ example as:
 
 \[ (\lambda a b . \sqrt{a^2 + b^2}) 3 \enspace 4 \]
 
-This is almost all there is to lambda calculus! The details will become clear
-as we build our interpreter. Afterwards, we'll see how to compute anything
-with it.
+This is almost all there is to lambda calculus! Only instead of numbers,
+we often plug in other formulas. The details will become clear as we build
+our interpreter. Afterwards, we'll see how to compute anything with it.
 
 I was surprised this substitution process learned in childhood is all we need
 for computing anything. A Turing machine has states, a tape of cells, and a
@@ -87,14 +100,14 @@ http://asciidoc.org[AsciiDoc], and then type:
 
 ------------------------------------------------------------------------------
 $ haste-cabal install parsec
-$ wget https://crypto.stanford.edu/~blynn/haskell/lambda.lhs
-$ hastec lambda.lhs
-$ sed 's/^\\.*{code}$/-----/' lambda.lhs | asciidoc -o - - > lambda.html
+$ wget https://crypto.stanford.edu/~blynn/lambda/index.lhs
+$ hastec index.lhs
+$ sed 's/^\\.*{code}$/-----/' index.lhs | asciidoc -o - - > index.html
 $ cabal install parsec readline
-$ ghc lambda.lhs
+$ ghc index.lhs
 ------------------------------------------------------------------------------
 
-Then run the command-line interpreter `./lambda` or browse to `lambda.html`.
+Then run the command-line interpreter `./index` or browse to `index.html`.
 
 To produce binaries for different systems, we need conditional compilation
 and various imports:
@@ -147,10 +160,10 @@ instance Show Term where
     showB expr      = "." ++ show expr
   show (Var s)    = s
   show (App x y)  = showL x ++ showR y where
-    showL (Lam _ _ ) = "(" ++ show x ++ ")"
-    showL _          = show x
-    showR (Var s)    = ' ':s
-    showR _          = "(" ++ show y ++ ")"
+    showL (Lam _ _) = "(" ++ show x ++ ")"
+    showL _         = show x
+    showR (Var s)   = ' ':s
+    showR _         = "(" ++ show y ++ ")"
 \end{code}
 
 As for input, since typing Greek letters can be nontrivial, we follow Haskell
@@ -349,9 +362,9 @@ main = repl []
 == A Lesson Learned ==
 
 Until I wrote an interpreter, my understanding of renaming was flawed. I knew
-that we compute with closed labmda expressions, that is, terms with no free
-variables, so I had thought this meant I could skip implementing renaming. No
-free variables can become bound because they're all bound to begin with, right?
+that we compute with closed lambda expressions, that is, terms with no free
+variables, so I had thought this meant I could ignore renaming. No free
+variables can become bound because they're all bound to begin with, right?
 
 In an early version of this interpreter, I tried to normalize:
 
@@ -374,7 +387,7 @@ entire tree is considered. With renaming, my program gave the correct answer:
 \x x1 -> x x1
 ------------------------------------------------------------------------------
 
-== Computing with lambda calculus ==
+== Booleans, Numbers, Pairs ==
 
 When starting out with lambda calculus, we soon miss the symbols of Turing
 machines. We endlessly substitute functions in other functions. They never
@@ -385,10 +398,13 @@ impossible!
 The trick is to use functions to represent data. This is less intuitive than
 encoding Turing machines on a tape, but well worth learning. The original and
 most famous scheme is known as 'Church encoding'.
-See http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf['A Brief and
-Informal Introduction to the Lambda Calculus'] by Paul Hudak,
-and https://en.wikipedia.org/wiki/Church_encoding[Wikipedia's entry on Church
-encoding] for details. We'll only summarize briefly
+https://www.reddit.com/r/haskell/comments/5vbvul/keynote_why_functional_programming_matters_john/[``Why
+functional programming matters'', a keynote address by John Hughes and Mary
+Sheeran] is an excellent introduction. See also
+http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf['A Brief and Informal
+Introduction to the Lambda Calculus'] by Paul Hudak, and
+https://en.wikipedia.org/wiki/Church_encoding[Wikipedia's entry on Church
+encoding]. We'll only summarize briefly.
 
 Booleans look cute in the Church encoding:
 
@@ -538,7 +554,7 @@ With this encoding the following lambda term is a self-interpreter,
 that is, $E \lceil M \rceil$ evaluates to the normal form of $M$ if it exists:
 
 ------------------------------------------------------------------------------
-E = Y(\e m -> m (\x -> x) (\m n -> (e m)(e n)) (\m v -> e (m v)))
+E = Y(\e m.m (\x.x) (\m n.(e m)(e n)) (\m v.e (m v)))
 ------------------------------------------------------------------------------
 
 Also, the following lambda term `R` is a self-reducer, which means
@@ -546,9 +562,9 @@ $R \lceil M \rceil$ evaluates to the encoding of the normal form of $M$ if
 it exists:
 
 ------------------------------------------------------------------------------
-P = Y(\p m -> (\x -> x(\v -> p(\a b c -> b m(v (\a b -> b))))m))
-RR = Y(\r m -> m (\x -> x) (\m n -> (r m) (\a b -> a) (r n)) (\m -> (\g x -> x g(\a b c -> c(\w -> g(P (\a b c -> a w))(\a b -> b)))) (\v -> r(m v) )))
-R = \m -> RR m (\a b -> b)
+P = Y(\p m.(\x.x(\v.p(\a b c.b m(v (\a b.b))))m))
+RR = Y(\r m.m (\x.x) (\m n.(r m) (\a b.a) (r n)) (\m.(\g x.x g(\a b c.c(\w.g(P (\a b c.a w))(\a b.b)))) (\v.r(m v))))
+R = \m.RR m (\a b.b)
 ------------------------------------------------------------------------------
 
 Unlike the self-interpreter, the self-reducer requires the input to be the
@@ -557,105 +573,14 @@ encoding of a closed term. See Mogensen's paper for details.
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <textarea id="surP" hidden>-- See Mogensen, "Efficient Self-Interpretation in Lambda Calculus".
-Y = \f -> (\x -> f(x x))(\x -> f(x x))
-E = Y(\e m -> m (\x -> x) (\m n -> (e m)(e n)) (\m v -> e (m v)))
-P = Y(\p m -> (\x -> x(\v -> p(\a b c -> b m(v (\a b -> b))))m))
-RR = Y(\r m -> m (\x -> x) (\m n -> (r m) (\a b -> a) (r n)) (\m -> (\g x -> x g(\a b c -> c(\w -> g(P (\a b c -> a w))(\a b -> b)))) (\v -> r(m v) )))
-R = \m -> RR m (\a b -> b)
-1 = \f x -> f x
-succ = \n f x -> f(n f x)
+Y = \f.(\x.f(x x))(\x.f(x x))
+E = Y(\e m.m (\x.x) (\m n.(e m)(e n)) (\m v.e (m v)))
+P = Y(\p m.(\x.x(\v.p(\a b c.b m(v (\a b.b))))m))
+RR = Y(\r m.m (\x.x) (\m n.(r m) (\a b.a) (r n)) (\m.(\g x.x g(\a b c.c(\w.g(P (\a b c.a w))(\a b.b)))) (\v.r(m v))))
+R = \m.RR m (\a b.b)
+1 = \f x.f x
+succ = \n f x.f(n f x)
 E (encode (succ (succ (succ 1))))  -- Self-interpreter demo.
 R (encode (succ (succ (succ 1))))  -- Self-reducer demo.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-== Solving the halting problem ==
-
-Unlike Turing machines, we can easily modify lambda calculus so that all
-programs halt while retaining some power. We'll walk through the solution that
-was first discovered, the aptly named
-https://en.wikipedia.org/wiki/Simply_typed_lambda_calculus[simply typed lambda
-calculus].
-
-We start with 'base types', say `Int` and `Bool`, from which we
-build other types with the `(->)` 'type constructor', such as:
-
-------------------------------------------------------------------------------
-Int -> Int -> Bool
-------------------------------------------------------------------------------
-
-Conventionally, `(->)` is right associative, so this means `Int -> (Int ->
-Bool)`, which we interpret as a function that takes an integer, and returns
-a function mapping an integer to a boolean. The less-than function would have
-this type.
-
-We populate the base types with 'constants', such as `0`, `1`, ... for `Int`,
-and `True` and `False` for `Bool`.
-
-This seems quotidian so far. Typical high-level languages do this sort
-of thing. The fun part is seeing how easily it can be tacked on to lambda
-calculus. There are only two changes:
-
-  1. We add a new kind of leaf node, which holds a constant.
-  2. The left child of a lambda abstraction (a variable) must be accompanied by
-  a type.
-
-We might modify our data types as follows:
-
-------------------------------------------------------------------------------
-data Type = Int | Bool | Fun Type Type
-data Term = Con String | Var String | App Term Term | Lam String Type Term
-------------------------------------------------------------------------------
-
-though in reality we'd rename to avoid clashing with predefined types.
-
-Then in a closed lambda term, every leaf node is typed because it's either a
-constant, or its type is given at its binding. Type checking works in
-the obvious manner: for example, we can only apply a function of type
-`Int -> Int -> Bool` to an `Int`, and we can only apply the resulting function
-to an `Int`, and the result will be a `Bool`.
-
-It can be shown that type checking is efficient, and if a closed lambda term
-is correctly typed, then it's guaranteed to have a normal form. (In particular,
-the Y combinator and omega combinator cannot be expressed in this system.)
-Moreover, any evaluation strategy will lead to the normal form, that is, simply
-typed lambda calculus is 'strongly normalizing'.
-
-In other words, programs always halt. If our interpreter cheats to allow
-recursion, then this is no longer true, but at least it narrows down the
-suspect parts of our program; furthermore, by restricting recursion in certain
-ways, we can regain the assurance that our programs will halt.
-
-Try doing this with Turing machines!
-
-== Practical lambda calculus ==
-
-The above factorial functions are shorter than equivalent code in many
-high-level languages. Indeed, unlike Turing machines, we can turn lambda
-calculus into a practical programming langauge with just a few tweaks.
-
-We've already seen one such tweak: we can allow recursion by expanding a
-let definition on demand.
-
-But we must overcome a giant obstacle if we wish to program with lambda
-calculus: real programs have side effects. After all, why bother computing a
-number if there's no way to print it?
-
-The most tempting solution is to allow functions to have side effects, for
-example, functions may print to the screen when evaluated. This requires us to
-carefully specify exactly when a function is evaluated.
-
-link:lisp.html[Lisp does this by stipulating applicative order], so we can
-reason about the ordering of side effects, and provides a macro feature to
-override applicative order for special cases. Unfortunately, we lose nice
-features of the theory: notably, some programs that would halt with a
-normal-order evaluation strategy will loop forever.
-
-It turns out there are other solutions that keep functions pure and hence
-stay true to theory. Haskell chose one such solution: monads. As a result,
-normal-order evaluation works in Haskell.
-
-Haskell is based on System F, a typed lambda calculus that is expressive yet
-strongly normalizing. However, Haskell's let expressions, as well as its
-support for recursive types mean that unrestricted recursion is possible, that
-is, programs might never halt.

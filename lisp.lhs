@@ -1,18 +1,18 @@
-= Lisp in Haskell =
+= Lisp =
 
-Haskell is Lisp with modern conveniences. Haskell is a fashionable five-star
-high-tech luxurious language, but
-http://newartisans.com/2009/03/hello-haskell-goodbye-lisp/[stripping away its
-contemporary furnishings reveals a humble core surprisingly similar to Lisp].
-
-This is because
-http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[functional programming languages began with John McCarthy's invention of Lisp].
-Thus to study the roots of Haskell, we should study the roots of Lisp.
-http://www-formal.stanford.edu/jmc/recursive.html[McCarthy's classic 1960 paper]
-remains an excellent source, but Paul Graham's homage
+http://www-formal.stanford.edu/jmc/recursive.html[McCarthy's classic 1960
+paper] introducing Lisp
+http://homepages.inf.ed.ac.uk/wadler/topics/history.html[is life-changing].
+Paul Graham's homage
 http://www.paulgraham.com/rootsoflisp.html['The Roots of Lisp']
-[http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf[PDF]] is far more
-accessible, and corrects bugs in the original paper.
+[http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf[PDF]] to
+the original paper is more accessible, and corrects bugs.
+
+http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[Functional programming languages began with John McCarthy's invention of Lisp],
+which showed computer scientists the importance of lambda calculus. Without
+Lisp, would we still be stuck with Turing machines for the theory of
+computation?  Would we still be ignorant of the connections between programming
+and logic and category theory?
 
 We'll build a Lisp interpreter based on Graham's paper:
 
@@ -41,7 +41,7 @@ http://asciidoc.org[AsciiDoc], and then type:
 
 ------------------------------------------------------------------------------
 $ haste-cabal install parsec
-$ wget https://crypto.stanford.edu/~blynn/haskell/lisp.lhs
+$ wget https://crypto.stanford.edu/~blynn/lambda/lisp.lhs
 $ hastec lisp.lhs
 $ sed 's/^\\.*{code}$/-----/' lisp.lhs | asciidoc -o - - > lisp.html
 $ cabal install parsec readline
@@ -297,84 +297,6 @@ main = withElems ["input", "output", "evalB",
 #else
 \end{code}
 
-[pass]
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<textarea id="surpriseP" hidden>; The Surprise from "The Roots of Lisp" by Paul Graham.
-; The "eval." function evaluates a given Lisp expression.
-; We demonstrate it on the `subst` example in the paper.
-
-(defun null. (x)
-  (eq x '()))
-
-(defun and. (x y)
-  (cond (x (cond (y 't) ('t '())))
-        ('t '())))
-
-(defun not. (x)
-  (cond (x '())
-        ('t 't)))
-
-(defun append. (x y)
-  (cond ((null. x) y)
-        ('t (cons (car x) (append. (cdr x) y)))))
-
-(defun pair. (x y)
-  (cond ((and. (null. x) (null. y)) '())
-        ((and. (not. (atom x)) (not. (atom y)))
-         (cons (list (car x) (car y))
-               (pair. (cdr x) (cdr y))))))
-
-(defun assoc. (x y)
-  (cond ((eq (caar y) x) (cadar y))
-        ('t (assoc. x (cdr y)))))
-
-(defun eval. (e a)
-  (cond
-    ((atom e) (assoc. e a))
-    ((atom (car e))
-     (cond
-       ((eq (car e) 'quote) (cadr e))
-       ((eq (car e) 'atom)  (atom   (eval. (cadr e) a)))
-       ((eq (car e) 'eq)    (eq     (eval. (cadr e) a)
-                                    (eval. (caddr e) a)))
-       ((eq (car e) 'car)   (car    (eval. (cadr e) a)))
-       ((eq (car e) 'cdr)   (cdr    (eval. (cadr e) a)))
-       ((eq (car e) 'cons)  (cons   (eval. (cadr e) a)
-                                    (eval. (caddr e) a)))
-       ((eq (car e) 'cond)  (evcon. (cdr e) a))
-       ('t (eval. (cons (assoc. (car e) a)
-                        (cdr e))
-                  a))))
-    ((eq (caar e) 'label)
-     (eval. (cons (caddar e) (cdr e))
-            (cons (list (cadar e) (car e)) a)))
-    ((eq (caar e) 'lambda)
-     (eval. (caddar e)
-            (append. (pair. (cadar e) (evlis. (cdr e) a))
-                     a)))))
-
-(defun evcon. (c a)
-  (cond ((eval. (caar c) a)
-         (eval. (cadar c) a))
-        ('t (evcon. (cdr c) a))))
-
-(defun evlis. (m a)
-  (cond ((null. m) '())
-        ('t (cons (eval. (car m) a)
-                  (evlis. (cdr m) a)))))
-
-; We expect (a m (a m c) d).
-(eval. '(
-  (label subst (lambda (x y z)
-    (cond ((atom z)
-           (cond ((eq z y) x)
-                 ('t z)))
-          ('t (cons (subst x y (car z))
-                    (subst x y (cdr z )))))))
-  'm 'b '(a b (a b c) d)) '())
-</textarea>
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
 The command-line variant of our program provides more immediate gratification,
 printing results on every newline if it terminates a valid expression.
 
@@ -404,11 +326,12 @@ main = repl "" preload
 
 And with that, our interpreter is done!
 
-== Family Resemblance ==
+== Haskell: Lisp with modern conveniences ==
 
-The most obvious difference between Haskell and Lisp is the syntax, but
-this is primarily syntax sugar. For example, take a typical
-function from Paul Graham's 'On Lisp':
+Haskell is a fashionable five-star high-tech luxurious language, but
+http://newartisans.com/2009/03/hello-haskell-goodbye-lisp/[stripping away its
+contemporary furnishings reveals a humble core surprisingly similar to Lisp].
+For example, take a typical function from Paul Graham's 'On Lisp':
 
 ------------------------------------------------------------------------------
 (defun our-remove-if (fn lst)
@@ -432,7 +355,8 @@ ourRemoveIf fn lst =
       ((:) (head lst) (ourRemoveIf fn (tail lst)))))
 ------------------------------------------------------------------------------
 
-but it's better to add generous servings of Haskell syntax sugar.
+The family resemblance is clear. Still, it's better to add generous servings of
+Haskell syntax sugar:
 
 ------------------------------------------------------------------------------
 ourRemoveIf _ []                 = []
@@ -447,10 +371,10 @@ lists.
 There is in fact some substance behind the delicious style. Patterns are
 sophisticated enough to be useful, yet elementary enough so compilers can
 detect overlapping patterns or incomplete patterns in a function definition.
-This catches bugs that would go unnoticed in a `cond` (or `case` in Haskell).
+This catches bugs that would go unnoticed in a Lisp `cond`.
 
 With this in mind, we see the source of our interpreter is almost the same as
-The Surprise, except it's less cluttered and more robust. For example, for
+Graham's, except it's less cluttered and more robust. For example, for
 the 7 primitives, thanks to pattern matching, the function `f` reduces
 duplicated code such as `eq (car e)` gives the compiler more power, and detects
 errors when the wrong number of arguments are supplied.
@@ -568,25 +492,101 @@ science.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
- - Lisp was inspired by link:lambda.html['lambda calculus']: we've seen the
-   language is mostly `lambda` plus 7 primitives. Scheme inches a little
-   closer. Haskell has the courage of its convictions to go (almost) all the
-   way: Haskell is a typed lambda calculus (plus features allowing
-   unrestricted recursion).
+== Surprised Again ==
 
- - McCarthy's `eval` function must have been astonishing for its time.
-   Graham calls it The Surprise. By adding a handful of primitives to lambda
-   calculus, we can write a self-interpreter that fits on a page. Try doing
-   that with Turing machines! But it turns with plain unadulterated lambda
-   calculus, we can write
-   http://repository.readscheme.org/ftp/papers/topps/D-128.pdf[a
-   self-interpreter that fits on one line]: +
+McCarthy's `eval` function must have been astonishing for its time. Graham
+calls it The Surprise. By adding a handful of primitives to lambda calculus, we
+can write a self-interpreter that fits on a page. To play with it, click the
+``Surprise Me!'' button at the start of this page.
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="surpriseP" hidden>; The Surprise from "The Roots of Lisp" by Paul Graham.
+; The "eval." function evaluates a given Lisp expression.
+; We demonstrate it on the `subst` example in the paper.
+
+(defun null. (x)
+  (eq x '()))
+
+(defun and. (x y)
+  (cond (x (cond (y 't) ('t '())))
+        ('t '())))
+
+(defun not. (x)
+  (cond (x '())
+        ('t 't)))
+
+(defun append. (x y)
+  (cond ((null. x) y)
+        ('t (cons (car x) (append. (cdr x) y)))))
+
+(defun pair. (x y)
+  (cond ((and. (null. x) (null. y)) '())
+        ((and. (not. (atom x)) (not. (atom y)))
+         (cons (list (car x) (car y))
+               (pair. (cdr x) (cdr y))))))
+
+(defun assoc. (x y)
+  (cond ((eq (caar y) x) (cadar y))
+        ('t (assoc. x (cdr y)))))
+
+(defun eval. (e a)
+  (cond
+    ((atom e) (assoc. e a))
+    ((atom (car e))
+     (cond
+       ((eq (car e) 'quote) (cadr e))
+       ((eq (car e) 'atom)  (atom   (eval. (cadr e) a)))
+       ((eq (car e) 'eq)    (eq     (eval. (cadr e) a)
+                                    (eval. (caddr e) a)))
+       ((eq (car e) 'car)   (car    (eval. (cadr e) a)))
+       ((eq (car e) 'cdr)   (cdr    (eval. (cadr e) a)))
+       ((eq (car e) 'cons)  (cons   (eval. (cadr e) a)
+                                    (eval. (caddr e) a)))
+       ((eq (car e) 'cond)  (evcon. (cdr e) a))
+       ('t (eval. (cons (assoc. (car e) a)
+                        (cdr e))
+                  a))))
+    ((eq (caar e) 'label)
+     (eval. (cons (caddar e) (cdr e))
+            (cons (list (cadar e) (car e)) a)))
+    ((eq (caar e) 'lambda)
+     (eval. (caddar e)
+            (append. (pair. (cadar e) (evlis. (cdr e) a))
+                     a)))))
+
+(defun evcon. (c a)
+  (cond ((eval. (caar c) a)
+         (eval. (cadar c) a))
+        ('t (evcon. (cdr c) a))))
+
+(defun evlis. (m a)
+  (cond ((null. m) '())
+        ('t (cons (eval. (car m) a)
+                  (evlis. (cdr m) a)))))
+
+; We expect (a m (a m c) d).
+(eval. '(
+  (label subst (lambda (x y z)
+    (cond ((atom z)
+           (cond ((eq z y) x)
+                 ('t z)))
+          ('t (cons (subst x y (car z))
+                    (subst x y (cdr z )))))))
+  'm 'b '(a b (a b c) d)) '())
+</textarea>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This is impressive, and more elegant than universal Turing machines. But if
+surprise is inversely proportional to self-interpreter simplicity and size,
+then prepare to be amazed by
+http://repository.readscheme.org/ftp/papers/topps/D-128.pdf[Mogensen's one-line
+self-interpreter in plain unadulterated lambda calculus]:
+
 ------------------------------------------------------------------------------
 (λf.(λx.f(xx))(λx.f(xx)))(λem.m(λx.x)(λmn.em(en))(λmv.e(mv)))
 ------------------------------------------------------------------------------
 
-A casual observer might accuse Lisp of being too expedient. But criticism is
-easy with hindsight. Would Haskell ever been designed without the lessons
-learned from Lisp? Without Lisp, would we still be stuck with Turing machines
-for the theory of computation? Would language researchers have bothered to
-rummage through logic and category theory?
+link:index.html[Our page on lambda calculus demonstrates this function].
+[It may appear we added a primitive called `encode`, but this feature is merely
+a convenience so we can avoid encoding lambda calculus terms by hand.]
