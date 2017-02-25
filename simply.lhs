@@ -157,9 +157,9 @@ The strings ``if'', ``then'', and ``else'' are reserved keywords and hence
 invalid variable names.
 
 \begin{code}
-data LambdaLine = Empty | Let String Term | Run Term
+data SimplyLambda = Empty | Let String Term | Run Term
 
-line :: Parser LambdaLine
+line :: Parser SimplyLambda
 line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   t <- term
   option (Run t) $ str "=" >> Let (getV t) <$> term where
@@ -187,10 +187,10 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   app = foldl1' App <$> many1 ((Var <$> v) <|> between (str "(") (str ")") term)
   v   = try $ do
     s <- many1 alphaNum
-    when (s `elem` ["if", "then", "else"]) $ fail "unexpected keyword"
+    when (s `elem` ["if", "then", "else"]) $ fail $ "unexpected " ++ s
     ws
     pure s
-  str = (>> ws) . string
+  str = try . (>> ws) . string
   ws = spaces >> optional (try $ string "--" >> many anyChar)
 \end{code}
 
@@ -319,21 +319,20 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP"] $
   \[iEl, oEl, evalB, resetB, resetP] -> do
   let
     reset = getProp resetP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+    run (out, env) (Left err) =
+      (out ++ "parse error: " ++ show err ++ "\n", env)
+    run (out, env@(gamma, lets)) (Right m) = case m of
+      Empty      -> (out, env)
+      Run term   -> case typeOf gamma term of
+        Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
+        Just t  -> (out ++ show (eval lets term) ++ "\n", env)
+      Let s term -> case typeOf gamma term of
+        Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
+        Just t  -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
+          ((s, t):gamma, (s, term):lets))
   reset
   resetB `onEvent` Click $ const reset
   evalB `onEvent` Click $ const $ do
-    let
-      run (out, env) (Left err) =
-        (out ++ "parse error: " ++ show err ++ "\n", env)
-      run (out, env@(gamma, lets)) (Right m) = case m of
-        Empty      -> (out, env)
-        Run term   -> case typeOf gamma term of
-          Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
-          Just t  -> (out ++ show (eval lets term) ++ "\n", env)
-        Let s term -> case typeOf gamma term of
-          Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
-          Just t  -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
-            ((s, t):gamma, (s, term):lets))
     es <- map (parse line "") . lines <$> getProp iEl "value"
     setProp oEl "value" $ fst $ foldl' run ("", ([], [])) es
 #else

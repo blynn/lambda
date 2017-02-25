@@ -434,7 +434,10 @@ science.
    beautifully.
 
  - Lazy evaluation largely obviates the need for macros. Good language support
-   for pure functions is a prerequisite for effective lazy evaluation.
+   for pure functions is a prerequisite for effective lazy evaluation. Programs
+   that may never terminate with eager evaluation might terminate with lazy
+   evaluation: in fact, if some evaluation strategy causes a program to
+   terminate, then it will terminate with lazy evaluation.
 
  - The
    https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system[Hindley-Milner

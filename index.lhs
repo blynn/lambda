@@ -40,10 +40,12 @@ we find the lambda calculus approach is sometimes superior:
  * *simple*: Here's how to multiply two numbers in lambda calculus:
  $\lambda m.\lambda n.\lambda f.m(n f)$.
  With a little syntax sugar, lambda calculus becomes
- a practical programming language.
+ a practical programming language. Our factorial example above is shorter
+ than equivalent code in many high-level languages!
  In contrast, sweetened Turing machines would probably still be unpalatable.
- Spare a thought for computer science students who are forced to go through the
- grueling exercise of designing Turing machines to multiply two numbers.
+ (Spare a thought for
+ http://stackoverflow.com/questions/tagged/turing-machines[students struggling
+ to make Turing machines do simple tasks].)
 
  * *one-line universal program*: A poignant example of the above is
  the self-interpreter due to Mogensen:
