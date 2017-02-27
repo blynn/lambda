@@ -35,26 +35,26 @@ doctoral advisor, and his lambda calculus predates Turing machines.
 
 But more importantly, working through the theory from its original viewpoint
 exposes us to different ways of thinking. Aside from a healthy mental workout,
-we find the lambda calculus approach is sometimes superior:
+we find lambda calculus is sometimes superior:
 
  * *simple*: Here's how to multiply two numbers in lambda calculus:
- $\lambda m.\lambda n.\lambda f.m(n f)$.
- With a little syntax sugar, lambda calculus becomes
- a practical programming language. Our factorial example above is shorter
- than equivalent code in many high-level languages!
- In contrast, sweetened Turing machines would probably still be unpalatable.
- (Spare a thought for
+ $\lambda m.\lambda n.\lambda f.m(n f)$. Spare a thought for
  http://stackoverflow.com/questions/tagged/turing-machines[students struggling
- to make Turing machines do simple tasks].)
+ to make Turing machines do simple tasks].
 
- * *one-line universal program*: A poignant example of the above is
- the self-interpreter due to Mogensen:
+ * *practical*: With a little syntax sugar, lambda calculus becomes
+ a practical programming language. Already, our factorial example above is
+ shorter than equivalent code in many high-level languages!
+ In contrast, sweetened Turing machines would probably still be unpalatable.
+
+ * *one-line universal program*: Here's a lambda calculus
+ self-interpreter due to Mogensen:
  $(\lambda f.(\lambda x.f(xx))(\lambda x.f(xx)))(\lambda em.m(\lambda x.x)(\lambda mn.em(en))(\lambda mv.e(mv)))$.
  In contrast, universal Turing machines are so tedious that textbooks often
  skip the details and just explain why they exist.
 
- * *representing data with functions* can lead to rich algebras where we
- can achieve a lot with very little, as demonstrated by
+ * *representing data with functions* can lead to rich algebras where a
+ little goes a long way. For example, see
  http://projects.haskell.org/diagrams/gallery.html[a functional approach to
  drawing diagrams].
 

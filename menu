@@ -1,5 +1,6 @@
 index,Lambda calculus
 simply,Simply typed
+pcf,Type inference
 lisp,Lisp
 \
 \''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''

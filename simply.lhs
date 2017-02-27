@@ -53,9 +53,11 @@ calculus?
 == Simply typed lambda calculus ==
 
 We can easily modify lambda calculus so that all programs halt while retaining
-a little power.  We'll walk through the solution that was first discovered, the
+a little power. We'll walk through the solution that was first discovered, the
 aptly named https://en.wikipedia.org/wiki/Simply_typed_lambda_calculus[simply
 typed lambda calculus].
+
+Simply typed lambda calculus is also known as $\lambda^{\rightarrow}$.
 
 We start with 'base types', say `Int` and `Bool`, from which we
 build other types with the `(->)` 'type constructor', such as:
@@ -373,7 +375,7 @@ typed lambda calculus is 'strongly normalizing'.
 
 In other words, programs always halt. Try doing this with Turing machines!
 
-== Too simple? ==
+== Simply typed, or typically simple? ==
 
 The above language is restrictive. For example, loops are impossible!
 
@@ -389,3 +391,6 @@ There are two ways to fix this:
   2. We cautiously enrich our type system, at each step checking that
   well-typed programs normalize. With a sufficiently advanced type system,
   we gain some forms of recursion.
+
+link:pcf.html[Our next interpreter demonstrates both approaches]: we add `fix`,
+but we also move to Hindley-Milner types.
