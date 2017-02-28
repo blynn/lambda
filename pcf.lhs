@@ -128,6 +128,9 @@ duplicate code to correct the above:
 (\f g.f succ(g 0)) (\x.x) (\x.x)
 ------------------------------------------------------------------------------
 
+(http://homepages.inf.ed.ac.uk/gdp/publications/LCF.pdf[The original PCF]
+lacked type inference and hence let-polymorphism.)
+
 == Efficient type inference ==
 
 Our type inference algorithm could also treat `let` as a macro: we could
@@ -159,8 +162,7 @@ vaguely say `id` is a sort of macro, we say that `id = \x.x` has type `∀X.X ->
 X`.  The symbol `∀` indicates a given type variable is generalized.  Lambda
 calculus with generalized type variables from let-polymorphism is known as the
 'Hindley-Milner type system', or HM for short. Like simply typed lambda
-calculus, HM is strongly normalizing, but our addition of `fix` breaks this
-property.
+calculus, HM is strongly normalizing.
 
 We might then wonder if this `∀` notation is redundant. Since let definition
 are like macros, shouldn't we generalize all type variables returned by the
@@ -321,10 +323,7 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term where
     lam0 = str "\\" <|> str "\0955"
     lam1 = str "."
-    vt   = do
-      s <- v
-      t <- option (TV "_") $ str ":" >> typ
-      pure $ (s, t)
+    vt   = (,) <$> v <*> option (TV "_") (str ":" >> typ)
   typ = ((str "Nat" >> pure Nat) <|> (TV <$> v)
     <|> between (str "(") (str ")") typ)
       `chainr1` (str "->" >> pure (:->))

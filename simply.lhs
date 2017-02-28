@@ -178,11 +178,7 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term where
     lam0 = str "\\" <|> str "\0955"
     lam1 = str "."
-    vt   = do
-      s <- v
-      str ":"
-      t <- typ
-      pure $ (s, t)
+    vt   = (,) <$> v <*> (str ":" >> typ)
   typ = ((str "B" >> pure B) <|> (str "I" >> pure I)
     <|> between (str "(") (str ")") typ)
       `chainr1` (str "->" >> pure Fun)
@@ -273,7 +269,7 @@ eval env (App m a) = let m' = eval env m in case m' of
     Var "True"  -> Var "False"
     Var "False" -> Var "True"
   Var "negate" -> case eval env a of
-    Var x  -> Var (show $ negate $ (read x :: Integer))
+    Var x  -> Var (show $ negate (read x :: Integer))
   App (Var "add") b -> Var $ show (m + n) where
     Var mstr = eval env a
     Var nstr = eval env b
@@ -352,13 +348,13 @@ repl env@(gamma, lets) = do
         Right Empty -> redo
         Right (Run term) -> do
           case typeOf gamma term of
-            Nothing -> putStrLn $ "type error"
+            Nothing -> putStrLn "type error"
             Just t -> do
               putStrLn $ "[type = " ++ show t ++ "]"
               print $ eval lets term
           redo
         Right (Let s term) -> case typeOf gamma term of
-          Nothing -> putStrLn ("type error") >> redo
+          Nothing -> putStrLn "type error" >> redo
           Just t -> do
             putStrLn $ "[type = " ++ show t ++ "]"
             repl ((s, t):gamma, (s, term):lets)
