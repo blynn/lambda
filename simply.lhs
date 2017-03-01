@@ -167,14 +167,8 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   option (Run t) $ str "=" >> Let (getV t) <$> term where
   getV (Var s) = s
   term = ifthenelse <|> lam <|> app
-  ifthenelse = do
-    str "if"
-    cond <- term
-    str "then"
-    bfalse <- term
-    str "else"
-    btrue <- term
-    pure $ If cond bfalse btrue
+  ifthenelse = If <$> (str "if" >> term)
+    <*> (str "then" >> term) <*> (str "else" >> term)
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term where
     lam0 = str "\\" <|> str "\0955"
     lam1 = str "."

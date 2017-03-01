@@ -304,22 +304,10 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
   option (Run t) $ str "=" >> TopLet (getV t) <$> term where
   getV (Var s) = s
   term = ifz <|> letx <|> lam <|> app
-  letx = do
-    str "let"
-    lhs <- v
-    str "="
-    rhs <- term
-    str "in"
-    body <- term
-    pure $ Let lhs rhs body
-  ifz = do
-    str "ifz"
-    cond <- term
-    str "then"
-    bfalse <- term
-    str "else"
-    btrue <- term
-    pure $ Ifz cond bfalse btrue
+  letx = Let <$> (str "let" >> v) <*> (str "=" >> term)
+    <*> (str "in" >> term)
+  ifz = Ifz <$> (str "ifz" >> term) <*> (str "then" >> term)
+    <*> (str "else" >> term)
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term where
     lam0 = str "\\" <|> str "\0955"
     lam1 = str "."
@@ -384,7 +372,7 @@ gather gamma i term = case term of
   Var s
     | Just t <- lookup s gamma ->
       let (t', _, j) = instantiate t i in (t', [], j)
-    | otherwise -> (TV s, [(GV s, GV "?!?")], i)
+    | otherwise -> (TV "_", [(GV $ "undefined: " ++ s, GV "?")], i)
   Lam (s, TV "_") u -> (x :-> tu, cs, j) where
     (tu, cs, j) = gather ((s, x):gamma) (i + 1) u
     x = TV $ '_':show i
@@ -401,7 +389,9 @@ gather gamma i term = case term of
   Let s t u
     | Right tt <- typeOf gamma t ->
       let gen = generalize (concatMap (freeTV . snd) gamma) tt
-      in gather ((s, gen):gamma) i u where
+      in gather ((s, gen):gamma) i u
+    | Left msg <- typeOf gamma t ->
+      (TV "_", [(GV msg, GV "?")], i)
 
 instantiate ty i = f ty [] i where
   f ty m i = case ty of
@@ -448,7 +438,7 @@ and applies type substitutions that all seem obvious:
 \begin{code}
 unify []                   = Right []
 unify ((s, t):cs) | s == t = unify cs
-unify ((GV s, GV "?!?"):_) = Left $ "undefined: " ++ s
+unify ((GV s, GV "?"):_) = Left s
 unify ((TV x, t):cs)
   | x `elem` freeTV t = Left $ "infinite: " ++ x ++ " = " ++ show t
   | otherwise         = ((x, t):) <$> unify (join (***) (subst (x, t)) <$> cs)
@@ -509,14 +499,15 @@ eval env (App m a) = let m' = eval env m in case m' of
   Var "fix" -> eval env (App a (App m a))
   _ -> App m' a 
 
-eval env term@(Var v) | Just x  <- lookup v env = eval env x
-eval _   term                                   = term
+eval env (Var v) | Just x  <- lookup v env = eval env x
+eval _   term                              = term
 
 fv env vs (Var s) | s `elem` vs            = []
                   | Just x <- lookup s env = fv env (s:vs) x
                   | otherwise              = [s]
 fv env vs (Lam (s, _) f) = fv env (s:vs) f
 fv env vs (App x y)      = fv env vs x `union` fv env vs y
+fv env vs (Let _ x y)    = fv env vs x `union` fv env vs y
 fv env vs (Ifz x y z)    = fv env vs x `union` fv env vs y `union` fv env vs z
 
 newName x ys = head $ filter (`notElem` ys) $ (s ++) . show <$> [1..] where
@@ -529,6 +520,8 @@ rename x x1 term = case term of
         | s == x    -> term
         | otherwise -> Lam (s, t) (rec b)
   App a b           -> App (rec a) (rec b)
+  Ifz a b c         -> Ifz (rec a) (rec b) (rec c)
+  Let a b c         -> Let a (rec b) (rec c)
   where rec = rename x x1
 \end{code}
 

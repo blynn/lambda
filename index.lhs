@@ -129,13 +129,14 @@ import Text.ParserCombinators.Parsec
 
 == Terms ==
 
-'Lambda calculus terms' can be viewed as a kind of full binary tree. A lambda
+'Lambda calculus terms' can be viewed as a kind of binary tree. A lambda
 calculus term consists of:
 
   * 'Variables', which we can think of as leaf nodes holding strings.
   * 'Applications', which we can think of as internal nodes.
   * 'Lambda abstractions', which we can think of as a special kind of internal
-  node whose left child must be a variable.
+  node whose left child must be a variable. (Or as a internal node labeled
+  with a variable with exactly one child.)
 
 \begin{code}
 data Term = Var String | App Term Term | Lam String Term
@@ -458,8 +459,11 @@ snd = \p -> p false
 
 From such tuples, we can construct lists, trees, and so on.
 
-Incidentally, we'd have a faster predecessor function if we used
-https://ifl2014.github.io/submissions/ifl2014_submission_13.pdf[the Scott encoding]:
+Admittedly, the predecessor function is complicated, probably more so than the
+a typical Turing machine implementation. However, this is an artifact of the
+Church encoding. With
+https://ifl2014.github.io/submissions/ifl2014_submission_13.pdf[the Scott
+encoding], we have a fast and simple predecesor function:
 
 ------------------------------------------------------------------------------
 0 = \f x -> x
@@ -469,8 +473,8 @@ is0 = \n -> n (\x -> false) true
 ------------------------------------------------------------------------------
 
 Instead of unary, we could encode numbers in binary by using lists of booleans.
-This is of course more efficient, but then we lose the elegant spartan
-equations for arithmetic that remind us of the Peano axioms.
+Though more efficient, we lose the elegant spartan equations for arithmetic
+that remind us of the Peano axioms.
 
 == Recursion ==
 
