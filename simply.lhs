@@ -20,8 +20,8 @@ But how do we know if our restrictions are effective? Also, halting is but one
 concern: even if we're sure our program halts, it should do the right thing.
 Can we modify our languages so that we can prove program correctness?
 
-It turns out we can only progress by replacing Turing machines with an
-equally powerful model of computation link:.[lambda calculus].
+It turns out reasoning about our programs is easiest if we replace Turing
+machines with an equally powerful model of computation: link:.[lambda calculus].
 Only then can we introduce types, and draw on logic and category theory to
 prove results.
 
@@ -30,6 +30,7 @@ prove results.
 <script src="simply.js"></script>
 <p><button id="evalB">Run</button>
 <button id="resetB">Reset</button>
+<button id="churchB">Church</button>
 </p>
 <p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80">
 </textarea></p>
@@ -43,6 +44,13 @@ badFun = add (negate 3)
 score = f goodPoints badFun
 -- Compute the score after 2 right answers, a wrong answer, and a right answer.
 score True (score False (score True (score True 0)))
+</textarea>
+<textarea id="churchP" hidden>
+-- Church encoding sanity check.
+cz = \s:I->I z:I.z
+cs = \n:(I->I)->I->I s:I->I z:I.s(n s z)
+cs (cs (cs cz))
+(cs (cs (cs cz))) (add 1) 0
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -237,9 +245,9 @@ a typed intermediate language for this reason.)
 Otherwise, apart from handling predefined functions, our `eval` function
 is the same as our corresponding function of untyped lambda calculus.
 
-We assume the input is well-typed and hence closed. This implies normalization
-is much simpler than with untyped lambda calculus: we have no need for the
-`norm` function.
+We assume the input is well-typed and hence closed. This simplifies the
+function `fv` because let definitions are no longer permitted to contain free
+variables.
 
 \begin{code}
 eval env (If x y z) = eval env $ case eval env x of
@@ -257,7 +265,7 @@ eval env (App m a) = let m' = eval env m in case m' of
                  | otherwise      = Lam (s, t) (beta m)
     beta (App m n)                = App (beta m) (beta n)
     beta (If x y z)               = If (beta x) (beta y) (beta z)
-    fvs = fv env [] a
+    fvs = fv [] a
     in eval env $ beta f
   Var "not" -> case eval env a of
     Var "True"  -> Var "False"
@@ -269,16 +277,16 @@ eval env (App m a) = let m' = eval env m in case m' of
     Var nstr = eval env b
     m = read mstr :: Integer
     n = read nstr :: Integer
-  _ -> App m' a 
+  _ -> App m' a
 
 eval env term@(Var v) | Just x  <- lookup v env = eval env x
 eval _   term                                   = term
 
-fv env vs (Var s) | s `elem` vs            = []
-                  | Just x <- lookup s env = fv env (s:vs) x
-                  | otherwise              = [s]
-fv env vs (App x y)                        = fv env vs x `union` fv env vs y
-fv env vs (Lam (s, _) f)                   = fv env (s:vs) f
+fv vs (Var s) | s `elem` vs = []
+              | otherwise   = [s]
+fv vs (Lam (s, _) f)        = fv (s:vs) f
+fv vs (App x y)             = fv vs x `union` fv vs y
+fv vs (If x y z)            = fv vs x `union` fv vs y `union` fv vs z
 
 newName x ys = head $ filter (`notElem` ys) $ (s ++) . show <$> [1..] where
   s = dropWhileEnd isDigit x
@@ -291,6 +299,19 @@ rename x x1 term = case term of
         | otherwise -> Lam (s, t) (rec b)
   App a b           -> App (rec a) (rec b)
   where rec = rename x x1
+\end{code}
+
+The function `eval` leaves the term in
+https://en.wikipedia.org/wiki/Lambda_calculus_definition#Weak_head_normal_form['weak
+head normal form']. To fully normalize, we recurse:
+
+\begin{code}
+norm env term = case eval env term of
+  Var v    -> Var v
+  Lam v m  -> Lam v (rec m)
+  App m n  -> App (rec m) (rec n)
+  If x y z -> If (rec x) (rec y) (rec z)
+  where rec = norm env
 \end{code}
 
 == User interface ==
@@ -307,23 +328,27 @@ only prepopulate `gamma` with the types of previous let definitions.
 
 \begin{code}
 #ifdef __HASTE__
-main = withElems ["input", "output", "evalB", "resetB", "resetP"] $
-  \[iEl, oEl, evalB, resetB, resetP] -> do
+main = withElems ["input", "output", "evalB", "resetB", "resetP",
+    "churchB", "churchP"] $
+  \[iEl, oEl, evalB, resetB, resetP, churchB, churchP] -> do
   let
-    reset = getProp resetP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+    reset = getProp resetP "value"
+      >>= setProp iEl "value" >> setProp oEl "value" ""
     run (out, env) (Left err) =
       (out ++ "parse error: " ++ show err ++ "\n", env)
     run (out, env@(gamma, lets)) (Right m) = case m of
       Empty      -> (out, env)
       Run term   -> case typeOf gamma term of
         Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
-        Just t  -> (out ++ show (eval lets term) ++ "\n", env)
+        Just t  -> (out ++ show (norm lets term) ++ "\n", env)
       Let s term -> case typeOf gamma term of
         Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
         Just t  -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
           ((s, t):gamma, (s, term):lets))
   reset
   resetB `onEvent` Click $ const reset
+  churchB `onEvent` Click $ const $ getProp churchP "value"
+    >>= setProp iEl "value" >> setProp oEl "value" ""
   evalB `onEvent` Click $ const $ do
     es <- map (parse line "") . lines <$> getProp iEl "value"
     setProp oEl "value" $ fst $ foldl' run ("", ([], [])) es
@@ -345,7 +370,7 @@ repl env@(gamma, lets) = do
             Nothing -> putStrLn "type error"
             Just t -> do
               putStrLn $ "[type = " ++ show t ++ "]"
-              print $ eval lets term
+              print $ norm lets term
           redo
         Right (Let s term) -> case typeOf gamma term of
           Nothing -> putStrLn "type error" >> redo
@@ -382,5 +407,5 @@ There are two ways to fix this:
   well-typed programs normalize. With a sufficiently advanced type system,
   we gain some forms of recursion.
 
-link:pcf.html[Our next interpreter demonstrates both approaches]: we add `fix`,
+link:hm.html[Our next interpreter demonstrates both approaches]: we add `fix`,
 but we also move to Hindley-Milner types.

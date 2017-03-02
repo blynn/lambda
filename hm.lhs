@@ -1,7 +1,19 @@
-= Type Inference =
+= Outcoding UNIX geniuses =
 
-https://en.wikipedia.org/wiki/Programming_Computable_Functions[PCF
-(Programming Computable Functions)] is a simply typed lambda calculus with
+Lack of
+https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric polymorphism]
+catches a programmer in
+https://en.wikipedia.org/wiki/Morton's_fork[Morton's fork]: between a rock and
+a hard place. We're forced to duplicate code or cast types.
+
+So why don't all languages support this feature? Because it's tough to do:
+https://golang.org/doc/faq#generics[the designers of the Go language, including
+famed former Bell Labs researchers, have been stumped for years].
+
+Happily, a little theory rescues us. We'll see how 'type inference'
+(or 'type reconstruction') leads to parametric polymorphism, in an interpreter
+for https://en.wikipedia.org/wiki/Programming_Computable_Functions[PCF
+(Programming Computable Functions)], a simply typed lambda calculus with
 the base type `Nat` with the constant `0` and extended with:
 
  - `pred`, `succ`: these functions have type `Nat -> Nat` and return the
@@ -11,12 +23,12 @@ the base type `Nat` with the constant `0` and extended with:
  - `ifz-then-else`: when given 0, an `ifz` expression evaluates to its `then`
    branch, otherwise it evaluates to its `else` branch.
 
- - `fix`: the fixpoint operator. This allows recursion, but breaks
-   normalization.
+ - `fix`: the fixpoint operator, allowing recursion (but breaking
+   normalization).
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<script src="pcf.js"></script>
+<script src="hm.js"></script>
 <p><button id="evalB">Run</button>
 <button id="resetB">Reset</button>
 </p>
@@ -38,13 +50,17 @@ Some presentations of PCF also add the base type `Bool` along with constants
 `True`, `False` and replace `ifz` with `if` and `iszero`, which is similar to
 link:simply.html[our last interpreter].
 
+To be fair to Go: when it comes to generics, parametric polymorphism is only
+half the problem. The other half is ad hoc polymorphism, which Haskell
+researchers only neatly solved in the late 1980s with type classes. Practical
+Haskell compilers also need more trickery for unboxing.
+
 == Look Ma, No Types! ==
 
-To avoid essentially repeating our previous demo, we take this opportunity to
-introduce 'type inference' or 'type reconstruction'. We implement Algorithm W,
-which returns the most general type of a given closed term despite the lack of
-some or even all type information. The algorithm fails if and only if the given
-expression cannot be well-typed.
+We implement Algorithm W, which returns the most general type of a given closed
+term despite the lack of some or even all type information. The algorithm
+succeeds if and only if the given expression is 'typable', that is, when
+certain types are assigned to the bindings, it is well-typed.
 
 For example, Algorithm W infers the following expressions:
 
@@ -54,7 +70,7 @@ pred (succ 0)
 \a b.succ (a 0)
 \f x:X.f(f x)
 ------------------------------------------------------------------------------
-  
+
 have the following types:
 
 ------------------------------------------------------------------------------
@@ -78,8 +94,8 @@ type is most general, or 'principal', in the sense that:
 
 == Let there be let ==
 
-We also generalize let expressions. So far, we have only allowed them at the
-top level. We now allow `let _ = _ in _` anywhere we expect a term. For example:
+We generalize let expressions. So far, we have only allowed them at the top
+level. We now allow `let _ = _ in _` anywhere we expect a term. For example:
 
   \x y.let z = \a b.a in z x y
 
@@ -131,10 +147,10 @@ duplicate code to correct the above:
 (http://homepages.inf.ed.ac.uk/gdp/publications/LCF.pdf[The original PCF]
 lacked type inference and hence let-polymorphism.)
 
-== Efficient type inference ==
+== Memoized type inference ==
 
 Our type inference algorithm could also treat `let` as a macro: we could
-fully expand all let definitions before performing type checking.
+fully expand all let definitions before type checking.
 However, expansion causes work to be repeated.
 
 In the above example, we would first determine `(\x.x)` has type `_0 -> _0`
@@ -151,13 +167,13 @@ variables' for this purpose: a generalized type variable is replaced with a
 fresh type variable on demand.
 
 In our example above, we first use type inference to determine `id` has type `X
--> X` where `X` is a type variable. Next, we change `X` to a generalized type
+-> X` where `X` is a type variable. Next, we mark `X` as a generalized type
 variable. Then each time `id` is used in an expression, we replace `X` with a
 newly generated type variable before proceeding with type inference.
 
 == Formalizing macros ==
 
-This optimization is also useful for understanding the theory. Rather than
+Memoization is also useful for understanding the theory. Rather than
 vaguely say `id` is a sort of macro, we say that `id = \x.x` has type `∀X.X ->
 X`.  The symbol `∀` indicates a given type variable is generalized.  Lambda
 calculus with generalized type variables from let-polymorphism is known as the
@@ -220,10 +236,9 @@ but these have little theoretical significance.
 
 The juicy missing pieces are algebraic data types and type classes.
 
-Later versions of Haskell go beyond Hindley-Milner to a variant of a system
-known as System F. As a result, type inference is no longer guaranteed to
-succeed, and often the programmer must supply annotations to help the type
-checker.
+Later versions of Haskell go beyond Hindley-Milner to a variant of System F.
+As a result, type inference is no longer guaranteed to succeed, and often the
+programmer must supply annotations to help the type checker.
 
 == Definitions ==
 
@@ -231,9 +246,8 @@ Despite the advanced capabilities of HM, we can almost reuse the data
 structures of simply typed lambda calculus.
 
 To our data type representing types, we add type variables and generalized type
-variables: our `TV` and `GV` type constructors. And to our data type
-representing terms, we add a `Let` type constructor to represent let
-expressions.
+variables: our `TV` and `GV` constructors. And to our data type representing
+terms, we add a `Let` constructor to represent let expressions.
 
 To keep the code simple, we show generalized type variables in a nonstandard
 manner: we simply prepend an asterisk to the variable name. It's understood
@@ -293,7 +307,7 @@ generate a unique variable name for it later. Any name but `Nat` is a
 user-supplied type variable name.
 
 We also rename `Let` to `TopLet` (for top-level let expressions) to avoid
-clashing with our above `Let` type constructor.
+clashing with our above `Let` constructor.
 
 \begin{code}
 data PCFLine = Empty | TopLet String Term | Run Term
@@ -358,7 +372,7 @@ association list `gamma`. We call `instantiate` to generate fresh type
 variables for any generalized type variables before returning.
 
 If the variable name is absent from `gamma`, then the term is unclosed, which
-is an error. We abuse the `GV` type constructor to represent this error.
+is an error. We abuse the `GV` constructor to represent this error.
 
 We're careful when handling a let expression: we only generalize those type
 variables that are absent from `gamma` before recursively calling `gather`.
@@ -470,13 +484,19 @@ We almost have the same old evaluation function. Type inference is the tricky
 part; once we're certain a closed term is well-typed, we can ignore the types
 and evaluate as we would in untyped lambda calculus.
 
+However, this time, we only return the weak head normal form, which allows
+some shortcuts: we can assume the first argument to any `ifz`, `pred`, or
+`succ` is a natural number. To compute the normal form, we could write the
+recursive `norm` function as in previous interpreters, but we'd also need to
+detect non-numerical first arguments to `ifz`, `pred`, and `succ` (in which
+case we recursively compute normal forms rather than attempt evaluation).
+
 Thanks to theory, expressions not involving the fixpoint operator are
 guaranteed to terminate.
 
 \begin{code}
-eval env (Ifz x y z) = eval env $ case eval env x of
-  Var "0"  -> y
-  _        -> z
+eval env (Ifz x y z) | Var "0" <- eval env x = eval env y
+                     | otherwise             = eval env z
 eval env (Let x y z) = eval ((x, y):env) z
 eval env (App m a) = let m' = eval env m in case m' of
   Lam (v, _) f -> let
@@ -490,25 +510,23 @@ eval env (App m a) = let m' = eval env m in case m' of
     beta (App m n)                = App (beta m) (beta n)
     beta (Ifz x y z)              = Ifz (beta x) (beta y) (beta z)
     beta (Let x y z)              = Let x (beta y) (beta z)
-    fvs = fv env [] a
+    fvs = fv [] a
     in eval env $ beta f
   Var "pred" -> case eval env a of
     Var "0"  -> Var "0"
     Var s    -> Var (show $ read s - 1)
   Var "succ" | Var s <- eval env a -> Var (show $ read s + 1)
   Var "fix" -> eval env (App a (App m a))
-  _ -> App m' a 
-
+  _ -> App m' a
 eval env (Var v) | Just x  <- lookup v env = eval env x
 eval _   term                              = term
 
-fv env vs (Var s) | s `elem` vs            = []
-                  | Just x <- lookup s env = fv env (s:vs) x
-                  | otherwise              = [s]
-fv env vs (Lam (s, _) f) = fv env (s:vs) f
-fv env vs (App x y)      = fv env vs x `union` fv env vs y
-fv env vs (Let _ x y)    = fv env vs x `union` fv env vs y
-fv env vs (Ifz x y z)    = fv env vs x `union` fv env vs y `union` fv env vs z
+fv vs (Var s) | s `elem` vs = []
+              | otherwise   = [s]
+fv vs (Lam (s, _) f)        = fv (s:vs) f
+fv vs (App x y)             = fv vs x `union` fv vs y
+fv vs (Let _ x y)           = fv vs x `union` fv vs y
+fv vs (Ifz x y z)           = fv vs x `union` fv vs y `union` fv vs z
 
 newName x ys = head $ filter (`notElem` ys) $ (s ++) . show <$> [1..] where
   s = dropWhileEnd isDigit x

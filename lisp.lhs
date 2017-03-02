@@ -439,8 +439,7 @@ science.
    evaluation: in fact, if some evaluation strategy causes a program to
    terminate, then it will terminate with lazy evaluation.
 
- - The
-   https://en.wikipedia.org/wiki/Hindley%E2%80%93Milner_type_system[Hindley-Milner
+ - The link:hm.html[Hindley-Milner
    type system] underpinning Haskell 98 lets us write code without a single
    type annotation, so it still feels like Lisp, yet an efficient type
    inference algorithm means the compiler rejects badly typed programs. Haskell

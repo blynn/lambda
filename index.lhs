@@ -258,6 +258,8 @@ eval env term@(Var v)   | Just x  <- lookup v env = eval env x
 eval _   term                                     = term
 
 fv env vs (Var s) | s `elem` vs            = []
+                  -- Handle free variables in let definitions.
+                  -- Avoid repeatedly following recursive lets.
                   | Just x <- lookup s env = fv env (s:vs) x
                   | otherwise              = [s]
 fv env vs (App x y)                        = fv env vs x `union` fv env vs y
