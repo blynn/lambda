@@ -50,17 +50,20 @@ Some presentations of PCF also add the base type `Bool` along with constants
 `True`, `False` and replace `ifz` with `if` and `iszero`, which is similar to
 link:simply.html[our last interpreter].
 
-To be fair to Go: when it comes to generics, parametric polymorphism is only
-half the problem. The other half is ad hoc polymorphism, which Haskell
-researchers only neatly solved in the late 1980s with type classes. Practical
-Haskell compilers also need more trickery for unboxing.
+To be fair to Go: for full-blown generics, we need recursive types and type
+operators to define, say, a binary tree containing values of any given type.
+Even then parametric polymorphism is only half the problem. The other half is
+ad hoc polymorphism, which Haskell researchers only neatly solved in the late
+1980s with type classes. Practical Haskell compilers also need more trickery
+for unboxing.
 
 == Look Ma, No Types! ==
 
 We implement Algorithm W, which returns the most general type of a given closed
-term despite the lack of some or even all type information. The algorithm
+term despite missing some or even all type information. The algorithm
 succeeds if and only if the given expression is 'typable', that is, when
-certain types are assigned to the bindings, it is well-typed.
+certain types are assigned to the bindings lacking type annotations, it is
+well-typed.
 
 For example, Algorithm W infers the following expressions:
 
@@ -153,7 +156,7 @@ Our type inference algorithm could also treat `let` as a macro: we could
 fully expand all let definitions before type checking.
 However, expansion causes work to be repeated.
 
-In the above example, we would first determine `(\x.x)` has type `_0 -> _0`
+In the above example, we would determine the first `(\x.x)` has type `_0 -> _0`
 where `_0` is a generated type variable, before deducing further that `_0` must
 be `Nat -> Nat`. Afterwards, we would repeat computations to determine that the
 second `(\x.x)` has type `_1 -> _1`, before deducing `_1` must be `Nat`.
@@ -250,8 +253,8 @@ variables: our `TV` and `GV` constructors. And to our data type representing
 terms, we add a `Let` constructor to represent let expressions.
 
 To keep the code simple, we show generalized type variables in a nonstandard
-manner: we simply prepend an asterisk to the variable name. It's understood
-that `(*x -> y) -> *z` really means `∀*x *z.(*x -> y) -> *z`. Since we follow
+manner: we simply prepend an at sign to the variable name. It's understood
+that `(@x -> y) -> @z` really means `∀@x @z.(@x -> y) -> @z`. Since we follow
 Haskell's convention by showing non-generalized type variables for top-level
 let expressions, under normal operation we'll never show a generalized type
 variable. One would only show up if we, say, added a logging statement for
@@ -278,7 +281,7 @@ data Term = Var String | App Term Term | Lam (String, Type) Term
 instance Show Type where
   show Nat = "Nat"
   show (TV s) = s
-  show (GV s) = '*':s
+  show (GV s) = '@':s
   show (t :-> u) = showL t ++ " -> " ++ show u where
     showL (_ :-> _) = "(" ++ show t ++ ")"
     showL _         = show t
@@ -346,7 +349,7 @@ Type inference has two stages:
   1. We walk through the given closed term and record constraints as we go.
   Each constraint equates one type expression with another, for example,
   `X -> Y = Nat -> Nat -> Z`. We may introduce more type variables
-  during this stage. We return a constraint as well as a type expression
+  during this stage. We return a constraint set as well as a type expression
   representing the type of the closed term. At this point, the most general
   form of this type expression is unknown; in fact, it is unknown if the
   type expression even has a valid solution satisfying all the constraints.
@@ -354,9 +357,9 @@ Type inference has two stages:
   2. We walk through the set of constraints to find type substitutions for
   each type variable. We may introduce additional constraints during this
   stage, but in such a way that the process is guaranteed to terminate.
-  By the end we know whether the given closed term can be typed, and in fact,
-  by applying all the type substitutions we found to the type expression of the
-  closed term, we find its principal type.
+  By the end we know whether the given closed term can be typed. By
+  applying all the type substitutions to the type expression of the closed
+  term, we find its principal type.
 
 In the first stage, the `gather` function recursively creates a constraint set
 which we represent with a list of pairs; each pair consists of type expressions
@@ -365,7 +368,7 @@ a new variable name different to all other variables. Our generated variables
 are simply the next free integer prepended by an underscore. Users are
 prohibited by the grammar from using underscores in their type variable names.
 
-A variable whose name is anything but one of ``fix, pred, succ, 0'' must
+A variable whose name is anything but one of `fix pred succ 0` must
 either be the bound variable in a lambda abstraction, or the left-hand side
 of an equation in a let expression. Either way, its type is given in the
 association list `gamma`. We call `instantiate` to generate fresh type
@@ -450,9 +453,9 @@ and applies type substitutions that all seem obvious:
  given term is invalid.
 
 \begin{code}
+unify ((GV s, GV "?"):_)   = Left s
 unify []                   = Right []
 unify ((s, t):cs) | s == t = unify cs
-unify ((GV s, GV "?"):_) = Left s
 unify ((TV x, t):cs)
   | x `elem` freeTV t = Left $ "infinite: " ++ x ++ " = " ++ show t
   | otherwise         = ((x, t):) <$> unify (join (***) (subst (x, t)) <$> cs)
@@ -471,7 +474,7 @@ subst (x, t) ty = case ty of
 The function `typeOf` is little more than a wrapper around `gather` and `unify`.
 It applies all the substitutions found during `unify` to the type expression
 returned by `gather` to compute the principal type of a given closed term
-in a given context `gamma`.
+in a given context.
 
 \begin{code}
 typeOf gamma term = foldl' (flip subst) ty <$> unify cs where
@@ -480,16 +483,16 @@ typeOf gamma term = foldl' (flip subst) ty <$> unify cs where
 
 == Evaluation ==
 
-We almost have the same old evaluation function. Type inference is the tricky
-part; once we're certain a closed term is well-typed, we can ignore the types
-and evaluate as we would in untyped lambda calculus.
+Evaluation is elementary compared to type inference. Once we're certain a
+closed term is well-typed, we can ignore the types and evaluate as we would in
+untyped lambda calculus.
 
-However, this time, we only return the weak head normal form, which allows
-some shortcuts: we can assume the first argument to any `ifz`, `pred`, or
-`succ` is a natural number. To compute the normal form, we could write the
-recursive `norm` function as in previous interpreters, but we'd also need to
-detect non-numerical first arguments to `ifz`, `pred`, and `succ` (in which
-case we recursively compute normal forms rather than attempt evaluation).
+To make things even  easier, this time, we only return the weak head normal
+form. This allows shortcuts: we can assume the first argument to any `ifz`,
+`pred`, or `succ` is a natural number. To compute the normal form, we could
+write the recursive `norm` function as in previous interpreters, but we'd also
+need to detect non-numerical first arguments to `ifz`, `pred`, and `succ` (in
+which case we recursively compute normal forms rather than attempt evaluation).
 
 Thanks to theory, expressions not involving the fixpoint operator are
 guaranteed to terminate.

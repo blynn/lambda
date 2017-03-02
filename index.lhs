@@ -19,6 +19,7 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 <script src="index.js"></script>
 <p><button id="evalB">Run</button>
 <button id="factB">Factorial</button>
+<button id="quoteB">Quote</button>
 <button id="surB">Surprise Me!</button></p>
 <p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80">2 = \f x -> f (f x)
 3 = \f x -> f (f (f x))
@@ -73,6 +74,18 @@ the advantages of lambda calculus, and in particular, its connections with the
 foundations of mathematics. Computer science without lambda calculus is like
 engineering without physics.
 
+== Why Lambda? ==
+
+See https://nsl.cs.usc.edu/~jkna/fpl/church.pdf['The impact of lambda calculus
+in logic and computer science'] by Henk Barendregt, and
+http://www.users.waitrose.com/~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
+J. Roger Hindley. It seems its true name should be ``hat calculus''.
+
+If it were me, I'd be inspired by the first 3 letters of ``function'' and
+call it ``fun calculus''. Instead of lambda, I'd use a fun symbol, so terms
+might look like `const=☺x y.x`. We'll find that lambdas are redundant, but
+I suppose we have to write something to avoid calling it just ``calculus''.
+
 == Beta reduction ==
 
 Unlike Turing machines, everyone already knows the basics of lambda calculus.
@@ -85,9 +98,9 @@ example as:
 
 \[ (\lambda a b . \sqrt{a^2 + b^2}) 3 \enspace 4 \]
 
-This is almost all there is to lambda calculus! Only instead of numbers,
+This is almost all there is to lambda calculus! Only, instead of numbers,
 we often plug in other formulas. The details will become clear as we build
-our interpreter. Afterwards, we'll see how to compute anything with it.
+our interpreter.
 
 I was surprised this substitution process learned in childhood is all we need
 for computing anything. A Turing machine has states, a tape of cells, and a
@@ -150,8 +163,8 @@ Conventionally:
   * Lambda abstractions associate to the right, are prefixed with a lowercase
     lambda, and their child nodes are separated by periods. The lambda prefix
     is superfluous but improves clarity.
-  * With consecutive bindings (e.g. "λx0.λx1...λxn."), we omit all lambdas but
-    the first, and omit all periods but the last (e.g. "λx0 x1 ... xn.").
+  * With consecutive bindings (e.g. "λx.λy.λz."), we omit all lambdas but
+    the first, and omit all periods but the last (e.g. "λx y z.").
 
 For clarity, we enclose lambdas in parentheses if they are right child of an
 application.
@@ -221,7 +234,7 @@ Otherwise, we perform beta reduction as follows. Let the left child be $\lambda
 v . M$. We traverse the right subtree of the root node, and replace every
 occurrence of $v$ with the term $M$.
 
-While doing so, we must handle a  potential complication. A reduction such as
+While doing so, we must handle a potential complication. A reduction such as
 `(\y -> \x -> y)x` to `\x -> x` is incorrect. To prevent this, we rename the
 first occurence of `x` to get `\x1 -> x`.
 
@@ -238,12 +251,12 @@ another term.
 These on-demand lookups and the way we update `env` means recursive let
 definitions are possible. Thus our interpreter actually runs more than plain
 lambda calculus; a true lambda calculus term is unable to refer to itself.
-Haskell similarly permits unrestricted recursion via let expressions.
+(Haskell similarly permits unrestricted recursion via let expressions.)
 
 The first line is a special feature that will be explained later.
 
 \begin{code}
-eval env (App (Var "encode") t) = encode env t
+eval env (App (Var "quote") t) = quote env t
 eval env term@(App m a) | Lam v f <- eval env m   = let
   beta (Var s)   | s == v         = a
                  | otherwise      = Var s
@@ -316,23 +329,43 @@ In such cases, we say the lambda term has no normal form. We could limit the
 number of reductions to prevent our code looping forever; we leave this as an
 exercise for the reader.
 
-Viewing lambda terms as a binary tree again, we see `eval` is an in-order
-tree algorithm. This is called a 'normal-order evaluation strategy'.
-We could have also tried post-order traversal, that is, we evaluate the child
-nodes before the parent. This is called 'applicative order', and unlike normal
-order, it fails to normalize some terms that in fact possess a normal form.
+In an application `App m n`, the function `eval` tries to reduce `m` first.
+This is called a 'normal-order evaluation strategy'.
+What if we reduced `n` first, a strategy known as 'applicative order'?
+More generally, instead of starting at the top
+level, what if we picked some sub-expression to reduce first? Does it matter?
 
-Lastly, the user interface:
+Yes and no. On the one hand, the
+https://en.wikipedia.org/wiki/Church%E2%80%93Rosser_theorem['Church-Rosser
+theorem'] states that the order of evaluation is unimportant in that if terms
+$b$ and $c$ are both derived from term $a$, then there exists a term $d$ to
+which both $b$ and $c$ can be reduced. In particular, if we reach a term where
+no further reductions are possible, then it must be the normal form we defined
+above.
+
+On the one hand, some strategies may loop forever instead of normalizing a
+term that does in fact possess a normal form. It turns out this never happens
+with normal-order evaluation: it always reduces a term to its normal form if it
+exists, hence its name. This is intuitively evident, as at each step we're
+doing the bare minimum. Reducing `m` before `n` means we ignore arguments to a
+function until they are needed, which explains another name for this strategy:
+'lazy evaluation'.
+
+== User interface ==
+
+We've saved the worst for last:
 
 \begin{code}
 #ifdef __HASTE__
 main = withElems ["input", "output", "evalB",
-                  "factB", "factP", "surB", "surP"] $
-  \[iEl, oEl, evalB, factB, factP, surB, surP] -> do
-  factB `onEvent` Click $ const $
-    getProp factP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
-  surB `onEvent` Click $ const $
-    getProp surP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+                  "factB", "factP", "quoteB", "quoteP", "surB", "surP"] $
+  \[iEl, oEl, evalB, factB, factP, quoteB, quoteP, surB, surP] -> do
+  let
+    bp button para = button `onEvent` Click $ const $
+      getProp para "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+  bp factB  factP
+  bp quoteB quoteP
+  bp surB   surP
   evalB `onEvent` Click $ const $ do
     let
       run (out, env) (Left err) =
@@ -544,13 +577,13 @@ where $a, b, c$ may be renamed to avoid clashing with any free variables in
 the term being encoded. In our code, this translates to:
 
 \begin{code}
-encode env t = case t of
+quote env t = case t of
   Var x   | Just t <- lookup x env -> rec t
           | otherwise              -> f 0 (\v -> App v $ Var x)
   App m n                          -> f 1 (\v -> App (App v (rec m)) (rec n))
   Lam x m                          -> f 2 (\v -> App v $ Lam x $ rec m)
   where
-    rec = encode env
+    rec = quote env
     fvs = fv env [] t
     f n g = Lam a (Lam b (Lam c (g $ Var $ abc!!n)))
     abc@[a, b, c] = renameIfNeeded <$> ["a", "b", "c"]
@@ -588,7 +621,68 @@ RR = Y(\r m.m (\x.x) (\m n.(r m) (\a b.a) (r n)) (\m.(\g x.x g(\a b c.c(\w.g(P (
 R = \m.RR m (\a b.b)
 1 = \f x.f x
 succ = \n f x.f(n f x)
-E (encode (succ (succ (succ 1))))  -- Self-interpreter demo.
-R (encode (succ (succ (succ 1))))  -- Self-reducer demo.
+E (quote (succ (succ (succ 1))))  -- Self-interpreter demo.
+R (quote (succ (succ (succ 1))))  -- Self-reducer demo.
+</textarea>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+== Scary quotes ==
+
+Why did we step outside lambda calculus and hard-code the implementation
+of `quote`? Maybe we can define it within lambda calculus.
+Let's suppose so. Then consider the expression:
+
+------------------------------------------------------------------------------
+(\f.f ((\y.y) x)) quote
+------------------------------------------------------------------------------
+
+This reduces to `quote ((\y.y) x)`, which is:
+
+------------------------------------------------------------------------------
+λa b c.b(λa b c.c(λy a b c.a y))(λa b c.a x)
+------------------------------------------------------------------------------
+
+On the other hand, if we first evaluate the sub-expression `((\y.y) x)`, then
+it reduces to `(\f.f x) quote`, which reduces to `quote x`, which is:
+
+------------------------------------------------------------------------------
+λa b c.a x
+------------------------------------------------------------------------------
+
+This violates the Church-Rosser theorem. In short, `id x = x` but `quote(id
+x) /= quote x`. Thus `quote` is not a function, and should be seen as a sort of
+macro; a labour-saving abbreviation lying outside of lambda calculus.
+
+We named `quote` after a similar primitive in link:lisp.html[the Lisp
+language], which suffers from the same afflictions.
+The Right Way to reify is to sacrifice brevity:
+
+------------------------------------------------------------------------------
+Var=\m.\a b c.a m
+App=\m n.\a b c.b m n
+Lam=\f.\a b c.c f
+------------------------------------------------------------------------------
+
+Then `quote ((\y.y) x)` can be expressed in pure lambda calculus as:
+
+------------------------------------------------------------------------------
+App (Lam (\y.Var y)) (Var x)
+------------------------------------------------------------------------------
+
+This is less convenient, but it's more comprehensible than the raw encoding.
+Most importantly, we're back on firm theoretical ground.
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="quoteP" hidden>
+Var=\m.\a b c.a m
+App=\m n.\a b c.b m n
+Lam=\f.\a b c.c f
+
+-- Our `quote` primitive lies outside lambda calculus:
+quote ((\y.y) x)
+
+-- Encoding terms in lambda calculus (without typing the raw encoding):
+App (Lam (\y.Var y)) (Var x)
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

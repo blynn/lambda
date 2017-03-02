@@ -590,5 +590,3 @@ self-interpreter in plain unadulterated lambda calculus]:
 ------------------------------------------------------------------------------
 
 link:index.html[Our page on lambda calculus demonstrates this function].
-[It may appear we added a primitive called `encode`, but this feature is merely
-a convenience so we can avoid encoding lambda calculus terms by hand.]

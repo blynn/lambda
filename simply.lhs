@@ -61,7 +61,7 @@ calculus?
 == Simply typed lambda calculus ==
 
 We can easily modify lambda calculus so that all programs halt while retaining
-a little power. We'll walk through the solution that was first discovered, the
+some power. We'll walk through the solution that was first discovered, the
 aptly named https://en.wikipedia.org/wiki/Simply_typed_lambda_calculus[simply
 typed lambda calculus].
 
@@ -69,13 +69,14 @@ Simply typed lambda calculus is also known as $\lambda^{\rightarrow}$.
 
 We start with 'base types', say `Int` and `Bool`, from which we
 build other types with the `(->)` 'type constructor', such as:
+`Int -> (Int -> Bool)`. Conventionally, `(->)` is right associative, so we
+write this as:
 
 ------------------------------------------------------------------------------
 Int -> Int -> Bool
 ------------------------------------------------------------------------------
 
-Conventionally, `(->)` is right associative, so this means `Int -> (Int ->
-Bool)`, namely, a function that takes an integer, and returns a function
+This type describes a function that takes an integer, and returns a function
 mapping an integer to a boolean.
 
 We can view this as a function that takes two `Int` parameters and returns
@@ -316,10 +317,8 @@ norm env term = case eval env term of
 
 == User interface ==
 
-The outer layer of our program differs from the one we wrote for untyped
-lambda calculus in that we check a term is well-typed before adding it to our
-list of let definitions or evaluating it. We print the type of terms to show
-off our type checking.
+We check a term is well-typed before adding it to our list of let definitions
+or evaluating it. We print the type of terms to show off our new code.
 
 For each let definition, we record the definition as well as its type.
 Unlike our untyped lambda calculus interpreter, recursion is forbidden,
@@ -383,10 +382,10 @@ main = repl ([], [])
 \end{code}
 
 With induction, we can show type checking is efficient, and if a closed lambda
-term is well-typed, then it's guaranteed to have a normal form. (In particular,
-the Y combinator and omega combinator cannot be expressed in this system.)
-Moreover, any evaluation strategy will lead to the normal form, that is, simply
-typed lambda calculus is 'strongly normalizing'.
+term is well-typed, then it normalizes. (This implies the Y combinator and
+omega combinator cannot be expressed in this system.) Moreover, any evaluation
+strategy will lead to the normal form, that is, simply typed lambda calculus is
+'strongly normalizing'.
 
 In other words, programs always halt. Try doing this with Turing machines!
 
