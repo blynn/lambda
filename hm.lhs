@@ -4,21 +4,23 @@ Lack of
 https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric polymorphism]
 catches a programmer in
 https://en.wikipedia.org/wiki/Morton's_fork[Morton's fork]: between a rock and
-a hard place. We're forced to duplicate code or cast types.
+a hard place. We're forced to duplicate code or cast types. (It's worse for
+theoreticians, who have no choice but to duplicate code because type casting
+breaks everything.)
 
 So why don't all languages support this feature? Because it's tough to do:
 https://golang.org/doc/faq#generics[the designers of the Go language, including
 famed former Bell Labs researchers, have been stumped for years].
 
-Happily, a little theory rescues us. We'll see how 'type inference'
-(or 'type reconstruction') leads to parametric polymorphism, in an interpreter
+Happily, a little theory rescues us. We'll see how 'type inference',
+or 'type reconstruction', leads to parametric polymorphism in an interpreter
 for https://en.wikipedia.org/wiki/Programming_Computable_Functions[PCF
 (Programming Computable Functions)], a simply typed lambda calculus with
 the base type `Nat` with the constant `0` and extended with:
 
  - `pred`, `succ`: these functions have type `Nat -> Nat` and return the
-   predecessor and successor of their input; we define `pred 0 = 0` so `pred`
-   is total.
+   predecessor and successor of their input; evaluating `pred 0` anywhere in
+   a term returns the `Err` term which represents this exception.
 
  - `ifz-then-else`: when given 0, an `ifz` expression evaluates to its `then`
    branch, otherwise it evaluates to its `else` branch.
@@ -26,11 +28,19 @@ the base type `Nat` with the constant `0` and extended with:
  - `fix`: the fixpoint operator, allowing recursion (but breaking
    normalization).
 
+For convenience, we parse all natural numbers as constants of type `Nat`.
+We also provide an `undefined` keyword that throws an error.
+
+Terms that avoid the fixpoint operator are normalizing. In spite of guaranteed
+termination, this system is surprisingly expressive even without `fix`. We can
+sort lists! 
+
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="hm.js"></script>
 <p><button id="evalB">Run</button>
 <button id="resetB">Reset</button>
+<button id="sortB">Sort</button>
 </p>
 <p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80">
 </textarea></p>
@@ -104,14 +114,13 @@ level. We now allow `let _ = _ in _` anywhere we expect a term. For example:
 
 Evaluating them is trivial:
 
-  eval env (Let x y z) = eval ((x, y):env) z
+  eval env (Let x y z) = eval env $ beta (x, y) z
 
 That is, we simply add a new binding to the environment before evaluating the
 let body. An easy exercise is to add this to our previous demos: after
 trivially modify parsing and type-checking, it should just work.
 
-But it's less easy in the presence of type inference.
-How should type inference interact with let?
+But how should type inference interact with let?
 
 A profitable strategy is to pay respect to the equals sign: we stipulate the
 left and right sides of `(=)` are interchangeable, so the following program:
@@ -243,6 +252,9 @@ Later versions of Haskell go beyond Hindley-Milner to a variant of System F.
 As a result, type inference is no longer guaranteed to succeed, and often the
 programmer must supply annotations to help the type checker.
 
+We would be close to ML if we had chosen eager evaluation instead of lazy
+evaluation.
+
 == Definitions ==
 
 Despite the advanced capabilities of HM, we can almost reuse the data
@@ -258,7 +270,7 @@ that `(@x -> y) -> @z` really means `∀@x @z.(@x -> y) -> @z`. Since we follow
 Haskell's convention by showing non-generalized type variables for top-level
 let expressions, under normal operation we'll never show a generalized type
 variable. One would only show up if we, say, added a logging statement for
-debugging
+debugging.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
@@ -272,11 +284,12 @@ import Control.Arrow
 import Control.Monad
 import Data.Char
 import Data.List
+import Data.Maybe
 import Text.ParserCombinators.Parsec
 
 data Type = Nat | TV String | GV String | Type :-> Type deriving Eq
 data Term = Var String | App Term Term | Lam (String, Type) Term
-  | Ifz Term Term Term | Let String Term Term
+  | Ifz Term Term Term | Let String Term Term | Err
 
 instance Show Type where
   show Nat = "Nat"
@@ -300,6 +313,7 @@ instance Show Term where
     "ifz " ++ show x ++ " then " ++ show y ++ " else " ++ show z
   show (Let x y z) =
     "let " ++ x ++ " = " ++ show y ++ " in " ++ show z
+  show Err         = "*exception*"
 \end{code}
 
 == Parsing ==
@@ -381,12 +395,15 @@ We're careful when handling a let expression: we only generalize those type
 variables that are absent from `gamma` before recursively calling `gather`.
 
 \begin{code}
+readInteger s = listToMaybe $ fst <$> (reads s :: [(Integer, String)])
+
 gather gamma i term = case term of
+  Var "undefined" -> (TV $ '_':show i, [], i + 1)
   Var "fix" -> ((a :-> a) :-> a, [], i + 1) where a = TV $ '_':show i
   Var "pred" -> (Nat :-> Nat, [], i)
   Var "succ" -> (Nat :-> Nat, [], i)
-  Var "0" -> (Nat, [], i)
   Var s
+    | Just _ <- readInteger s -> (Nat, [], i)
     | Just t <- lookup s gamma ->
       let (t', _, j) = instantiate t i in (t', [], j)
     | otherwise -> (TV "_", [(GV $ "undefined: " ++ s, GV "?")], i)
@@ -403,12 +420,10 @@ gather gamma i term = case term of
     where (ts, cs1, j) = gather gamma i s
           (tt, cs2, k) = gather gamma j t
           (tu, cs3, l) = gather gamma k u
-  Let s t u
-    | Right tt <- typeOf gamma t ->
-      let gen = generalize (concatMap (freeTV . snd) gamma) tt
-      in gather ((s, gen):gamma) i u
-    | Left msg <- typeOf gamma t ->
-      (TV "_", [(GV msg, GV "?")], i)
+  Let s t u -> (tu, cs1 `union` cs2, k) where
+    gen = generalize (concatMap (freeTV . snd) gamma) tt
+    (tt, cs1, j) = gather gamma i t
+    (tu, cs2, k) = gather ((s, gen):gamma) j u
 
 instantiate ty i = f ty [] i where
   f ty m i = case ty of
@@ -487,42 +502,55 @@ Evaluation is elementary compared to type inference. Once we're certain a
 closed term is well-typed, we can ignore the types and evaluate as we would in
 untyped lambda calculus.
 
-To make things even  easier, this time, we only return the weak head normal
-form. This allows shortcuts: we can assume the first argument to any `ifz`,
-`pred`, or `succ` is a natural number. To compute the normal form, we could
-write the recursive `norm` function as in previous interpreters, but we'd also
-need to detect non-numerical first arguments to `ifz`, `pred`, and `succ` (in
-which case we recursively compute normal forms rather than attempt evaluation).
-
-Thanks to theory, expressions not involving the fixpoint operator are
-guaranteed to terminate.
+If we only wanted the weak head normal form, then we could take shortcuts: we
+could assume the first argument to any `ifz`, `pred`, or `succ` is a natural
+number. However, we want the normal form, necessitating extra checks.
 
 \begin{code}
-eval env (Ifz x y z) | Var "0" <- eval env x = eval env y
-                     | otherwise             = eval env z
-eval env (Let x y z) = eval ((x, y):env) z
+eval env (Var "undefined") = Err
+eval env t@(Ifz x y z) = case eval env x of
+  Err -> Err
+  Var s -> case readInteger s of
+    Just 0 -> eval env y
+    Just _ -> eval env z
+    _      -> t
+  _     -> t
+eval env (Let x y z) = eval env $ beta (x, y) z
 eval env (App m a) = let m' = eval env m in case m' of
-  Lam (v, _) f -> let
-    beta (Var s) | s == v         = a
-                 | otherwise      = Var s
-    beta (Lam (s, t) m)
-                 | s == v         = Lam (s, t) m
-                 | s `elem` fvs   = let s1 = newName s fvs in
-                   Lam (s1, t) $ beta $ rename s s1 m
-                 | otherwise      = Lam (s, t) (beta m)
-    beta (App m n)                = App (beta m) (beta n)
-    beta (Ifz x y z)              = Ifz (beta x) (beta y) (beta z)
-    beta (Let x y z)              = Let x (beta y) (beta z)
-    fvs = fv [] a
-    in eval env $ beta f
+  Err -> Err
+  Lam (v, _) f -> eval env $ beta (v, a) f
   Var "pred" -> case eval env a of
-    Var "0"  -> Var "0"
-    Var s    -> Var (show $ read s - 1)
-  Var "succ" | Var s <- eval env a -> Var (show $ read s + 1)
+    Err -> Err
+    Var s -> case readInteger s of
+      Just 0 -> Err
+      Just i -> Var (show $ read s - 1)
+      _      -> App m' (Var s)
+    t -> App m' t
+  Var "succ" -> case eval env a of
+    Err -> Err
+    Var s -> case readInteger s of
+      Just i -> Var (show $ read s + 1)
+      _      -> App m' (Var s)
+    t -> App m' t
   Var "fix" -> eval env (App a (App m a))
   _ -> App m' a
 eval env (Var v) | Just x  <- lookup v env = eval env x
 eval _   term                              = term
+
+beta (v, a) f = case f of
+  Var s | s == v         -> a
+        | otherwise      -> Var s
+  Lam (s, t) m
+        | s == v         -> Lam (s, t) m
+        | s `elem` fvs   -> let s1 = newName s fvs in
+          Lam (s1, t) $ rec $ rename s s1 m
+        | otherwise      -> Lam (s, t) (rec m)
+  App m n                -> App (rec m) (rec n)
+  Ifz x y z              -> Ifz (rec x) (rec y) (rec z)
+  Let x y z              -> Let x (rec y) (rec z)
+  where
+    rec = beta (v, a)
+    fvs = fv [] a
 
 fv vs (Var s) | s `elem` vs = []
               | otherwise   = [s]
@@ -546,6 +574,16 @@ rename x x1 term = case term of
   where rec = rename x x1
 \end{code}
 
+\begin{code}
+norm env term = case eval env term of
+  Err          -> Err
+  Var v        -> Var v
+  Lam (v, t) m -> Lam (v, t) (rec m)
+  App m n      -> App (rec m) (rec n)
+  Ifz x y z    -> Ifz (rec x) (rec y) (rec z)
+  where rec = norm env
+\end{code}
+
 == User Interface ==
 
 This is slightly different from our previous demo because our typing algorithm
@@ -553,8 +591,9 @@ returns a hopefully helpful message instead of `Nothing` on error.
 
 \begin{code}
 #ifdef __HASTE__
-main = withElems ["input", "output", "evalB", "resetB", "resetP"] $
-  \[iEl, oEl, evalB, resetB, resetP] -> do
+main = withElems ["input", "output", "evalB", "resetB", "resetP",
+    "sortB", "sortP"] $
+  \[iEl, oEl, evalB, resetB, resetP, sortB, sortP] -> do
   let
     reset = getProp resetP "value" >>= setProp iEl "value"
       >> setProp oEl "value" ""
@@ -565,7 +604,7 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP"] $
       Run term   -> case typeOf gamma term of
         Left m  -> (concat
            [out, "type error: ", show term, ": ", m, "\n"], env)
-        Right t -> (out ++ show (eval lets term) ++ "\n", env)
+        Right t -> (out ++ show (norm lets term) ++ "\n", env)
       TopLet s term -> case typeOf gamma term of
         Left m  -> (concat
            [out, "type error: ", show term, ": ", m, "\n"], env)
@@ -573,6 +612,8 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP"] $
           ((s, generalize [] t):gamma, (s, term):lets))
   reset
   resetB `onEvent` Click $ const reset
+  sortB `onEvent` Click $ const $
+    getProp sortP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
   evalB `onEvent` Click $ const $ do
     es <- map (parse line "") . lines <$> getProp iEl "value"
     setProp oEl "value" $ fst $ foldl' run ("", ([], [])) es
@@ -594,7 +635,7 @@ repl env@(gamma, lets) = do
             Left msg -> putStrLn $ "bad type: " ++ msg
             Right t  -> do
               putStrLn $ "[" ++ show t ++ "]"
-              print $ eval lets term
+              print $ norm lets term
           redo
         Right (TopLet s term) -> case typeOf gamma term of
           Left msg -> putStrLn ("bad type: " ++ msg) >> redo
@@ -605,3 +646,82 @@ repl env@(gamma, lets) = do
 main = repl ([], [])
 #endif
 \end{code}
+
+== The world's simplest list API ==
+
+What's the desert island function from Haskell's `Data.List` package?
+
+It's `foldr`. We can build everything else from right-folding over a list:
+
+------------------------------------------------------------------------------
+map f = foldr (\x xs -> f x : xs) []
+head = foldr const undefined
+null = foldr (const . const False) True
+foldl = foldr . flip
+------------------------------------------------------------------------------
+
+The `tail` function is less elegant. We apply the same trick used in computing
+the predecessor of a Church numeral:
+
+------------------------------------------------------------------------------
+tail = snd $ foldr (\x (as, _) -> (x:as, as)) ([], undefined)
+------------------------------------------------------------------------------
+
+Similarly, we can write a `foldr`-based function that inserts an element into a
+sorted list so it remains sorted:
+
+------------------------------------------------------------------------------
+ins y xs = case foldr f ([y], []) xs of ([],  t) -> t
+                                        ([h], t) -> h:t
+
+f x ([] , rest)             = ([] , x:rest)
+f x ([y], rest) | x < y     = ([] , x:y:rest)
+                | otherwise = ([y], x:rest)
+------------------------------------------------------------------------------
+
+So insertion sort can be written:
+
+------------------------------------------------------------------------------
+sort :: Ord a => [a] -> [a]
+sort = foldr ins []
+------------------------------------------------------------------------------
+
+Our type system turns out to accommodate
+https://en.wikipedia.org/wiki/Church_encoding#Represent_the_list_using_right_fold[lists
+represented with right fold], which may be easier to understand in Haskell:
+
+------------------------------------------------------------------------------
+nil = \c n->n
+con = \h t c n->c h(t c n)
+example = con 3(con 1(con 4 nil))
+example (:) []  -- [3, 1, 4]
+------------------------------------------------------------------------------
+
+By translating the above to lambda calculus, we obtain a sorting function
+without `fix`. (We do use `fix` in our less-than function, but in a practical
+language this would be a built-in primitive.)
+
+It almost seems we're cheating because we're piggybacking off the representation
+of the list to carry out a form of recursion. More generally, functional
+representations of data sometimes possess this trait: it can seem ridiculously
+simple to express complex tasks.
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="sortP" hidden>
+-- Insertion sort without fix. Slow.
+pair=\x y f.f x y
+fst=\p.p(\x y.x)
+snd=\p.p(\x y.y)
+nil=\c n.n
+cons=\h t c n.c h(t c n)
+null=\l.l(\h t.0)1
+head=\l.l(\h t.h)undefined
+-- This fix doesn't count; less-than is usually a primitive built-in.
+lt=fix(\f x y.ifz y then 0 else ifz x then 1 else f (pred x) (pred y))
+f=\x p.ifz null (fst p) then ifz lt x (head (fst p)) then pair (fst p) (cons x (snd p)) else pair nil (cons x (cons (head (fst p)) (snd p))) else pair nil (cons x (snd p))
+ins=\x l.let q = l f (pair (cons x nil) nil) in (ifz null (fst q) then (cons (head (fst q)) (snd q)) else snd q)
+sort=\l.l ins nil
+sort (cons 3(cons 1(cons 4(cons 1(cons 5 nil)))))
+</textarea>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
