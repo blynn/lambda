@@ -7,7 +7,7 @@ menu.html: menu ; cobble menu menu
 %.js: %.lhs ; $(HS2JS) $^
 %.html: %.lhs menu.html ; cobble mathbook menu $<
 
-LHSNAMES=index simply hm lisp
+LHSNAMES=index simply hm lisp systemf
 LHSFILES=$(addsuffix .lhs, $(LHSNAMES)) $(addsuffix .html, $(LHSNAMES)) $(addsuffix .js, $(LHSNAMES))
 
 site: $(LHSFILES) menu.html

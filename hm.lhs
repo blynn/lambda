@@ -110,11 +110,15 @@ type is most general, or 'principal', in the sense that:
 We generalize let expressions. So far, we have only allowed them at the top
 level. We now allow `let _ = _ in _` anywhere we expect a term. For example:
 
-  \x y.let z = \a b.a in z x y
+------------------------------------------------------------------------------
+\x y.let z = \a b.a in z x y
+------------------------------------------------------------------------------
 
 Evaluating them is trivial:
 
-  eval env (Let x y z) = eval env $ beta (x, y) z
+------------------------------------------------------------------------------
+eval env (Let x y z) = eval env $ beta (x, y) z
+------------------------------------------------------------------------------
 
 That is, we simply add a new binding to the environment before evaluating the
 let body. An easy exercise is to add this to our previous demos: after
@@ -175,8 +179,8 @@ can be deeply nested, leading to prohibitively many repeated computations.
 
 The solution is to https://en.wikipedia.org/wiki/Memoization[memoize: cache the
 results of a computation for later reuse]. We introduce 'generalized type
-variables' for this purpose: a generalized type variable is replaced with a
-fresh type variable on demand.
+variables' for this purpose. A generalized type variable is a placeholder
+that generates a fresh type variable on demand.
 
 In our example above, we first use type inference to determine `id` has type `X
 -> X` where `X` is a type variable. Next, we mark `X` as a generalized type
@@ -394,6 +398,8 @@ is an error. We abuse the `GV` constructor to represent this error.
 We're careful when handling a let expression: we only generalize those type
 variables that are absent from `gamma` before recursively calling `gather`.
 
+We always generate a fresh variable for `undefined` so it can fit anywhere.
+
 \begin{code}
 readInteger s = listToMaybe $ fst <$> (reads s :: [(Integer, String)])
 
@@ -505,6 +511,8 @@ untyped lambda calculus.
 If we only wanted the weak head normal form, then we could take shortcuts: we
 could assume the first argument to any `ifz`, `pred`, or `succ` is a natural
 number. However, we want the normal form, necessitating extra checks.
+
+If we encounter an `Err` term, we propagate it up the tree to halt computation.
 
 \begin{code}
 eval env (Var "undefined") = Err
@@ -655,8 +663,8 @@ It's `foldr`. We can build everything else from right-folding over a list:
 
 ------------------------------------------------------------------------------
 map f = foldr (\x xs -> f x : xs) []
-head = foldr const undefined
-null = foldr (const . const False) True
+head  = foldr const undefined
+null  = foldr (const . const False) True
 foldl = foldr . flip
 ------------------------------------------------------------------------------
 
@@ -679,37 +687,39 @@ f x ([y], rest) | x < y     = ([] , x:y:rest)
                 | otherwise = ([y], x:rest)
 ------------------------------------------------------------------------------
 
-So insertion sort can be written:
+Insertion sort immediately follows:
 
 ------------------------------------------------------------------------------
 sort :: Ord a => [a] -> [a]
 sort = foldr ins []
 ------------------------------------------------------------------------------
 
-Our type system turns out to accommodate
+Hindley-Milner accommodates
 https://en.wikipedia.org/wiki/Church_encoding#Represent_the_list_using_right_fold[lists
-represented with right fold], which may be easier to understand in Haskell:
+represented with right fold]. The list itself is a function, and it acts just
+like `foldr` if we give it a folding function and an initial value:
 
 ------------------------------------------------------------------------------
 nil = \c n->n
 con = \h t c n->c h(t c n)
 example = con 3(con 1(con 4 nil))
-example (:) []  -- [3, 1, 4]
+example (:) []            -- [3, 1, 4]
+foldr   (:) [] [3, 1, 4]  -- [3, 1, 4]
 ------------------------------------------------------------------------------
 
 By translating the above to lambda calculus, we obtain a sorting function
 without `fix`. (We do use `fix` in our less-than function, but in a practical
 language this would be a built-in primitive.)
 
-It almost seems we're cheating because we're piggybacking off the representation
-of the list to carry out a form of recursion. More generally, functional
-representations of data sometimes possess this trait: it can seem ridiculously
-simple to express complex tasks.
+It almost seems we're cheating to avoid looping by piggybacking off the
+representation of the list. This is a trait common in functional
+representations of data. Code to express complex tasks can be miraculously
+simple.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <textarea id="sortP" hidden>
--- Insertion sort without fix. Slow.
+-- Insertion sort sans fixpoint. Slow.
 pair=\x y f.f x y
 fst=\p.p(\x y.x)
 snd=\p.p(\x y.y)
@@ -717,7 +727,6 @@ nil=\c n.n
 cons=\h t c n.c h(t c n)
 null=\l.l(\h t.0)1
 head=\l.l(\h t.h)undefined
--- This fix doesn't count; less-than is usually a primitive built-in.
 lt=fix(\f x y.ifz y then 0 else ifz x then 1 else f (pred x) (pred y))
 f=\x p.ifz null (fst p) then ifz lt x (head (fst p)) then pair (fst p) (cons x (snd p)) else pair nil (cons x (cons (head (fst p)) (snd p))) else pair nil (cons x (snd p))
 ins=\x l.let q = l f (pair (cons x nil) nil) in (ifz null (fst q) then (cons (head (fst q)) (snd q)) else snd q)
@@ -725,3 +734,18 @@ sort=\l.l ins nil
 sort (cons 3(cons 1(cons 4(cons 1(cons 5 nil)))))
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+//////////////////////////////////////////////////////////////////////////////
+I spent hours thinking my code was buggy because the lambda calculus
+translation of the following refused to type-check:
+
+  nil = \c n->n
+  con = \h t c n->c h(t c n)
+  nul = \l->l(\h t->0)1
+  broken = \l->con (nul l) (l (\h t->t) nil)
+  let l = con 42 nil in con (nul l) (l (\h t->t) nil) (:) []  -- Works.
+
+Eventually I plugged the above into Haskell, where type inference failed with
+the same error! I'm still unsure why it fails, but at least I have more
+confidence in my code now.
+//////////////////////////////////////////////////////////////////////////////
