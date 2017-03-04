@@ -187,7 +187,7 @@ In our example above, we first use type inference to determine `id` has type `X
 variable. Then each time `id` is used in an expression, we replace `X` with a
 newly generated type variable before proceeding with type inference.
 
-== Formalizing macros ==
+== Let-polymorphism ==
 
 Memoization is also useful for understanding the theory. Rather than
 vaguely say `id` is a sort of macro, we say that `id = \x.x` has type `∀X.X ->
@@ -264,17 +264,24 @@ evaluation.
 Despite the advanced capabilities of HM, we can almost reuse the data
 structures of simply typed lambda calculus.
 
+In a way, we could do with less. HM is rich enough that we can get by with
+no base types whatsoever. However, we're committed to implementing PCF so
+we provide `Nat`.
+
 To our data type representing types, we add type variables and generalized type
 variables: our `TV` and `GV` constructors. And to our data type representing
 terms, we add a `Let` constructor to represent let expressions.
 
 To keep the code simple, we show generalized type variables in a nonstandard
 manner: we simply prepend an at sign to the variable name. It's understood
-that `(@x -> y) -> @z` really means `∀@x @z.(@x -> y) -> @z`. Since we follow
-Haskell's convention by showing non-generalized type variables for top-level
-let expressions, under normal operation we'll never show a generalized type
-variable. One would only show up if we, say, added a logging statement for
-debugging.
+that `(@x -> y) -> @z` really means `∀@x @z.(@x -> y) -> @z`.
+
+Since we follow Haskell's convention by showing non-generalized type variables
+for top-level let expressions, under normal operation we'll never show a
+generalized type variable. Roughly speaking, we lazily generalize the type
+variables of let statements, that is, we store them as ordinary type variables,
+and generalize them on demand during evaluation. A generalized type variable
+would only be printed if we, say, added a logging statement for debugging.
 
 \begin{code}
 {-# LANGUAGE CPP #-}

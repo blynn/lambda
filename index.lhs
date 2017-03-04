@@ -256,19 +256,22 @@ lambda calculus; a true lambda calculus term is unable to refer to itself.
 The first line is a special feature that will be explained later.
 
 \begin{code}
-eval env (App (Var "quote") t) = quote env t
-eval env term@(App m a) | Lam v f <- eval env m   = let
-  beta (Var s)   | s == v         = a
-                 | otherwise      = Var s
-  beta (Lam s m) | s == v         = Lam s m
-                 | s `elem` fvs   = let s1 = newName s fvs in
-                   Lam s1 $ beta $ rename s s1 m
-                 | otherwise      = Lam s (beta m)
-  beta (App m n)                  = App (beta m) (beta n)
-  fvs = fv env [] a
-  in eval env $ beta f
-eval env term@(Var v)   | Just x  <- lookup v env = eval env x
-eval _   term                                     = term
+eval env (App (Var "quote") t)                   = quote env t
+eval env term@(App m a) | Lam v f <- eval env m  =
+  eval env $ beta (fv env [] a) (v, a) f
+eval env term@(Var v)   | Just x <- lookup v env = eval env x
+eval _   term                                    = term
+
+beta fvs (v, a) t = case t of
+  Var s | s == v         -> a
+        | otherwise      -> Var s
+  Lam s m
+        | s == v         -> Lam s m
+        | s `elem` fvs   -> let s1 = newName s fvs in
+          Lam s1 $ rec $ rename s s1 m
+        | otherwise      -> Lam s (rec m)
+  App m n                -> App (rec m) (rec n)
+  where rec = beta fvs (v, a)
 
 fv env vs (Var s) | s `elem` vs            = []
                   -- Handle free variables in let definitions.

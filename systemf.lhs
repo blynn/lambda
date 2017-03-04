@@ -131,7 +131,7 @@ However, behind the scenes, modern Haskell is an extension of System F.
 Certain language features require type annotation, and they generate unseen
 intermediate code full of type abstractions and type applications.
 
-Type operators can make the types less eye-watering:
+In practice, type operators make types less eye-watering:
 
 ------------------------------------------------------------------------------
 Bool = forall X.X->X->X
@@ -180,9 +180,11 @@ instance Show Type where
     showR _            = show u
 
 instance Show Term where
-  show (Lam (x, t) y)    = "\0955" ++ x ++ ":" ++ show t ++ showB y where
-    showB (Lam (x, t) y) = " " ++ x ++ ":" ++ show t ++ showB y
+  show (Lam (x, t) y)    = "\0955" ++ x ++ showT t ++ showB y where
+    showB (Lam (x, t) y) = " " ++ x ++ showT t ++ showB y
     showB expr           = '.':show expr
+    showT (TV "_")       = ""
+    showT t              = ':':show t
   show (TLam s t)        = "\0955" ++ s ++ showB t where
     showB (TLam s t)     = " " ++ s ++ showB t
     showB expr           = '.':show expr
