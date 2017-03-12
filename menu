@@ -2,6 +2,7 @@ index,Lambda calculus
 simply,Simply typed
 hm,Type inference
 systemf,System F
+typo,Type operators
 lisp,Lisp
 \
 \''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''

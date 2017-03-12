@@ -20,7 +20,8 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 <p><button id="evalB">Run</button>
 <button id="factB">Factorial</button>
 <button id="quoteB">Quote</button>
-<button id="surB">Surprise Me!</button></p>
+<button id="surB">Surprise Me!</button>
+<button id="shaB">Shallow</button></p>
 <p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80">2 = \f x -> f (f x)
 3 = \f x -> f (f (f x))
 exp = \m n -> n m
@@ -48,8 +49,7 @@ we find lambda calculus is sometimes superior:
  shorter than equivalent code in many high-level languages!
  In contrast, sweetened Turing machines would probably still be unpalatable.
 
- * *one-line universal program*: Here's a lambda calculus
- self-interpreter due to Mogensen:
+ * *one-line universal program*: Here's a lambda calculus self-interpreter:
  $(\lambda f.(\lambda x.f(xx))(\lambda x.f(xx)))(\lambda em.m(\lambda x.x)(\lambda mn.em(en))(\lambda mv.e(mv)))$.
  In contrast, universal Turing machines are so tedious that textbooks often
  skip the details and just explain why they exist.
@@ -76,15 +76,12 @@ engineering without physics.
 
 == Why Lambda? ==
 
-See https://nsl.cs.usc.edu/~jkna/fpl/church.pdf['The impact of lambda calculus
+See https://nsl.cs.usc.edu/\~jkna/fpl/church.pdf['The impact of lambda calculus
 in logic and computer science'] by Henk Barendregt, and
-http://www.users.waitrose.com/~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
+http://www.users.waitrose.com/\~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
 J. Roger Hindley. It seems its true name should be ``hat calculus''.
-
-If it were me, I'd be inspired by the first 3 letters of ``function'' and
-call it ``fun calculus''. Instead of lambda, I'd use a fun symbol, so terms
-might look like `const=☺x y.x`. We'll find that lambdas are redundant, but
-I suppose we have to write something to avoid calling it just ``calculus''.
+We'll find that lambdas are redundant, but I suppose we need a symbol of some sort
+to avoid calling it just ``calculus''.
 
 == Beta reduction ==
 
@@ -99,16 +96,13 @@ example as:
 \[ (\lambda a b . \sqrt{a^2 + b^2}) 3 \enspace 4 \]
 
 This is almost all there is to lambda calculus! Only, instead of numbers,
-we often plug in other formulas. The details will become clear as we build
-our interpreter.
+we plug in other formulas. The details will become clear as we build our
+interpreter.
 
 I was surprised this substitution process learned in childhood is all we need
 for computing anything. A Turing machine has states, a tape of cells, and a
 movable head that reads and writes; how can putting formulas into formulas be
-equivalent? [In retrospect, maybe my surprise was unwarranted.
-https://en.wikipedia.org/wiki/Tag_system[Tag systems] are Turing-complete, as
-is https://en.wikipedia.org/wiki/Conway's_Game_of_Life[Conway's Game of
-Life].]
+equivalent?
 
 To build everything yourself, install http://haste-lang.org/[Haste] and
 http://asciidoc.org[AsciiDoc], and then type:
@@ -236,7 +230,7 @@ occurrence of $v$ with the term $M$.
 
 While doing so, we must handle a potential complication. A reduction such as
 `(\y -> \x -> y)x` to `\x -> x` is incorrect. To prevent this, we rename the
-first occurence of `x` to get `\x1 -> x`.
+first `x` and find `(\y -> \x1 -> y)x` reduces to `\x1 -> x`.
 
 More precisely, a variable `v` is 'bound' if it appears in the right subtree of
 a lambda abstraction node whose left child is `v`. Otherwise `v` is 'free'. If a
@@ -366,9 +360,11 @@ main = withElems ["input", "output", "evalB",
   let
     bp button para = button `onEvent` Click $ const $
       getProp para "value" >>= setProp iEl "value" >> setProp oEl "value" ""
-  bp factB  factP
-  bp quoteB quoteP
-  bp surB   surP
+    prep s = do
+     Just button <- elemById $ s ++ "B"
+     Just para   <- elemById $ s ++ "P"
+     bp button para
+  mapM prep $ words "fact quote sur sha"
   evalB `onEvent` Click $ const $ do
     let
       run (out, env) (Left err) =
@@ -687,5 +683,51 @@ quote ((\y.y) x)
 
 -- Encoding terms in lambda calculus (without typing the raw encoding):
 App (Lam (\y.Var y)) (Var x)
+</textarea>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+== A shallow encoding ==
+
+In http://compilers.cs.ucla.edu/popl16/popl16-full.pdf['Breaking Through the
+Normalization Barrier: A Self-Interpreter for F-omega'] by Matt Brown and Jens
+Palsberg, we find perhaps the shortest possible self-interpreter:
+`E=\q.q(\x.x)`.
+
+To encode a term for this self-interpreter, we pick a new variable, say `i`,
+and prepend `\i.` to the term. Then we replace each application `m n` with `i
+m n`.
+
+For example, the term `succ 0`, that is, `(\n f x.f(n f x))(\f x.x)`,
+becomes:
+
+------------------------------------------------------------------------------
+\i.i(\n f x.i f(i(i n f)x))(\f x.x)
+------------------------------------------------------------------------------
+
+We can avoid threading the `i` variable throughout the encoding by inserting
+another layer of abstraction, so we can reuse our notation above:
+
+------------------------------------------------------------------------------
+Var=\x.\i.x
+App=\m n.\i.i(i m i)(i n i)
+Lam=\f.\i x.f x i
+E=\q.q(\x.x)  -- A self-interpreter.
+------------------------------------------------------------------------------
+
+This encoding is 'shallow' in the sense that only a self-interpreter can
+do anything useful with it.
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="shaP" hidden>
+-- Shallow encoding.
+Var=\x.\i.x
+App=\m n.\i.i(m i)(n i)
+Lam=\f.\i x.f x i
+E=\q.q(\x.x)  -- A self-interpreter.
+
+qsucc = Lam(\n.Lam(\f.Lam(\x.App(Var f)(App(App(Var n)(Var f))(Var x)))))
+q0 = Lam(\f.Lam(\x.Var x))
+E(App qsucc (App qsucc q0))  -- Compute `succ (succ 0)`.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

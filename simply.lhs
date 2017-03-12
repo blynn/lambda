@@ -22,8 +22,7 @@ Can we modify our languages so that we can prove program correctness?
 
 It turns out reasoning about our programs is easiest if we replace Turing
 machines with an equally powerful model of computation: link:.[lambda calculus].
-Only then can we introduce types, and draw on logic and category theory to
-prove results.
+Only then can we introduce types, and draw on mathematics to prove results.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -391,11 +390,10 @@ In other words, programs always halt. Try doing this with Turing machines!
 
 == Simply typed, or typically simple? ==
 
-The above language is restrictive. For example, loops are impossible!
-
-Limited power is fine for certain applications. In fact, it turns out some
-forms of typed lambda calculus wind up embedding simply typed lambda calculus
-in the type system itself. But for general-purpose programming, we need more.
+Simply typed lambda calculus has limited power, but this is fine for certain
+applications. In fact, it turns out some languages wind up embedding simply
+typed lambda calculus in the type system. But for general-purpose programming,
+we need more.
 
 There are two ways to fix this:
 

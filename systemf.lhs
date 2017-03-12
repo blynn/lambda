@@ -17,12 +17,13 @@ System F is rich enough that the self-application `\x.x x` is typable.
 <p><button id="evalB">Run</button>
 <button id="resetB">Reset</button>
 <button id="pairB">Pair</button>
+<button id="surB">Surprise!</button>
 </p>
 <p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80">
 </textarea></p>
 <p><textarea id="output" rows="12" cols="80" readonly></textarea></p>
 <textarea id="resetP" hidden>
-id=\X x:X.x -- Polymorphic identity.
+id=\X x:X.x                             -- Polymorphic identity.
 xx=\x:forall X.X->X.x[forall X.X->X] x  -- Self-application.
 xx id
 iter2   = \X f:X->X x:X.f(f x)
@@ -43,9 +44,18 @@ p02 = pair [forall X.(X->X)->X->X] [forall X.(X->X)->X->X] 0 (succ (succ 0))
 fst [forall X.(X->X)->X->X] [forall X.(X->X)->X->X] p02
 snd [forall X.(X->X)->X->X] [forall X.(X->X)->X->X] p02
 </textarea>
-<textarea id="listP" hidden>
-nil  = \X.(\R c:X->R->R n:R.n)
-cons = \X h:X t:forall R.(X->R->R)->R->R.(\R c:X->R->R n:R.c h (t [R] c n))
+<textarea id="surP" hidden>
+-- See Brown and Palsberg, "Breaking Through the Normalization Barrier:
+-- A Self-Interpreter for F-omega": "Several books, papers, and web pages"
+-- claim the following program cannot exist! That is, self-interpreters are
+-- supposedly impossible in strongly normalizing languages.
+id=\X x:X.x -- Polymorphic identity.
+true  = \X x:X y:X.x  -- Church booleans.
+false = \X x:X y:X.y
+not   = \b:forall X.X->X->X X t:X f:X.b [X] f t
+E=\T q:(forall X.X->X)->T.q id  -- Self-interpreter.
+shallow (not (not true))        -- Shallow encoding.
+E[forall X.X->X->X](shallow (not( not true)))
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -54,10 +64,10 @@ link:hm.html[the Hindley-Milner system]. In the latter, any universal
 quantifiers `(∀)` must appear at the beginning of type, meaning they are scoped
 over the entire type. In System F, they can be arbitrary scoped. For example.
 `(∀X.X->X)->(∀X.X->X)` is a System F type, but not a Hindley-Milner type, while
-`∀X.(X->X)->(X->X)` is a type in both systems.
+`∀X.(X->X)->X->X` is a type in both systems.
 
 This seemingly small change has deep consequences.
-link:hm.html[Recall Hindley-Milner] allows:
+Recall Hindley-Milner allows:
 
 ------------------------------------------------------------------------------
 let id = \x.x in id succ(id 0)
@@ -131,14 +141,7 @@ However, behind the scenes, modern Haskell is an extension of System F.
 Certain language features require type annotation, and they generate unseen
 intermediate code full of type abstractions and type applications.
 
-In practice, type operators make types less eye-watering:
-
-------------------------------------------------------------------------------
-Bool = forall X.X->X->X
-Nat = forall X.(X->X)->X->X
-Pair X Y = forall Z.(X->Y->Z)->Z
-List X = forall R.(X->R->R)->R->R 
-------------------------------------------------------------------------------
+link:typo.html[Type operators] make types less eye-watering.
 
 == Definitions ==
 
@@ -162,9 +165,10 @@ import System.Console.Readline
 import Control.Monad
 import Data.Char
 import Data.List
+import Data.Tuple
 import Text.ParserCombinators.Parsec
 
-data Type = TV String | Forall String Type | Type :-> Type deriving Eq
+data Type = TV String | Forall String Type | Type :-> Type
 data Term = Var String | App Term Term | Lam (String, Type) Term
   | Let String Term Term
   | TLam String Term | TApp Term Type
@@ -201,6 +205,23 @@ instance Show Term where
     "let " ++ x ++ " = " ++ show y ++ " in " ++ show z
 \end{code}
 
+Universal types complicate type comparison, because bound type variables
+may be renamed arbitrarily. That is, types are unique up to 'alpha-conversion'.
+
+\begin{code}
+instance Eq Type where
+  t1 == t2 = f [] t1 t2 where
+    f alpha (TV s) (TV t)
+      | Just t' <- lookup s alpha = t' == t
+      | Just _ <- lookup t (swap <$> alpha) = False
+      | otherwise = s == t
+    f alpha (Forall s x) (Forall t y)
+      | s == t    = f alpha x y
+      | otherwise = f ((s, t):alpha) x y
+    f alpha (a :-> b) (c :-> d) = f alpha a c && f alpha b d
+    f alpha _ _ = False
+\end{code}
+
 == Parsing ==
 
 Parsing is trickier because elements of lambda calculus have invaded the
@@ -209,7 +230,7 @@ if it's at the term or type level. For applications, we look for square
 brackets to decide.
 
 We follow Haskell and accept `forall` as well as the harder-to-type `∀` symbol.
-Conventionally, the arrow type operator `->` has higher precedence.
+Conventionally, the arrow type constructor `->` has higher precedence.
 
 We accept inputs that omit all but the last period and all but the first
 quantifier in a sequence of universal quantified type variables, an
@@ -259,15 +280,20 @@ applications, once again, a routine used at the term level must now be written
 at the type level: we must rename type variables when they conflict with free
 type variables.
 
+The `shallow` feature will be explained later.
+
 \begin{code}
+typeOf :: [(String, Type)] -> Term -> Either String Type
 typeOf gamma t = case t of
-  Var s -> lookup s gamma
+  App (Var "shallow") y -> pure $ fst $ shallow gamma y
+  Var s | Just t <- lookup s gamma -> pure t
+        | otherwise -> Left $ "undefined " ++ s
   App x y -> do
     tx <- rec x
     ty <- rec y
     case tx of
       ty' :-> tz | ty == ty' -> pure tz
-      _                      -> Nothing
+      _                      -> Left $ show tx ++ " apply " ++ show ty
   Lam (x, t) y -> do
     u <- typeOf ((x, t):gamma) y
     pure $ t :-> u
@@ -285,7 +311,7 @@ typeOf gamma t = case t of
                     | otherwise      = Forall u $ beta v
         beta (m :-> n)               = beta m :-> beta n
         fvs = tfv [] y
-      _          -> Nothing
+      _          -> Left $ "TApp " ++ show tx
   Let s t u -> do
     tt <- typeOf gamma t
     typeOf ((s, tt):gamma) u
@@ -313,14 +339,17 @@ Evaluation remains about the same. We erase types as we go.
 As usual, the function `eval` takes us to weak head normal form:
 
 \begin{code}
+eval env (App (Var "shallow") t) = snd $ shallow (fst env) t
 eval env (Let x y z) = eval env $ beta (x, y) z
 eval env (App m a) = let m' = eval env m in case m' of
   Lam (v, _) f -> eval env $ beta (v, a) f
-  _ -> App m' $ eval env a
+  _ -> App m' a
 eval env (TApp m _) = eval env m
 eval env (TLam _ t) = eval env t
-eval env term@(Var v) | Just x  <- lookup v env = eval env x
-eval _   term                                   = term
+eval env term@(Var v) | Just x <- lookup v (snd env) = case x of
+  Var v' | v == v' -> x
+  _                -> eval env x
+eval _   term                                        = term
 
 beta (v, a) f = case f of
   Var s | s == v       -> a
@@ -365,9 +394,10 @@ rename x x1 term = case term of
 The function `norm` recurses to find the normal form:
 
 \begin{code}
-norm env term = case eval env term of
+norm env@(gamma, lets) term = case eval env term of
   Var v        -> Var v
-  Lam (v, _) m -> Lam (v, TV "_") (rec m)
+  -- Record abstraction variable to avoid clashing with let definitions.
+  Lam (v, _) m -> Lam (v, TV "_") (norm (gamma, (v, Var v):lets) m)
   App m n      -> App (rec m) (rec n)
   Let x y z    -> Let x (rec y) (rec z)
   TApp m _     -> rec m
@@ -382,8 +412,8 @@ The less said the better.
 \begin{code}
 #ifdef __HASTE__
 main = withElems ["input", "output", "evalB", "resetB", "resetP",
-    "pairB", "pairP"] $
-  \[iEl, oEl, evalB, resetB, resetP, pairB, pairP] -> do
+    "pairB", "pairP", "surB", "surP"] $
+  \[iEl, oEl, evalB, resetB, resetP, pairB, pairP, surB, surP] -> do
   let
     reset = getProp resetP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
     run (out, env) (Left err) =
@@ -391,16 +421,18 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
     run (out, env@(gamma, lets)) (Right m) = case m of
       Empty      -> (out, env)
       Run term   -> case typeOf gamma term of
-        Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
-        Just t  -> (out ++ show (norm lets term) ++ "\n", env)
+        Left msg -> (out ++ "type error: " ++ msg ++ "\n", env)
+        Right t  -> (out ++ show (norm env term) ++ "\n", env)
       TopLet s term -> case typeOf gamma term of
-        Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
-        Just t  -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
+        Left msg -> (out ++ "type error: " ++ msg ++ "\n", env)
+        Right t  -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
           ((s, t):gamma, (s, term):lets))
   reset
   resetB `onEvent` Click $ const reset
   pairB `onEvent` Click $ const $
     getProp pairP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+  surB `onEvent` Click $ const $
+    getProp surP "value" >>= setProp iEl "value" >> setProp oEl "value" ""
   evalB `onEvent` Click $ const $ do
     es <- map (parse line "") . lines <$> getProp iEl "value"
     setProp oEl "value" $ fst $ foldl' run ("", ([], [])) es
@@ -417,16 +449,16 @@ repl env@(gamma, lets) = do
           putStrLn $ "parse error: " ++ show err
           redo
         Right Empty -> redo
-        Right (Run term) -> do
+        Right (Run term) ->
           case typeOf gamma term of
-            Nothing -> putStrLn "type error"
-            Just t -> do
+            Left msg -> putStrLn ("type error: " ++ msg) >> redo
+            Right t -> do
               putStrLn $ "[type = " ++ show t ++ "]"
-              print $ norm lets term
-          redo
+              print $ norm env term
+              redo
         Right (TopLet s term) -> case typeOf gamma term of
-          Nothing -> putStrLn "type error" >> redo
-          Just t -> do
+          Left msg -> putStrLn ("type error: " ++ msg) >> redo
+          Right t -> do
             putStrLn $ "[type = " ++ show t ++ "]"
             repl ((s, t):gamma, (s, term):lets)
 
@@ -483,3 +515,54 @@ exploited existential types to design and prove theorems about a language
 extension] enabling
 https://hackage.haskell.org/package/base/docs/Control-Monad-ST.html[the ST
 monad].
+
+== System F in System F ==
+
+The polymorphic identity function is typable in System F, hence we can
+construct the self-interpreter described 
+In http://compilers.cs.ucla.edu/popl16/popl16-full.pdf['Breaking Through the
+Normalization Barrier: A Self-Interpreter for F-omega'] by Matt Brown and Jens
+Palsberg.
+
+------------------------------------------------------------------------------
+E=\T q:(forall X.X->X)->T.q(\X x:X.x)
+------------------------------------------------------------------------------
+
+As we demonstrated for the shallow encoding of link:index.html[untyped lambda
+calculus] terms, the trick is to block every application (of types or terms) by
+adding one more layer of abstraction. The evaluation proceeds once we
+instantiate the abstraction with the polymorphic identity function.
+
+Since we must specify types in System F, computing even a shallow encoding
+involves type checking.
+
+\begin{code}
+shallow gamma term = (Forall "_0" (TV "_0" :-> TV "_0") :-> t,
+     Lam ("id", Forall "X" (TV "X" :-> TV "X")) q) where
+  (t, q) = f gamma term where
+  f gamma term = case term of
+    Var s -> (ty, Var s) where Just ty = lookup s gamma
+    App m n -> (tn, App (App (TApp (Var "id") tm) qm) qn) where
+      (tm, qm) = f gamma m
+      (tn, qn) = f gamma n
+    Lam (s, ty) t -> (ty :-> tt, Lam (s, ty) qt) where
+      (tt, qt) = f ((s, ty):gamma) t
+    TLam s t -> (Forall s tt, TLam s qt) where
+      (tt, qt) = f gamma t
+    TApp x ty -> (beta t, TApp (App (TApp (Var "id") tx) q) ty) where
+      (tx@(Forall s t), q) = f gamma x
+      beta (TV v) | s == v         = ty
+                  | otherwise      = TV v
+      beta (Forall u v)
+                  | s == u         = Forall u v
+                  | u `elem` fvs   = let u1 = newName u fvs in
+                    Forall u1 $ beta $ tRename u u1 v
+                  | otherwise      = Forall u $ beta v
+      beta (m :-> n)               = beta m :-> beta n
+      fvs = tfv [] ty
+    Let s t u -> f ((s, fst $ f gamma t):gamma) $ beta (s, t) u
+\end{code}
+
+While this shallow construction is uninteresting, the existence of a
+self-interpreter for a strongly normalizing language is significant, as some
+books and papers claim this is impossible.

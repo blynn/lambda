@@ -1,12 +1,9 @@
 = Outcoding UNIX geniuses =
 
-Lack of
-https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric polymorphism]
-catches a programmer in
-https://en.wikipedia.org/wiki/Morton's_fork[Morton's fork]: between a rock and
-a hard place. We're forced to duplicate code or cast types. (It's worse for
-theoreticians, who have no choice but to duplicate code because type casting
-breaks everything.)
+Lack of https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric
+polymorphism] catches a programmer between Scylla and Charybdis. We're forced
+to choose between duplicating code or type casting. (Theoreticians face only
+the first monstrosity because type casting breaks everything.)
 
 So why don't all languages support this feature? Because it's tough to do:
 https://golang.org/doc/faq#generics[the designers of the Go language, including
@@ -71,9 +68,8 @@ for unboxing.
 
 We implement Algorithm W, which returns the most general type of a given closed
 term despite missing some or even all type information. The algorithm
-succeeds if and only if the given expression is 'typable', that is, when
-certain types are assigned to the bindings lacking type annotations, it is
-well-typed.
+succeeds if and only if the given term is 'typable', that is, types can be
+assigned to the untyped bindings so the term is well-typed.
 
 For example, Algorithm W infers the following expressions:
 
@@ -94,8 +90,9 @@ Nat
 ------------------------------------------------------------------------------
 
 The only base type is `Nat`. Names such as `X` or `_2` are 'type variables',
-and can be supplied by the programmer or generated on demand. Then the inferred
-type is most general, or 'principal', in the sense that:
+and can be supplied by the programmer or generated on demand.
+
+The inferred type is most general, or 'principal', in the sense that:
 
   1. Substituting types such as `Nat` or `(Nat -> Nat) -> Nat`
   (sometimes called 'type constants' for clarity)
@@ -160,8 +157,9 @@ duplicate code to correct the above:
 (\f g.f succ(g 0)) (\x.x) (\x.x)
 ------------------------------------------------------------------------------
 
-(http://homepages.inf.ed.ac.uk/gdp/publications/LCF.pdf[The original PCF]
-lacked type inference and hence let-polymorphism.)
+http://homepages.inf.ed.ac.uk/gdp/publications/LCF.pdf[The original PCF]
+lacks type inference and hence let-polymorphism, so is less expressive than
+the language we define here.
 
 == Memoized type inference ==
 
@@ -438,14 +436,14 @@ gather gamma i term = case term of
     (tt, cs1, j) = gather gamma i t
     (tu, cs2, k) = gather ((s, gen):gamma) j u
 
-instantiate ty i = f ty [] i where
-  f ty m i = case ty of
+instantiate = f [] where
+  f m ty i = case ty of
     GV s | Just t <- lookup s m -> (t, m, i)
          | otherwise            -> (x, (s, x):m, i + 1) where
            x = TV ('_':show i)
     t :-> u -> (t' :-> u', m'', i'') where
-      (t', m' , i')  = f t m  i
-      (u', m'', i'') = f u m' i'
+      (t', m' , i')  = f m  t i
+      (u', m'', i'') = f m' u i'
     _       -> (ty, m, i)
 
 generalize fvs ty = case ty of
@@ -487,9 +485,7 @@ unify ((s, t):cs) | s == t = unify cs
 unify ((TV x, t):cs)
   | x `elem` freeTV t = Left $ "infinite: " ++ x ++ " = " ++ show t
   | otherwise         = ((x, t):) <$> unify (join (***) (subst (x, t)) <$> cs)
-unify ((s, TV y):cs)
-  | y `elem` freeTV s = Left $ "infinite: " ++ y ++ " = " ++ show s
-  | otherwise         = ((y, s):) <$> unify (join (***) (subst (y, s)) <$> cs)
+unify ((s, TV y):cs)  = unify ((TV y, s):cs)
 unify ((s1 :-> s2, t1 :-> t2):cs) = unify $ (s1, t1):(s2, t2):cs
 unify ((s, t):_)      = Left $ "mismatch: " ++ show s ++ " /= " ++ show t
 
@@ -689,9 +685,8 @@ sorted list so it remains sorted:
 ins y xs = case foldr f ([y], []) xs of ([],  t) -> t
                                         ([h], t) -> h:t
 
-f x ([] , rest)             = ([] , x:rest)
-f x ([y], rest) | x < y     = ([] , x:y:rest)
-                | otherwise = ([y], x:rest)
+f x ([y], t) | x < y = ([], x:y:t)
+f x (a  , t)         = (a , x:t)
 ------------------------------------------------------------------------------
 
 Insertion sort immediately follows:
@@ -701,10 +696,10 @@ sort :: Ord a => [a] -> [a]
 sort = foldr ins []
 ------------------------------------------------------------------------------
 
-Hindley-Milner accommodates
-https://en.wikipedia.org/wiki/Church_encoding#Represent_the_list_using_right_fold[lists
-represented with right fold]. The list itself is a function, and it acts just
-like `foldr` if we give it a folding function and an initial value:
+We can
+https://en.wikipedia.org/wiki/Church_encoding#Represent_the_list_using_right_fold[represent
+lists with right folds]. The list is a function, and it acts just like `foldr`
+if we give it a folding function and an initial value:
 
 ------------------------------------------------------------------------------
 nil = \c n->n
@@ -714,14 +709,31 @@ example (:) []            -- [3, 1, 4]
 foldr   (:) [] [3, 1, 4]  -- [3, 1, 4]
 ------------------------------------------------------------------------------
 
-By translating the above to lambda calculus, we obtain a sorting function
-without `fix`. (We do use `fix` in our less-than function, but in a practical
-language this would be a built-in primitive.)
+In simply typed lambda calculus, we must fix the type of the fold result.
+For example, a list of integers might be represented as right fold that
+returns an integer, and we can compute the sum of a list of integers as
+follows:
 
-It almost seems we're cheating to avoid looping by piggybacking off the
-representation of the list. This is a trait common in functional
-representations of data. Code to express complex tasks can be miraculously
-simple.
+------------------------------------------------------------------------------
+nil=\c:I->I->I n:I.n
+cons=\h:I t:(I->I->I)->I->I c:I->I->I n:I.c h(t c n)
+sum=\xs:(I->I->I)->I->I.xs(\h:I t:I.add h t)0
+sum (cons 1 (cons 125 (cons 27 nil)))
+------------------------------------------------------------------------------
+
+This is about as far as we can go. Without let-polymorphism, we're stuck with
+a single fold return type, limiting what we can achieve.
+
+Hindley-Milner solves this problem: thanks to generalized type variables,
+a single fold can return any type we want. We can port our Haskell code to
+lambda calculus to obtain a sorting function free of `fix`. (We do use `fix` in
+our less-than function, but in a practical language this would be a built-in
+primitive.)
+
+It almost seems we're cheating to avoid explicit loops by piggybacking off the
+representation of the list, but this is merely a consequence of our strategy.
+When functions represent data, we can perform complex tasks with miraculously
+concise code.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
