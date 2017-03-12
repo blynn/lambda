@@ -339,9 +339,8 @@ clashing with our above `Let` constructor.
 data PCFLine = Empty | TopLet String Term | Run Term
 
 line :: Parser PCFLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
-  t <- term
-  option (Run t) $ str "=" >> TopLet (getV t) <$> term where
+line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+    (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   getV (Var s) = s
   term = ifz <|> letx <|> lam <|> app
   letx = Let <$> (str "let" >> v) <*> (str "=" >> term)

@@ -201,10 +201,8 @@ evaluated immediately.
 data LambdaLine = Empty | Let String Term | Run Term
 
 line :: Parser LambdaLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ do
-  t <- term
-  option (Run t) $ str "=" >> Let (getV t) <$> term where
-  getV (Var s) = s
+line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+    (try $ Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = lam <|> app
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term where
     lam0 = str "\\" <|> str "\0955"

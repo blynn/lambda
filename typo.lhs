@@ -182,11 +182,9 @@ data FOmegaLine = Empty | Typo String Type
   | TopLet String Term | Run Term deriving Show
 
 line :: Parser FOmegaLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ typo <|> do
-  t <- term
-  option (Run t) $ str "=" >> TopLet (getV t) <$> term where
+line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ typo <|>
+    (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   typo = Typo <$> between (str "typo") (str "=") v <*> typ
-  getV (Var s) = s
   term = letx <|> lam <|> app
   letx = Let <$> (str "let" >> v) <*> (str "=" >> term)
     <*> (str "in" >> term)
@@ -499,7 +497,7 @@ are miniscule. We do get to write `List X` once, which is nice.
 
 http://compilers.cs.ucla.edu/popl16/popl16-full.pdf[Brown and Palsberg describe
 a representation of System F~&omega;~ terms which powers a self-interpreter and
-more], though still stops short of allowing a self-reducer.
+more], though still stops short of a self-reducer.
 
 Haskell's type constructors are a restricted form of type operators.
 In practice, the full power of type operators is rarely needed, so we limit
@@ -512,5 +510,5 @@ normalization.
 
 However, real programming languages often support unrestricted recursion and
 hence it is undecidable whether a term normalizes. Adding dependent types to
-such a language would cause type checking to be undecidable! The system
-F~&omega;~ is about as far as we can go while keeping type checking decidable.
+such a language would lead to undecidable type checking. System F~&omega;~ is
+about as far as we can go while keeping type checking decidable.
