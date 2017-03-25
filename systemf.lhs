@@ -500,7 +500,7 @@ untypable, because it has no normal form.
 
 == Information hiding ==
 
-It turns out universal types can represent 'existential types',
+It turns out universal types can represent 'existential types'.
 These types can enforce information hiding. For example, we can give
 the programmer access to an API but forbid access to the implementation
 details.

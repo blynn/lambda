@@ -63,11 +63,12 @@ we find lambda calculus is sometimes superior:
  ensure lambda calculus programs always halt. It's unclear how we can
  similarly tame Turing machines.
 
- * *provably correct*: More generally, typed lambda calculus turns out to be
- deeply connected to the foundations of mathematics. Sufficiently advanced
- types leads to a language where bugs are impossible to express, that is, every
- valid program is correct. This connection is harder to see from a
- Turing-machine viewpoint.
+ * *provably correct*: More generally,
+ https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[typed lambda
+ calculus turns out to be deeply connected to the foundations of mathematics]
+ Sufficiently advanced types leads to a language where bugs are impossible to
+ express, that is, every valid program is correct. This connection is harder to
+ see from a Turing-machine viewpoint.
 
 As the importance of software grows in our world, so does the importance of
 the advantages of lambda calculus, and in particular, its connections with the
@@ -117,6 +118,7 @@ $ ghc index.lhs
 ------------------------------------------------------------------------------
 
 Then run the command-line interpreter `./index` or browse to `index.html`.
+Other binaries on this website can be similarly built.
 
 To produce binaries for different systems, we need conditional compilation
 and various imports:
@@ -338,7 +340,7 @@ which both $b$ and $c$ can be reduced. In particular, if we reach a term where
 no further reductions are possible, then it must be the normal form we defined
 above.
 
-On the one hand, some strategies may loop forever instead of normalizing a
+On the other hand, some strategies may loop forever instead of normalizing a
 term that does in fact possess a normal form. It turns out this never happens
 with normal-order evaluation: it always reduces a term to its normal form if it
 exists, hence its name. This is intuitively evident, as at each step we're
@@ -651,7 +653,7 @@ x) /= quote x`. Thus `quote` is not a function, and should be seen as a sort of
 macro; a labour-saving abbreviation lying outside of lambda calculus.
 
 We named `quote` after a similar primitive in link:lisp.html[the Lisp
-language], which suffers from the same afflictions.
+language], which suffers from the same affliction.
 The Right Way to reify is to sacrifice brevity:
 
 ------------------------------------------------------------------------------

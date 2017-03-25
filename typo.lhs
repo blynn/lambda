@@ -61,10 +61,10 @@ and applications. The new `Kind` data type holds typing information for
 
 Because we're extending System F, we also have `Forall`,
 `TLam`, and `TApp` for functions that take types and return terms; without
-these, we obtain a system known as &lambda;~&omega;~. [I don't know much
-about &lambda;~&omega;~. Because types and terms undergo beta reduction in
-their own separate worlds, I sense it's only a minor upgrade for simply-typed
-lambda calculus.]
+these, we obtain a system known as $\lambda\underline{\omega}$.
+[I don't know much about $\lambda\underline{\omega}$, but because types and
+terms undergo beta reduction in their own separate worlds, I sense it's only a
+minor upgrade for simply-typed lambda calculus.]
 
 The kinding `::*` is common, so we elide it.
 
@@ -172,8 +172,7 @@ Different conventions exist for denoting them:
 We use the notation in first column to avoid the uppercase lambda.
 
 Writing `\x:X y.` was previously equivalent to `\x:X.\y.` but now `X y` is
-parsed as an operator application. We're forced to write more lambdas to
-prevent this.
+parsed as an operator application. One solution is write more lambdas.
 
 We add the `typo` expression, which is a type-level let expression.
 

@@ -36,28 +36,9 @@ We'll build a Lisp interpreter based on Graham's paper:
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-To build everything yourself, install http://haste-lang.org/[Haste] and
-http://asciidoc.org[AsciiDoc], and then type:
-
-------------------------------------------------------------------------------
-$ haste-cabal install parsec
-$ wget https://crypto.stanford.edu/~blynn/lambda/lisp.lhs
-$ hastec lisp.lhs
-$ sed 's/^\\.*{code}$/-----/' lisp.lhs | asciidoc -o - - > lisp.html
-$ cabal install parsec readline
-$ ghc lisp.lhs
-------------------------------------------------------------------------------
-
-Open `lisp.html` in a browser, or run `./lisp`.
-
-A single source file forces us to tolerate the presence of conditional
-compilation macros. For JavaScript, we need a few
-http://haste-lang.org/[Haste] imports.
-
-For our command-line interpreter, the GNU Readline library is a boon.
-Also, if it appears that an expression is incomplete, rather than complain
-immediately, our interpreter asks for another line. This feature requires
-importing the Parsec library's Error module.
+For the command-line version, if it appears that an expression is incomplete,
+rather than complain immediately, our interpreter asks for another line. This
+feature requires importing the Parsec library's Error module.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
@@ -89,7 +70,7 @@ confusing because it returns true for all atoms and the empty list; presumably
 the name `is-external-node` is too unwieldy.
 
 To emphasize that Lisp expressions are binary trees, we construct external node
-with `Lf`, which stands for "leaf", and use the infix constructor `(:^)` to
+with `Lf`, which stands for "leaf", and use the infix constructor `(:.)` to
 build internal nodes from left and right subtrees.
 
 The infix constructor also makes pattern matching easier. We give it
@@ -106,17 +87,17 @@ place will cause problems, but it suffices for our demo.
 We also define `Bad` for crude but serviceable error-handling.
 
 \begin{code}
-infixr 5 :^
-data Expr = Lf String | Expr :^ Expr | Label String Expr | Bad
+infixr 5 :.
+data Expr = Lf String | Expr :. Expr | Label String Expr | Bad
 
 instance Show Expr where
   show Bad         = "?"
   show (Label s _) = s
   show (Lf "")     = "()"
   show (Lf s)      = s
-  show (l :^ r)    = "(" ++ show l ++ showR r ++ ")" where
+  show (l :. r)    = "(" ++ show l ++ showR r ++ ")" where
     showR (Lf "")  = ""
-    showR (l :^ r) = " " ++ show l ++ showR r
+    showR (l :. r) = " " ++ show l ++ showR r
     showR x        = " " ++ show x
 \end{code}
 
@@ -159,20 +140,20 @@ how it fits into the bigger picture later.
 
 \begin{code}
 eval env = g where
-  f "quote" (x :^ Lf "") = x
+  f "quote" (x :. Lf "") = x
 
-  f "atom" (Lf _ :^ Lf "") = Lf "t"
+  f "atom" (Lf _ :. Lf "") = Lf "t"
   f "atom" _               = Lf ""
 
-  f "eq" (Lf x :^ Lf y :^ Lf "") | x == y    = Lf "t"
+  f "eq" (Lf x :. Lf y :. Lf "") | x == y    = Lf "t"
                                  | otherwise = Lf ""
-  f "eq" (_    :^ _    :^ Lf "") = Lf ""
+  f "eq" (_    :. _    :. Lf "") = Lf ""
 
-  f "car"  ((l :^ r) :^ Lf "") = l
-  f "cdr"  ((l :^ r) :^ Lf "") = r
-  f "cons" ( l :^ r  :^ Lf "") = l :^ r
+  f "car"  ((l :. r) :. Lf "") = l
+  f "cdr"  ((l :. r) :. Lf "") = r
+  f "cons" ( l :. r  :. Lf "") = l :. r
 
-  f "cond" ((l :^ r :^ Lf "") :^ rest) | Lf "t" <- g l = g r
+  f "cond" ((l :. r :. Lf "") :. rest) | Lf "t" <- g l = g r
                                        | otherwise     = f "cond" rest
 \end{code}
 
@@ -183,9 +164,9 @@ The `f` function is also a good place to handle `label`, and some Lisp
 shorthand:
 
 \begin{code}
-  f "label" (Lf s :^ e :^ Lf "") = Label s e
+  f "label" (Lf s :. e :. Lf "") = Label s e
 
-  f "defun" (s :^ etc) = g $ Lf "label" :^ s :^ (Lf "lambda" :^ etc) :^ Lf ""
+  f "defun" (s :. etc) = g $ Lf "label" :. s :. (Lf "lambda" :. etc) :. Lf ""
   f "list" x = x
 
   f _ _ = Bad
@@ -214,25 +195,25 @@ Haskell. In my initial list-based code, I could simply use the default `map`
 instead of  `mapL`, and `fromTree` would be unneeded.
 
 \begin{code}
-  g (Label s e :^ r) = eval ((s, e):env) $ e :^ r
+  g (Label s e :. r) = eval ((s, e):env) $ e :. r
   g (Lf s) | Just b <- lookup s env = b
            | otherwise              = Bad
 
-  g ((Lf "lambda" :^ args :^ body :^ Lf "") :^ t) =
+  g ((Lf "lambda" :. args :. body :. Lf "") :. t) =
     eval (zip (fromLeaf <$> fromTree args) (fromTree $ mapL g t) ++ env) body
-  g (Lf h :^ t)
-    | Just b <- lookup h env                  = g $ b :^ t
+  g (Lf h :. t)
+    | Just b <- lookup h env                  = g $ b :. t
     | elem h $ words "cond quote defun label" = f h t
     | otherwise                               = f h $ mapL g t
   g _ = Bad
 
   fromTree (Lf "")  = []
-  fromTree (h :^ t) = h:fromTree t
+  fromTree (h :. t) = h:fromTree t
   fromLeaf (Lf x)   = x
 
   mapL f (Lf "")  = Lf ""
   mapL f a@(Lf _) = f a
-  mapL f (l :^ r) = f l :^ mapL f r
+  mapL f (l :. r) = f l :. mapL f r
 \end{code}
 
 == Parser and User Interface ==
@@ -245,8 +226,8 @@ expr = between ws ws $ atom <|> list <|> quot where
   ws   = many $ void space <|> comm
   comm = void $ char ';' >> manyTill anyChar (void (char '\n') <|> eof)
   atom = Lf <$> many1 (alphaNum <|> char '.')
-  list = foldr (:^) (Lf "") <$> between (char '(') (char ')') (many expr)
-  quot = char '\'' >> expr >>= pure . (Lf "quote" :^) . (:^ Lf "")
+  list = foldr (:.) (Lf "") <$> between (char '(') (char ')') (many expr)
+  quot = char '\'' >> expr >>= pure . (Lf "quote" :.) . (:. Lf "")
 
 oneExpr = expr >>= (eof >>) . pure
 \end{code}
@@ -325,174 +306,6 @@ main = repl "" preload
 \end{code}
 
 And with that, our interpreter is done!
-
-== Haskell: Lisp with modern conveniences ==
-
-Haskell is a fashionable five-star high-tech luxurious language, but
-http://newartisans.com/2009/03/hello-haskell-goodbye-lisp/[stripping away its
-contemporary furnishings reveals a humble core surprisingly similar to Lisp].
-For example, take a typical function from Paul Graham's 'On Lisp':
-
-------------------------------------------------------------------------------
-(defun our-remove-if (fn lst)
-  (if (null lst)
-    nil
-    (if (funcall fn (car lst))
-      (our-remove-if fn (cdr lst))
-      (cons (car lst) (our-remove-if fn (cdr lst))))))
-------------------------------------------------------------------------------
-
-We could write it almost identically in Haskell:
-
-------------------------------------------------------------------------------
-if' a b c = if a then b else c
-
-ourRemoveIf fn lst =
-  (if' (null lst)
-    []
-    (if' (fn (head lst))
-      (ourRemoveIf fn (tail lst))
-      ((:) (head lst) (ourRemoveIf fn (tail lst)))))
-------------------------------------------------------------------------------
-
-The family resemblance is clear. Still, it's better to add generous servings of
-Haskell syntax sugar:
-
-------------------------------------------------------------------------------
-ourRemoveIf _ []                 = []
-ourRemoveIf f (x:xs) | f x       = ourRemoveIf f xs
-                     | otherwise = x : ourRemoveIf f xs
-------------------------------------------------------------------------------
-
-In this small example we can see various sweeteners: meaningful indentation;
-pattern matching; guards; infix and prefix notation; concise notation for
-lists.
-
-There is in fact some substance behind the delicious style. Patterns are
-sophisticated enough to be useful, yet elementary enough so compilers can
-detect overlapping patterns or incomplete patterns in a function definition.
-This catches bugs that would go unnoticed in a Lisp `cond`.
-
-With this in mind, we see the source of our interpreter is almost the same as
-Graham's, except it's less cluttered and more robust. For example, for
-the 7 primitives, thanks to pattern matching, the function `f` reduces
-duplicated code such as `eq (car e)` gives the compiler more power, and detects
-errors when the wrong number of arguments are supplied.
-
-By the way, as with Lisp, in reality we would never bother defining the above
-function, because `ourRemoveIf = filter . (not .)`.
-
-== Less is more ==
-
-Haskell is really the Core language, coated in heavy layers of syntax sugar.
-The
-https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/coreSyn/CoreSyn.hs[Core
-grammar] only takes a handful of lines:
-
-------------------------------------------------------------------------------
-data Expr b
-  = Var   Id
-  | Lit   Literal
-  | App   (Expr b) (Arg b)
-  | Lam   b (Expr b)
-  | Let   (Bind b) (Expr b)
-  | Case  (Expr b) b Type [Alt b]
-  | Cast  (Expr b) Coercion
-  | Tick  (Tickish Id) (Expr b)
-  | Type  Type
-  | Coercion Coercion
-  deriving Data
-
-type Arg b = Expr b
-
-data Bind b = NonRec b (Expr b)
-            | Rec [(b, (Expr b))]
-------------------------------------------------------------------------------
-
-Parallels with the Lisp are obvious, for example, `Lam` is `lambda`, `Case` is
-`cond`, and `App` is the first cons cell in a Lisp list, There's bookkeeping
-for types, and source annotation (`Tick`) for profilers and similar tools, but
-otherwise Core and Lisp share the same minmalist design.
-
-== Core changes ==
-
-Nonetheless, there are profound differences between Haskell and Lisp. Although
-almost invisible to the untrained eye, they have enormous implications.
-
-Haskell has benefited from the experience of functional programmers, as well as
-advances in theory involving the foundations of mathematics and computer
-science.
-
- - Lisp programmers pioneered programming with pure functions. Haskell has
-   taken purity to heart: its type system means the compiler knows which
-   functions are pure and which are not, and steers programmers to isolate
-   impure code in tiny functions, leaving the rest of the code pure.
-
- - The discovery that the
-   https://en.wikipedia.org/wiki/Monad_(category_theory)[monads of category
-   theory] applied to programming meant Haskell could stay pure yet handle I/O
-   beautifully.
-
- - Lazy evaluation largely obviates the need for macros. Good language support
-   for pure functions is a prerequisite for effective lazy evaluation. Programs
-   that may never terminate with eager evaluation might terminate with lazy
-   evaluation: in fact, if some evaluation strategy causes a program to
-   terminate, then it will terminate with lazy evaluation.
-
- - The link:hm.html[Hindley-Milner
-   type system] underpinning Haskell 98 lets us write code without a single
-   type annotation, so it still feels like Lisp, yet an efficient type
-   inference algorithm means the compiler rejects badly typed programs. Haskell
-   has since gone beyond Hindley-Milner, but even so, type annotation is
-   inconspicuous.
-
- - The Core language is built on https://en.wikipedia.org/wiki/System_F[System
-   F], which is formalizes parametric polymorphism and also guarantees programs
-   terminate. This guarantee is voided by Haskell's support for recursion, but
-   we can regain it by restricting recursion, as
-   http://www.idris-lang.org/[Idris] does.
-
- - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/FC[Core pushes
-   beyond System F to enrich types], but not so much more that we need
-   full-blown https://en.wikipedia.org/wiki/Dependent_type[dependent types].
-   (This explains the weirder parts of the Core grammar.)
-
- - The https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[Curry-Howard correspondence] and Haskell's expressive type system means more of the program can be shown to be correct at compile-time.
-
- - Roughly speaking, Lisp reads `(min 1 x)` as `(min (1 x))`, while Haskell
-   reads it as `((min 1) x)`. For function evaluation, Haskell's parse tree is
-   more troublesome because we must repeatedly traverse left from the root
-   until we find the function to evaluate, rather than simply take the left
-   child of the root. However, it's a net win because a curried function is
-   simply a subtree. We have
-   https://en.wikipedia.org/wiki/Combinatory_logic[combinatory logic] to thank
-   for left-associative function application.
-
- - Lisp is perhaps the best language for appreciating the equivalence of code
-   and data, since a program is its own representation. However, although
-   artistically and intellectually engaging, this blurring of the
-   https://en.wikipedia.org/wiki/Use%E2%80%93mention_distinction[use-mention
-   distinction] trips up everyone from students
-   (https://www.cs.kent.ac.uk/people/staff/dat/miranda/wadler87.pdf[who have
-   trouble with `quote`]) and theorists
-   (http://www.cs.bc.edu/~muller/research/papers.html#toplas[who have trouble
-   formally reasoning about it]). Haskell wisely chose
-   http://research.microsoft.com/en-us/um/people/simonpj/papers/meta-haskell/[a
-   more explicit form of metaprogramming].
-
-[pass]
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<textarea id="quoteP" hidden>
-; Students are confused by these exercises by Abelson and Sussman.
-; Philip Wadler, "Why calculating is better than scheming".
-
-; What are the values of the following expressions?
-
-(car ''abracadabra)
-(cdddr '(this list contains '(a quote)))
-(car (quote (a b)))
-</textarea>
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 == Surprised Again ==
 
@@ -590,3 +403,174 @@ self-interpreter in plain unadulterated lambda calculus]:
 ------------------------------------------------------------------------------
 
 link:index.html[Our page on lambda calculus demonstrates this function].
+
+== The indelible impact of Lisp ==
+
+The spirit of Lisp lives on in languages with modern conveniences.
+
+Haskell is a fashionable five-star high-tech luxurious language, but
+http://newartisans.com/2009/03/hello-haskell-goodbye-lisp/[stripping away its
+contemporary furnishings reveals a humble core surprisingly similar to Lisp].
+For example, take a typical function from Paul Graham's 'On Lisp':
+
+------------------------------------------------------------------------------
+(defun our-remove-if (fn lst)
+  (if (null lst)
+    nil
+    (if (funcall fn (car lst))
+      (our-remove-if fn (cdr lst))
+      (cons (car lst) (our-remove-if fn (cdr lst))))))
+------------------------------------------------------------------------------
+
+We can translate this almost word-for-word to Haskell:
+
+------------------------------------------------------------------------------
+if' a b c = if a then b else c
+
+ourRemoveIf fn lst =
+  (if' (null lst)
+    []
+    (if' (fn (head lst))
+      (ourRemoveIf fn (tail lst))
+      ((:) (head lst) (ourRemoveIf fn (tail lst)))))
+------------------------------------------------------------------------------
+
+The family resemblance is obvious, but it's best to hide this beneath
+generous servings of Haskell syntax sugar:
+
+------------------------------------------------------------------------------
+ourRemoveIf _ []                 = []
+ourRemoveIf f (x:xs) | f x       = ourRemoveIf f xs
+                     | otherwise = x : ourRemoveIf f xs
+------------------------------------------------------------------------------
+
+In this small example we see various sweeteners:
+https://en.wikipedia.org/wiki/Off-side_rule{the off-side rule]; pattern
+matching; guards; infix and prefix notation; concise notation for lists.
+
+There is substance behind the delicious style. Patterns are sophisticated
+enough to be useful, yet elementary enough so compilers can detect overlapping
+patterns or incomplete patterns in a function definition. This catches bugs
+that would go unnoticed in a Lisp `cond`.
+
+With this in mind, we see the source of our interpreter is almost the same as
+Graham's, except it's less cluttered and more robust. For example, for
+the 7 primitives, thanks to pattern matching, the function `f` reduces
+duplicated code such as `eq (car e)` gives the compiler more power, and detects
+errors when the wrong number of arguments are supplied.
+
+By the way, as with Lisp, in reality we would never bother defining the above
+function, because `ourRemoveIf = filter . (not .)`.
+
+== Less is more ==
+
+Haskell is really the Core language, coated in heavy layers of syntax sugar.
+The
+https://ghc.haskell.org/trac/ghc/browser/ghc/compiler/coreSyn/CoreSyn.hs[Core
+grammar] only takes a handful of lines:
+
+------------------------------------------------------------------------------
+data Expr b
+  = Var   Id
+  | Lit   Literal
+  | App   (Expr b) (Arg b)
+  | Lam   b (Expr b)
+  | Let   (Bind b) (Expr b)
+  | Case  (Expr b) b Type [Alt b]
+  | Cast  (Expr b) Coercion
+  | Tick  (Tickish Id) (Expr b)
+  | Type  Type
+  | Coercion Coercion
+  deriving Data
+
+type Arg b = Expr b
+
+data Bind b = NonRec b (Expr b)
+            | Rec [(b, (Expr b))]
+------------------------------------------------------------------------------
+
+Parallels with the Lisp are obvious, for example, `Lam` is `lambda`, `Case` is
+`cond`, and `App` is the first cons cell in a Lisp list, There's bookkeeping
+for types, and source annotation (`Tick`) for profilers and similar tools, but
+otherwise Core and Lisp share the same minmalist design. Both are extensions of
+lambda calculus.
+
+== Core changes ==
+
+Nonetheless, there are profound differences between Haskell and Lisp. Although
+almost invisible to the untrained eye, they have enormous implications.
+
+Haskell has benefited from the experience of functional programmers, as well as
+advances in theory involving the foundations of mathematics and computer
+science.
+
+ - Lisp programmers pioneered programming with pure functions. Haskell has
+   taken purity to heart: its type system means the compiler knows which
+   functions are pure and which are not, and steers programmers to isolate
+   impure code in tiny functions, leaving the rest of the code pure.
+
+ - The discovery that the
+   https://en.wikipedia.org/wiki/Monad_(category_theory)[monads of category
+   theory] applied to programming meant Haskell could stay pure yet handle I/O
+   beautifully.
+
+ - Lazy evaluation largely obviates the need for macros. Good language support
+   for pure functions is a prerequisite for effective lazy evaluation. Programs
+   that may never terminate with eager evaluation might terminate with lazy
+   evaluation: in fact, if some evaluation strategy causes a program to
+   terminate, then it will terminate with lazy evaluation.
+
+ - The link:hm.html[Hindley-Milner
+   type system] underpinning Haskell 98 lets us write code without a single
+   type annotation, so it still feels like Lisp, yet an efficient type
+   inference algorithm means the compiler rejects badly typed programs. Haskell
+   has since gone beyond Hindley-Milner, but even so, type annotation is
+   inconspicuous.
+
+ - The Core language is built on https://en.wikipedia.org/wiki/System_F[System
+   F], which is formalizes parametric polymorphism and also guarantees programs
+   terminate. This guarantee is voided by Haskell's support for recursion, but
+   we can regain it by restricting recursion, as
+   http://www.idris-lang.org/[Idris] does.
+
+ - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/FC[Core pushes
+   beyond System F to enrich types], but not so much more that we need
+   full-blown https://en.wikipedia.org/wiki/Dependent_type[dependent types].
+   (This explains the weirder parts of the Core grammar.)
+
+ - The https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[Curry-Howard correspondence] and Haskell's expressive type system means more of the program can be shown to be correct at compile-time.
+
+ - Roughly speaking, Lisp reads `(min 1 x)` as `(min (1 x))`, while Haskell
+   reads it as `((min 1) x)`. For function evaluation, Haskell's parse tree is
+   more troublesome because we must repeatedly traverse left from the root
+   until we find the function to evaluate, rather than simply take the left
+   child of the root. However, it's a net win because a curried function is
+   a subtree. We have
+   https://en.wikipedia.org/wiki/Combinatory_logic[combinatory logic] to thank
+   for left-associative function application.
+
+ - Lisp is perhaps the best language for appreciating the equivalence of code
+   and data, since a program is its own representation. However, although
+   artistically and intellectually engaging, this blurring of the
+   https://en.wikipedia.org/wiki/Use%E2%80%93mention_distinction[use-mention
+   distinction] trips up everyone from students
+   (https://www.cs.kent.ac.uk/people/staff/dat/miranda/wadler87.pdf[who have
+   trouble with `quote`]) and theorists
+   (http://www.cs.bc.edu/~muller/research/papers.html#toplas[who have trouble
+   formally reasoning about it]). Haskell wisely chose
+   http://research.microsoft.com/en-us/um/people/simonpj/papers/meta-haskell/[a
+   more explicit form of metaprogramming].
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="quoteP" hidden>
+; Students are confused by these exercises by Abelson and Sussman.
+; Philip Wadler, "Why calculating is better than scheming".
+
+; What are the values of the following expressions?
+
+(car ''abracadabra)
+(cdddr '(this list contains '(a quote)))
+(car (quote (a b)))
+</textarea>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

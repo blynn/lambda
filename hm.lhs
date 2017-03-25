@@ -57,12 +57,12 @@ Some presentations of PCF also add the base type `Bool` along with constants
 `True`, `False` and replace `ifz` with `if` and `iszero`, which is similar to
 link:simply.html[our last interpreter].
 
-To be fair to Go: for full-blown generics, we need recursive types and type
-operators to define, say, a binary tree containing values of any given type.
-Even then parametric polymorphism is only half the problem. The other half is
-ad hoc polymorphism, which Haskell researchers only neatly solved in the late
-1980s with type classes. Practical Haskell compilers also need more trickery
-for unboxing.
+To be fair to Go: for full-blown generics, we need recursive types and
+link:typo.html[type operators] to define, say, a binary tree containing values
+of any given type.  Even then parametric polymorphism is only half the problem.
+The other half is ad hoc polymorphism, which Haskell researchers only neatly
+solved in the late 1980s with type classes. Practical Haskell compilers also
+need more trickery for unboxing.
 
 == Look Ma, No Types! ==
 
@@ -158,8 +158,9 @@ duplicate code to correct the above:
 ------------------------------------------------------------------------------
 
 http://homepages.inf.ed.ac.uk/gdp/publications/LCF.pdf[The original PCF]
-lacks type inference and hence let-polymorphism, so is less expressive than
-the language we define here.
+lacks type inference and let-polymorphism, unlike
+http://www.cse.chalmers.se/edu/year/2010/course/DAT140_Types/PCF.pdf[later
+definitions of PCF].
 
 == Memoized type inference ==
 
@@ -250,7 +251,8 @@ but these have little theoretical significance.
 
 The juicy missing pieces are algebraic data types and type classes.
 
-Later versions of Haskell go beyond Hindley-Milner to a variant of System F.
+Later versions of Haskell go beyond Hindley-Milner to a variant of
+link:systemf.html[System F].
 As a result, type inference is no longer guaranteed to succeed, and often the
 programmer must supply annotations to help the type checker.
 
@@ -542,7 +544,7 @@ eval env (App m a) = let m' = eval env m in case m' of
       Just i -> Var (show $ read s + 1)
       _      -> App m' (Var s)
     t -> App m' t
-  Var "fix" -> eval env (App a (App m a))
+  Var "fix" -> eval env (App a (App m' a))
   _ -> App m' a
 eval env (Var v) | Just x  <- lookup v env = eval env x
 eval _   term                              = term
@@ -725,9 +727,10 @@ a single fold return type, limiting what we can achieve.
 
 Hindley-Milner solves this problem: thanks to generalized type variables,
 a single fold can return any type we want. We can port our Haskell code to
-lambda calculus to obtain a sorting function free of `fix`. (We do use `fix` in
+lambda calculus to obtain a sorting function free of `fix`. We do use `fix` in
 our less-than function, but in a practical language this would be a built-in
-primitive.)
+primitive. Alternatively we can use Church numerals, which has a well-known
+fix-free less-than-or-equal-to function.
 
 It almost seems we're cheating to avoid explicit loops by piggybacking off the
 representation of the list, but this is merely a consequence of our strategy.
