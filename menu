@@ -1,4 +1,5 @@
 index,Lambda calculus
+wasm,WebAssembly
 lisp,Lisp
 simply,Simply typed
 hm,Type inference

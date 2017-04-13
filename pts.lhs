@@ -913,7 +913,8 @@ express mathematical theorems and proofs via the Curry-Howard correspondence.
 In fact, https://github.com/coq-contribs/historical-examples[the Coq proof
 assistant originally used the calculus of constructions].
 
-For example, Leibniz equality[https://en.wikipedia.org/wiki/Equality_(mathematics)] translates to:
+For example, https://en.wikipedia.org/wiki/Equality_(mathematics)[Leibniz
+equality] translates to:
 
 ------------------------------------------------------------------------------
 eq = \(A:*)(x:A)(y:A).forall p:A->*.p x->p y
@@ -971,7 +972,7 @@ its specification is described by:
 ------------------------------------------------------------------------------
 
 In addition, Coq defines 'inductive types'. We'll omit their description here,
-and just say induction and provably terminating recursion is built-in to
+and just say induction and provably terminating recursion is built into
 the system, obivating the need for awkward `axiom` assertions.
 
 Coq v8 and later remove rules of the form:
