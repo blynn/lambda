@@ -1,6 +1,7 @@
 = WebAssembly Compiler =
 
-Click the button below to compile an expression to WebAssembly, and run it.
+Click the button below to compile an expression to
+http://webassembly.org/[WebAssembly] and run it.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -115,7 +116,7 @@ which calls the imported function with the constant 42 (0x2a).
 0a 08  ; 8-byte code section.
 01     ; One function body.
 06     ; Length of function body.
-00     ; Number of local variables.
+00     ; No local variables.
 41 2a  ; Encoding of "i32.const 42".
 10 00  ; Call function 0.
 0b     ; End of code.
@@ -249,7 +250,9 @@ list, which suffices for our simple demo.
 In wasm, the 8 bytes of a double are encoded in little-endian.
 Normally, we can take care of this in Haskell with, say,
 https://hackage.haskell.org/package/reinterpret-cast/docs/Data-ReinterpretCast.html[the `Data.ReinterpretCast` package] but Haste lacks support for the
-relevant Haskell primitives. For the Haste version, we use JavaScript
+relevant Haskell primitives. For the Haste version,
+we use
+http://stackoverflow.com/questions/24564460/how-to-apply-bitwise-operations-to-the-actual-ieee-754-representation-of-js-numb[JavaScript
 to get at the bytes representing a double:
 
 [source,html]
