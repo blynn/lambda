@@ -1,6 +1,6 @@
-= WebAssembly Compiler =
+= WebAssembly =
 
-Click the button below to compile an expression to
+Click below to compile an expression to
 http://webassembly.org/[WebAssembly] and run it.
 
 [pass]
@@ -10,7 +10,7 @@ http://webassembly.org/[WebAssembly] and run it.
 <br>
 <span id="output"></span>
 <br>
-<button id="evalB">Compile & Run</button>
+<button id="evalB">Compile + Run</button>
 <br>
 <p>
 <b>wasm</b>:
@@ -30,7 +30,6 @@ Available operators:
 
 == The wasm binary format ==
 
-Let's walk through the encoding of a simple program.
 We open with the 4-byte magic string `"\0asm"`, then the 4-byte version,
 which is 1 in little-endian:
 
@@ -253,7 +252,7 @@ https://hackage.haskell.org/package/reinterpret-cast/docs/Data-ReinterpretCast.h
 relevant Haskell primitives. For the Haste version,
 we use
 http://stackoverflow.com/questions/24564460/how-to-apply-bitwise-operations-to-the-actual-ieee-754-representation-of-js-numb[JavaScript
-to get at the bytes representing a double:
+to get at the bytes representing a double]:
 
 [source,html]
 ------------------------------------------------------------------------------

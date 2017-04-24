@@ -6,23 +6,23 @@ Have we just learned we can never trust software? How can we rely on a program
 to control spacecraft or medical equipment if it can unpredictably loop
 forever?
 
-One might claim extensive testing is the answer: we check a variety of cases
-work as intended, then hope for the best. But though helpful, testing alone is
-rarely satisfactory. An untested case may occur naturally and cause our code to
-behave badly. Worse still, a malicious user could scour the untested cases to
-find ways to deliberately sabotage our program.
+http://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[One might
+claim extensive testing is the answer]. We check a variety of cases work as
+intended, then hope for the best. But though helpful, testing alone rarely
+suffices. An untested case might occur naturally and cause bad behavour.  Worse
+still, a malicious user could scour the untested cases for ways to deliberately
+sabotage our program.
 
-The only real fix is to rein in those unruly Turing machines. By constraining
-what can appear in our code, it might behave better. We might try banning GOTO
-statements for example.
+The only true fix is to rein in those unruly Turing machines. Constraining our
+code, might make it behave. We might try banning GOTO statements for example.
 
 But how do we know if our restrictions are effective? Also, halting is but one
-concern: even if we're sure our program halts, it should do the right thing.
-Can we modify our languages so that we can prove program correctness?
+concern: even if we're sure our program halts, it should still do the right
+thing.
 
-It turns out reasoning about our programs is easiest if we replace Turing
+We'll see that reasoning about our programs is easiest if we replace Turing
 machines with an equally powerful model of computation: link:.[lambda calculus].
-Only then can we introduce types, and draw on mathematics to prove results.
+Only then can we introduce types, and draw on mathematics to prove correctness.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

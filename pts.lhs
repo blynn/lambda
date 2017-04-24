@@ -115,8 +115,8 @@ addn0prf=\n:nat.natInd n (\u:nat.eq nat (add u O) u) (prfReflEq nat O) (\u:nat.p
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-How do we create the above? We begin with a humbler goal: to augment System
-F~&omega;~ with an abstraction that maps terms to types.
+How do we create the above? We begin with a humbler goal: to augment
+link:typo.html[System F~&omega;~] with an abstraction that maps terms to types.
 
 Recall we already 3 abstractions: one for mapping terms to terms
 (link:index.html[lambda calculus]), one for types to terms

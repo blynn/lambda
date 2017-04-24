@@ -30,6 +30,10 @@ exp 2 3  -- Compute 2^3.
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+The above interprets lambda calculus terms in a Haskell program that has been
+compiled to JavaScript. Elsewhere, we'll write link:sk.html[a compiler for
+lambda calculus].
+
 == Why Lambda Calculus? ==
 
 Lambda calculus is historically significant. Alonzo Church was Alan Turing's
