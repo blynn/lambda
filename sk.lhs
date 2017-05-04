@@ -131,8 +131,8 @@ the following:
 \end{align}
 \]
 
-where $\lceil T \rceil$ denotes the lambda term $T$ written with
-$S$, $K$, and free variables only. This conversion is known as 'bracket
+where $\lceil T \rceil$ denotes the lambda term $T$ written without
+lambda abstractions. This conversion is known as 'bracket
 abstraction'. (In the third equation, $M, N$ denote lambda terms.)
 
 Other choices of combinators are possible, for example, it turns out every
@@ -153,7 +153,7 @@ point-free style].
 == Better bracket abstraction ==
 
 We refine the above rules to obtain leaner combinator calculus expressions.
-One easy optimization is to genralize the second rule:
+One easy optimization is to generalize the second rule:
 \[
 \lceil \lambda x . M \rceil = K M \quad (x \notin M)
 \]
@@ -210,7 +210,7 @@ noLamEq _ _ = False
 \end{code}
 
 Stricter checks such as avoiding recursive let definitions and prohibiting `s`
-and `k` to be used as symbol are left as exercises.
+and `k` to be used as symbols are left as exercises.
 
 A few lines in the Either monad glues together our parser and our bracket
 abstraction routine:
@@ -231,7 +231,7 @@ zero) and `z` returns it, we have a routine that returns `n`.
 
 == Graph Reduction ==
 
-Our approach is to encode the tree representing our program into an array, then
+We encode the tree representing our program into an array, then
 write WebAssembly to manipulate this tree. In other words, we model computation
 as https://en.wikipedia.org/wiki/Graph_reduction['graph reduction'].
 

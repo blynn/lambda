@@ -57,7 +57,7 @@ Some presentations of PCF also add the base type `Bool` along with constants
 `True`, `False` and replace `ifz` with `if` and `iszero`, which is similar to
 link:simply.html[our last interpreter].
 
-To be fair to Go: for full-blown generics, we need recursive types and
+To be fair to Go: for full-blown generics, we need algebraic data types and
 link:typo.html[type operators] to define, say, a binary tree containing values
 of any given type.  Even then parametric polymorphism is only half the problem.
 The other half is ad hoc polymorphism, which Haskell researchers only neatly
