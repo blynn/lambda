@@ -377,90 +377,91 @@ Bruijn indices.
 
 \begin{code}
   -- Code section.
-  sect 10 [lenc $ [1, 4, encType "i32",
-    -- Locals
-    --  0 = program counter (IP)
-    --  1 = stack pointer (SP)
-    --  2 = result
-    --  3 = heap (HP)
-    i32const, 4, setlocal, 0,
-    i32const] ++ leb128 (65536 * nPages) ++ [setlocal, 1,
-    i32const] ++ varlen heap ++ [setlocal, 3,
+  -- Locals
+  let
+    ip = 0  -- program counter
+    sp = 1  -- stack pointer
+    hp = 2  -- heap pointer
+    ax = 3  -- accumulator
+  in sect 10 [lenc $ [1, 4, encType "i32",
+    i32const, 4, setlocal, ip,
+    i32const] ++ leb128 (65536 * nPages) ++ [setlocal, sp,
+    i32const] ++ varlen heap ++ [setlocal, hp,
     3, 0x40,  -- loop
     2, 0x40,  -- block 4
     2, 0x40,  -- block 3
     2, 0x40,  -- block 2
     2, 0x40,  -- block 1
     2, 0x40,  -- block 0
-    getlocal, 0,
+    getlocal, ip,
     0xe,4,0,1,2,3,4, -- br_table
     0xb,  -- end 0
 -- Zero.
-    getlocal, 2,
+    getlocal, ax,
     0x10, 0,  -- call function 0
     br, 5,  -- br function
     0xb,  -- end 1
 -- Successor.
-    getlocal, 2, i32const, 1, i32add, setlocal, 2,
+    getlocal, ax, i32const, 1, i32add, setlocal, ax,
     -- IP = [[SP] + 4]
-    getlocal, 1, i32load, 2, 0, -- align 2, offset 0.
+    getlocal, sp, i32load, 2, 0, -- align 2, offset 0.
     i32const, 4, i32add, i32load, 2, 0,
-    setlocal, 0,
+    setlocal, ip,
     -- SP = SP + 4
     -- In a correct program, the stack should now be empty.
-    getlocal, 1, i32const, 4, i32add, setlocal, 1,
+    getlocal, sp, i32const, 4, i32add, setlocal, sp,
     br, 3,  -- br loop
     0xb,  -- end 2
 -- K combinator.
     -- IP = [[SP] + 4]
-    getlocal, 1, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
-    setlocal, 0,
+    getlocal, sp, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
+    setlocal, ip,
     -- SP = SP + 8
-    getlocal, 1, i32const, 8, i32add, setlocal, 1,
+    getlocal, sp, i32const, 8, i32add, setlocal, sp,
     br, 2,  -- br loop
     0xb,  -- end 3
 -- S combinator.
     -- [HP] = [[SP] + 4]
-    getlocal, 3,
-    getlocal, 1, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
     i32store, 2, 0,
     -- [HP + 4] = [[SP + 8] + 4]
-    getlocal, 3, i32const, 4, i32add,
-    getlocal, 1, i32const, 8, i32add, i32load, 2, 0,
+    getlocal, hp, i32const, 4, i32add,
+    getlocal, sp, i32const, 8, i32add, i32load, 2, 0,
     i32const, 4, i32add, i32load, 2, 0,
     i32store, 2, 0,
     -- [HP + 8] = [[SP + 4] + 4]
-    getlocal, 3, i32const, 8, i32add,
-    getlocal, 1, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, hp, i32const, 8, i32add,
+    getlocal, sp, i32const, 4, i32add, i32load, 2, 0,
     i32const, 4, i32add, i32load, 2, 0,
     i32store, 2, 0,
     -- [HP + 12] = [HP + 4]
-    getlocal, 3, i32const, 12, i32add,
-    getlocal, 3, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, hp, i32const, 12, i32add,
+    getlocal, hp, i32const, 4, i32add, i32load, 2, 0,
     i32store, 2, 0,
     -- SP = SP + 8
     -- [[SP]] = HP
-    getlocal, 1, i32const, 8, i32add, teelocal, 1,
+    getlocal, sp, i32const, 8, i32add, teelocal, sp,
     i32load, 2, 0,
-    getlocal, 3,
+    getlocal, hp,
     i32store, 2, 0,
     -- [[SP] + 4] = HP + 8
-    getlocal, 1, i32load, 2, 0, i32const, 4, i32add,
-    getlocal, 3, i32const, 8, i32add,
+    getlocal, sp, i32load, 2, 0, i32const, 4, i32add,
+    getlocal, hp, i32const, 8, i32add,
     i32store, 2, 0,
     -- IP = HP
     -- HP = HP + 16
-    getlocal, 3, teelocal, 0,
-    i32const, 16, i32add, setlocal, 3,
+    getlocal, hp, teelocal, ip,
+    i32const, 16, i32add, setlocal, hp,
     br, 1,  -- br loop
     0xb,  -- end 4
 -- Application.
     -- SP = SP - 4
     -- [SP] = IP
-    getlocal, 1, i32const, 4, i32sub,
-    teelocal, 1, getlocal, 0, i32store, 2, 0,
+    getlocal, sp, i32const, 4, i32sub,
+    teelocal, sp, getlocal, ip, i32store, 2, 0,
     -- IP = [IP]
-    getlocal, 0, i32load, 2, 0, setlocal, 0,
+    getlocal, ip, i32load, 2, 0, setlocal, ip,
     br, 0,
     0xb,    -- end loop
     0xb]],  -- end function
