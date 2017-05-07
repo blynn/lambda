@@ -47,8 +47,8 @@ We build off link:index.html[our lambda calculus parser]:
 
 \begin{code}
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE OverloadedStrings #-}
 #ifdef __HASTE__
+{-# LANGUAGE OverloadedStrings #-}
 import Haste.DOM
 import Haste.Events
 import Haste.Foreign
