@@ -1,4 +1,4 @@
-== Lazy K, Crazy L ==
+== Crazy L ==
 
 Y=ssk(s(k(ss(s(ssk))))k)
 P=\nfx.n(\gh.h(gf))(\u.x)(\u.u)
@@ -8,14 +8,34 @@ Y(\fn.zn(\fx.fx)(Mn(f(Pn))))
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="crazyl.js"></script>
-<textarea id="input" rows="16" cols="80">
-1111100011111111100000111111111000001111111000111100111111000111111100011110011111000111111100011110011100111111100011110011111111100011111111100000111111111000001111111100011111111100000111111111000001111111000111111100011110011111000111001111111110000011111110001111001111110001111111110000011100111001111111000111100111111000111100111111000111111100011111110001111111110000011110011100111100111111100011110011111100011111111100000111001111111000111100111111000111100111111000111100111001111111000111111100011110011111000111111100011110011111100011110011111000111111100011111110001111001111100011111110001111001110011111110001111001111100011111110001111001110011111110001111111110000011111111100000111100111111100011110011111100011111110001111001111100011111110001111001111110001111111110000011111111000111110001111110001111111110000011110011100111111100011110011100111001111001111001111111000111111111000001111001111001111111110000011110011111111000111111111000001111111110000011111111000111111111000001111111110000011111110001111111000111100111110001110011111111100000
+e=s(skk)(skk)(s(skk)(skk)(s(s(ks)k)(skk)))
+v=s(k(s(k(s(k(s(k(ss(kk)))k))s))(s(skk))))k
+k(vee)
+
+<textarea id="source" rows="16" cols="80">
+Q=(\fx.f(f(f(fx))))(\fx.f(f(fx)))
+e=s(skk)(skk)(s(skk)(skk)(s(s(ks)k)(skk)))
+v=s(k(s(k(s(k(s(k(ss(kk)))k))s))(s(skk))))k
+k(vQ(vee))
 </textarea>
+
+t=\xy.x
+f=\xy.y
+l=\fx.fx
+u=\nfx.f(nfx)
+p=\nfx.n(\gh.h(gf))(\u.x)(\u.u)
+m=\mnf.m(nf)
+z=\n.n(\x.f)t
+Y=\f.(\x.xx)(\x.f(xx))
+a=Y(\fn.(zn)l(mn(f(pn))))
+a(u(u(u1)))  # Compute 4 factorial.
 <br>
-<button id="evalB">Compile + Run</button>
+<input type="radio" id="natRadio"    name="mode" checked>Nat<br>
+<input type="radio" id="lazykRadio"  name="mode">Lazy K<br>
+<input type="radio" id="fussykRadio" name="mode">Fussy K<br>
+<input type="radio" id="crazylRadio" name="mode">Crazy L<br>
 <br>
-<br>
-<textarea id="output" rows="1" cols="8" readonly></textarea>
+<button id="compB">Compile</button>
 <br>
 <b>intermediate form</b>:
 <br>
@@ -24,10 +44,16 @@ Y(\fn.zn(\fx.fx)(Mn(f(Pn))))
 <b>wasm</b>:
 <br>
 <textarea id="asm" rows="8" cols="80" readonly></textarea>
+<br>
+<button id="runB">Run</button>
+<br>
+Input: <textarea id="input" rows="1" cols="50"></textarea>
+<br>
+Output: <textarea id="output" rows="1" cols="50" readonly></textarea>
 <script type="text/javascript">
 function runWasmInts(a) {
   WebAssembly.instantiate(new Uint8Array(a),
-    {i:{f:x => Haste.putChar(x), g:Haste.getChar}}).then(x => x.instance.exports.e());
+    {i:{f:x => Haste.putChar(x), g:Haste.getChar, h:x => Haste.putInt(x)}}).then(x => x.instance.exports.e());
 }
 </script>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -107,7 +133,7 @@ super = do
   char '='
   Super name <$> ccexpr
 
-parseLine = parse top "" . filter (not . isSpace)
+parseLine = parse top "" . filter (not . isSpace) . takeWhile (/= '#')
 
 fv vs (Var s) | s `elem` vs = []
               | otherwise   = [s]
@@ -154,13 +180,12 @@ run (Var "!") (x:y:stack) | I n <- run x [Var "+", Var "0"] = S $ case n of
   256 -> []
   n   -> chr n : t where S t = run y $ Var "!":stack
 run (Var ">") (x:y:stack) = S $ chr n : t where
-  S t = run y stack
   I n = run x [Var "+", Var "0"]
+  S t = run y stack
 run (Var ".") [] = S []
 run e s = error $ show e
 
---chuList []     = vireo :@ church 256     :@ chuList []
-chuList []     = vireo :@ church 256     :@ Var "k"
+chuList []     = vireo :@ church 256     :@ chuList []
 chuList (x:xs) = vireo :@ church (ord x) :@ chuList xs
 
 church 0 = Var "k" :@ skk
@@ -321,8 +346,6 @@ main = do
     "iota"  -> f dumpIota
     "jot"   -> f dumpJot
     "unl"   -> f dumpUnlambda
-    --"enc"   -> f enc where enc t inp = show $ compile t
-    "enc"   -> f enc where enc t inp = show $ gen
     "test"  -> void runAllTests
     bad     -> putStrLn $ "bad command: " ++ bad
 #endif
@@ -334,19 +357,21 @@ addrSucc = 257 * 8
 codeSucc = toArr addrSucc scBird
 addrVireo = addrSucc + length codeSucc
 codeVireo = toArr addrVireo vireo
+addrRFold = addrVireo + length codeVireo
+codeRFold = toArr addrRFold rfold
 
 genChurch = enCom "s" ++ enCom "k" ++ concat [toU32 addrSucc ++ toU32 (n * 8) | n <- [0..255]]
 
-gen = genChurch ++ codeSucc ++ codeVireo
+gen = genChurch ++ codeSucc ++ codeVireo ++ codeRFold
 
 enCom "0" = neg32 1
 enCom "+" = neg32 2
 enCom "k" = neg32 3
 enCom "s" = neg32 4
-enCom "<" = neg32 5
-enCom "!" = neg32 6
-enCom ">" = neg32 7
-enCom "." = neg32 8
+enCom "!" = neg32 5
+enCom ">" = neg32 6
+enCom "." = neg32 7
+enCom "<" = neg32 8
 toArr n (Var a :@ Var b) = enCom a ++ enCom b
 toArr n (Var a :@ y)     = enCom a ++ toU32 (n + 8) ++ toArr (n + 8) y
 toArr n (x     :@ Var b) = toU32 (n + 8) ++ enCom b ++ toArr (n + 8) x
@@ -371,7 +396,9 @@ teelocal = 0x22
 i32load  = 0x28
 i32store = 0x36
 i32const = 0x41
+i32eq    = 0x46
 i32ne    = 0x47
+i32ge_u  = 0x4f
 i32add   = 0x6a
 i32sub   = 0x6b
 i32mul   = 0x6c
@@ -403,7 +430,7 @@ Our binary starts the same as link:wasm.html[our first wasm demo], except we
 work with `i32` instead of `f64` and ask for linear memory.
 
 \begin{code}
-compile e = concat [
+compile mode e = concat [
   [0, 0x61, 0x73, 0x6d, 1, 0, 0, 0],  -- Magic string, version.
   -- Type section.
   sect 1 [encSig ["i32"] [], encSig [] [], encSig [] ["i32"]],
@@ -412,7 +439,8 @@ compile e = concat [
     -- [0, 0] = external_kind Function, type index 0.
     encStr "i" ++ encStr "f" ++ [0, 0],
     -- [0, 2] = external_kind Function, type index 2.
-    encStr "i" ++ encStr "g" ++ [0, 2]],
+    encStr "i" ++ encStr "g" ++ [0, 2],
+    encStr "i" ++ encStr "h" ++ [0, 0]],
   -- Function section.
   -- [1] = Type index.
   sect 3 [[1]],
@@ -420,8 +448,8 @@ compile e = concat [
   -- 0 = no-maximum
   sect 5 [[0, nPages]],
   -- Export section.
-  -- [0, 1] = external_kind Function, function index 2.
-  sect 7 [encStr "e" ++ [0, 2]],
+  -- [0, 1] = external_kind Function, function index 3.
+  sect 7 [encStr "e" ++ [0, 3]],
 \end{code}
 
 \begin{code}
@@ -436,31 +464,31 @@ compile e = concat [
   in sect 10 [lenc $ [1, 5, encType "i32",
     i32const] ++ varlen gen ++ [setlocal, ip,
     i32const] ++ leb128 (65536 * nPages) ++ [setlocal, sp,
-    i32const] ++ varlen heap ++ [setlocal, hp,
+    i32const] ++ varlen heap ++ [setlocal, hp] ++ case mode of
+      "lazyk" -> [
+        3, 0x40,  -- Lazy K loop
+        -- BX = IP
+        getlocal, ip, setlocal, bx,
+        -- [HP] = IP
+        getlocal, hp, getlocal, ip, i32store, 2, 0,
+        -- [HP + 4] = Var "k"
+        getlocal, hp, i32const, 4, i32add, i32const, 128 - 3, i32store, 2, 0,
+        -- [HP + 8] = HP
+        getlocal, hp, i32const, 8, i32add, getlocal, hp, i32store, 2, 0,
+        -- [HP + 12] = Var "+"
+        getlocal, hp, i32const, 12, i32add, i32const, 128 - 2, i32store, 2, 0,
+        -- [HP + 16] = HP + 8
+        getlocal, hp, i32const, 16, i32add, getlocal, hp, i32const, 8, i32add,
+        i32store, 2, 0,
+        -- [HP + 20] = Var "0"
+        getlocal, hp, i32const, 20, i32add, i32const, 128 - 1, i32store, 2, 0,
+        -- IP = HP + 16
+        -- HP = HP + 24
+        getlocal, hp, i32const, 16, i32add, setlocal, ip,
+        getlocal, hp, i32const, 24, i32add, setlocal, hp]
+      _ -> []
 
-    3, 0x40,  -- Lazy K loop
-    -- BX = IP
-    getlocal, ip, setlocal, bx,
-
-    -- [HP] = IP
-    getlocal, hp, getlocal, ip, i32store, 2, 0,
-    -- [HP + 4] = Var "k"
-    getlocal, hp, i32const, 4, i32add, i32const, 128 - 3, i32store, 2, 0,
-    -- [HP + 8] = HP
-    getlocal, hp, i32const, 8, i32add, getlocal, hp, i32store, 2, 0,
-    -- [HP + 12] = Var "+"
-    getlocal, hp, i32const, 12, i32add, i32const, 128 - 2, i32store, 2, 0,
-    -- [HP + 16] = HP + 8
-    getlocal, hp, i32const, 16, i32add, getlocal, hp, i32const, 8, i32add,
-    i32store, 2, 0,
-    -- [HP + 20] = Var "0"
-    getlocal, hp, i32const, 20, i32add, i32const, 128 - 1, i32store, 2, 0,
-    -- IP = HP + 16
-    -- HP = HP + 24
-    getlocal, hp, i32const, 16, i32add, setlocal, ip,
-    getlocal, hp, i32const, 24, i32add, setlocal, hp,
-
-    3, 0x40,  -- loop
+    ++ [3, 0x40,  -- loop
     2, 0x40,  -- block 5
     2, 0x40,  -- block 4
     2, 0x40,  -- block 3
@@ -469,33 +497,50 @@ compile e = concat [
     2, 0x40,  -- block 0
     i32const, 128 - 1, getlocal, ip, i32sub,  -- -1 - IP
     0xe,5,0,1,2,3,4,5, -- br_table
-    0xb,  -- end 0
+    -- end 0
+    0xb] ++ case mode of
 -- Zero.
 
-    2, 0x40,   -- block Z
-    getlocal, ax, i32const, 128, 2, i32sub,  -- AX - 256
-    br_if, 0,  -- br_if Z
-    br, 8,     -- br function
-    0xb,       -- end Z
-    getlocal, ax, 0x10, 0,
-    i32const, 0, setlocal, ax,
+      "lazyk" ->
+        [getlocal, ax, i32const, 128, 2, i32ge_u,  -- AX >= 256?
+        br_if, 7,  -- br_if function
+        getlocal, ax, 0x10, 0,
+        i32const, 0, setlocal, ax,
+        -- [HP] = BX
+        getlocal, hp, getlocal, bx, i32store, 2, 0,
+        -- [HP + 4] = HP + 8
+        getlocal, hp, i32const, 4, i32add, getlocal, hp, i32const, 8, i32add,
+        i32store, 2, 0,
+        -- [HP + 8] = Var "s"
+        getlocal, hp, i32const, 8, i32add, i32const, 128 - 4, i32store, 2, 0,
+        -- [HP + 12] = Var "k"
+        getlocal, hp, i32const, 12, i32add, i32const, 128 - 3, i32store, 2, 0,
+        -- IP = HP
+        -- HP = HP + 16
+        getlocal, hp, setlocal, ip,
+        getlocal, hp, i32const, 16, i32add, setlocal, hp,
+        br, 6]  -- br Lazy K loop
+      "fussyk" ->
+        [getlocal, ax, i32const, 128, 2, i32ge_u,  -- AX >= 256?
+        br_if, 6,  -- br_if function
+        getlocal, ax, 0x10, 0,
+        i32const, 0, setlocal, ax,
+        -- BX something
+        -- [HP] = BX
+        getlocal, hp, getlocal, bx, i32store, 2, 0,
+        -- [HP + 4] = Var "!"
+        getlocal, hp, i32const, 4, i32add, i32const, 128 - 5, i32store, 2, 0,
+        -- IP = HP
+        -- HP = HP + 8
+        getlocal, hp, setlocal, ip,
+        getlocal, hp, i32const, 8, i32add, setlocal, hp,
+        br, 5]  -- br loop
+      "nat" ->
+        [getlocal, ax, 0x10, 2,
+        br, 6]  -- br function
+      _ -> []
 
-    -- [HP] = BX
-    getlocal, hp, getlocal, bx, i32store, 2, 0,
-    -- [HP + 4] = HP + 8
-    getlocal, hp, i32const, 4, i32add, getlocal, hp, i32const, 8, i32add,
-    i32store, 2, 0,
-    -- [HP + 8] = Var "s"
-    getlocal, hp, i32const, 8, i32add, i32const, 128 - 4, i32store, 2, 0,
-    -- [HP + 12] = Var "k"
-    getlocal, hp, i32const, 12, i32add, i32const, 128 - 3, i32store, 2, 0,
-    -- IP = HP
-    -- HP = HP + 16
-    getlocal, hp, setlocal, ip,
-    getlocal, hp, i32const, 16, i32add, setlocal, hp,
-    br, 6,  -- br Lazy K loop
-
-    0xb,  -- end 1
+    ++ [0xb,  -- end 1
 -- Successor.
     -- AX = AX + 1
     getlocal, ax, i32const, 1, i32add, setlocal, ax,
@@ -504,7 +549,6 @@ compile e = concat [
     i32const, 4, i32add, i32load, 2, 0,
     setlocal, ip,
     -- SP = SP + 4
-    -- In a correct program, the stack should now be empty.
     getlocal, sp, i32const, 4, i32add, setlocal, sp,
     br, 4,  -- br loop
     0xb,  -- end 2
@@ -551,19 +595,22 @@ compile e = concat [
     i32const, 16, i32add, setlocal, hp,
     br, 2,  -- br loop
     0xb,  -- end 4
--- Input.
--- TODO: WRONG: reused nodes...
-    -- [HP] = Vireo
-    getlocal, hp, i32const] ++ leb128 addrVireo ++ [i32store, 2, 0,
-    -- [HP + 4] = getChar * 8
-    getlocal, hp, i32const, 4, i32add, 0x10, 1, i32const, 8, i32mul,
-    i32store, 2, 0,
+-- "!": Fussy K.
+    -- [HP] = [[SP] + 4]
+    getlocal, hp, getlocal, sp, i32load, 2, 0, i32const, 4, i32add,
+    i32load, 2, 0, i32store, 2, 0,
+    -- [HP + 4] = Var "+"
+    getlocal, hp, i32const, 4, i32add, i32const, 128 - 2, i32store, 2, 0,
     -- [HP + 8] = HP
     getlocal, hp, i32const, 8, i32add, getlocal, hp, i32store, 2, 0,
-    -- [HP + 12] = Var "<"
-    getlocal, hp, i32const, 12, i32add, i32const, 128 - 5, i32store, 2, 0,
+    -- [HP + 12] = Var "0"
+    getlocal, hp, i32const, 12, i32add, i32const, 128 - 1, i32store, 2, 0,
     -- IP = HP + 8
     getlocal, hp, i32const, 8, i32add, setlocal, ip,
+    -- BX = [[SP + 4] + 4]
+    getlocal, sp, i32const, 4, i32add, i32load, 2, 0,
+    i32const, 4, i32add, i32load, 2, 0,
+    setlocal, bx,
     -- HP = HP + 16
     getlocal, hp, i32const, 16, i32add, setlocal, hp,
     br, 1,  -- br loop
@@ -576,7 +623,7 @@ compile e = concat [
 
     -- If [IP] = Var "<" then getchar.
     2, 0x40,  -- block <
-    getlocal, ip, i32load, 2, 0, i32const, 128 - 5, i32ne,
+    getlocal, ip, i32load, 2, 0, i32const, 128 - 8, i32ne,
     br_if, 0,
     -- [HP] = Vireo
     getlocal, hp, i32const] ++ leb128 addrVireo ++ [i32store, 2, 0,
@@ -584,7 +631,7 @@ compile e = concat [
     getlocal, hp, i32const, 4, i32add, 0x10, 1, i32const, 8, i32mul,
     i32store, 2, 0,
     -- [HP + 8] = Var "<"
-    getlocal, hp, i32const, 8, i32add, i32const, 128 - 5, i32store, 2, 0,
+    getlocal, hp, i32const, 8, i32add, i32const, 128 - 8, i32store, 2, 0,
     -- [IP] = HP
     getlocal, ip, getlocal, hp, i32store, 2, 0,
     -- [IP + 4] = HP + 8
@@ -596,11 +643,13 @@ compile e = concat [
     -- IP = [IP]
     getlocal, ip, i32load, 2, 0, setlocal, ip,
     br, 0,
-    0xb,    -- end loop
+    0xb]    -- end loop
 
-    0xb,    -- end Lazy K loop
+    ++ case mode of
+      "lazyk" -> [0xb]    -- end Lazy K loop
+      _       -> []
 
-    0xb]],  -- end function
+    ++ [0xb]],  -- end function
 \end{code}
 
 The data section initializes the linear memory so our encoded tree sits
@@ -609,9 +658,11 @@ at the bottom.
 \begin{code}
   -- Data section.
   sect 11 [[0, i32const, 0, 0xb] ++ lenc heap]]
-  --where heap = encodeTree e
-  where heap = encodeTree $ e :@ (Var "<" :@ Var "<")
-  --where heap = encodeTree $ e :@ chuList "hello"
+  where
+    heap = encodeTree $ case mode of 
+      "lazyk"  -> e :@ (Var "<" :@ Var "<")
+      "fussyk" -> e :@ (Var "<" :@ Var "<") :@ Var "!"
+      "nat"    -> e :@ Var "+" :@ Var "0"
 \end{code}
 
 \begin{code}
@@ -619,14 +670,16 @@ at the bottom.
 dump asm = unwords $ xxShow <$> asm where
   xxShow c = reverse $ take 2 $ reverse $ '0' : showHex c ""
 
-main = withElems ["input", "output", "sk", "asm", "evalB"] $
-    \[iEl, oEl, skEl, aEl, evalB] -> do
+main = withElems ["source", "input", "output", "sk", "asm", "compB", "runB"] $
+    \[sEl, iEl, oEl, skEl, aEl, compB, runB] -> do
   inp <- newMVar "hello"
   let
     putChar :: Int -> IO ()
     putChar c = do
       v <- getProp oEl "value"
-      setProp oEl "value" $ v ++ " " ++ show c
+      setProp oEl "value" $ v ++ [chr c]
+    putInt :: Int -> IO ()
+    putInt n = setProp oEl "value" $ show n
     getChar :: IO Int
     getChar = do
       s <- takeMVar inp
@@ -639,18 +692,25 @@ main = withElems ["input", "output", "sk", "asm", "evalB"] $
           putMVar inp t
           pure $ ord h
   export "putChar" putChar
+  export "putInt"  putInt
   export "getChar" getChar
-  evalB `onEvent` Click $ const $ do
-    setProp oEl "value" ""
+  compB `onEvent` Click $ const $ do
     setProp skEl "value" ""
     setProp aEl "value" ""
-    s <- getProp iEl "value"
+    s <- getProp sEl "value"
     case parseProgram s of
       Left err -> setProp skEl "value" $ "error: " ++ show err
       Right sk -> do
-        let asm = compile sk
+        let asm = compile "fussyk" sk
         setProp skEl "value" $ show sk
         setProp aEl "value" $ show asm
-        ffi "runWasmInts" asm :: IO ()
+  runB `onEvent` Click $ const $ do
+    setProp oEl "value" ""
+    s <- getProp iEl "value"
+    _ <- takeMVar inp
+    putMVar inp s
+    asmStr <- getProp aEl "value"
+    let asm = read asmStr :: [Int]
+    ffi "runWasmInts" asm :: IO ()
 #endif
 \end{code}
