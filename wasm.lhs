@@ -30,6 +30,8 @@ Available operators:
 
 == The wasm binary format ==
 
+We walk through a small standalone wasm binary.
+
 We open with the 4-byte magic string `"\0asm"`, then the 4-byte version,
 which is 1 in little-endian:
 
@@ -105,8 +107,16 @@ Section 7 declares exports:
 01     ; One signature.
 01 65  ; The string "e".
 00     ; Function.
-01     ; Index of signature in section 1.
+01     ; Function index.
 ------------------------------------------------------------------------------
+
+Functions are numbered from 0, so function index 1 refers to the second
+function. The first function mentioned was the function in section 2,
+and the second function mentioned is the function in section 3. In general,
+
+if there are $m$ functions in section 2 and $n$ functions in section 3,
+then the function index $k$ will lie in $[m..n - 1]$ and refer to the
+$(k - m)$th function of section 3.
 
 Section 10 holds the code. Here, we define the body of our exported function,
 which calls the imported function with the constant 42 (0x2a).
@@ -139,7 +149,8 @@ WebAssembly.instantiate(new Uint8Array([
 We modify link:../haskell/parse.html[a grammar from another demo] so it
 accepts Haskell-style expressions: application associates to the left
 and functions are curried. For example, `min 4 3`, the minimum of 4 and 3,
-is interpreted as `(min 4) 3`, and `1 + 2` is really `((+) 1) 2`.
+is interpreted as `(min 4) 3`, and `1 + 2` is translated internally
+to `((+) 1) 2`.
 
 ------------------------------------------------------------------------------
 var    ::= ('a'|..|'z'|'A'|..|'Z')+
