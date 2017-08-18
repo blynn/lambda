@@ -197,8 +197,8 @@ true = \x y -> x
 means that for all following terms, the variable `true` is no longer a
 variable, but shorthand for the term on the right side, namely `\x y -> x`.
 There is one exception: if the variable `true` is the left child of a lambda
-abstraction, then it remains unexpanded and counts as a variable; ideally we'd
-pick a different name to avoid confusion.
+abstraction, then it shadows the original definition. It is a good practice
+to pick a different name to avoid confusion.
 
 Our parser accepts empty lines, let definitions, or terms that should be
 evaluated immediately.
@@ -251,7 +251,7 @@ definitions are possible. Thus our interpreter actually runs more than plain
 lambda calculus; a true lambda calculus term is unable to refer to itself.
 (Haskell similarly permits unrestricted recursion via let expressions.)
 
-The first line is a special feature that will be explained later.
+The quote business is a special feature that will be explained later.
 
 \begin{code}
 eval env (App (Var "quote") t)                   = quote env t

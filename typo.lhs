@@ -510,4 +510,5 @@ normalization.
 However, real programming languages often support unrestricted recursion and
 hence it is undecidable whether a term normalizes. Adding dependent types to
 such a language would lead to undecidable type checking. System F~&omega;~ is
-about as far as we can go while keeping type checking decidable.
+about as far as we can go if we want unrestricted recursion and decidable type
+checking.

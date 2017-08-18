@@ -1,9 +1,8 @@
 = Outcoding UNIX geniuses =
 
 Lack of https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric
-polymorphism] catches a programmer between Scylla and Charybdis. We're forced
-to choose between duplicating code or type casting. (Theoreticians face only
-the first monstrosity because type casting breaks everything.)
+polymorphism] squeezes a programmer between Scylla and Charybdis. We're forced
+to choose between duplicating code or type casting.
 
 So why don't all languages support this feature? Because it's tough to do:
 https://golang.org/doc/faq#generics[the designers of the Go language, including
@@ -195,7 +194,7 @@ calculus with generalized type variables from let-polymorphism is known as the
 'Hindley-Milner type system', or HM for short. Like simply typed lambda
 calculus, HM is strongly normalizing.
 
-We might then wonder if this `∀` notation is redundant. Since let definition
+We might then wonder if this `∀` notation is redundant. Since let definitions
 are like macros, shouldn't we generalize all type variables returned by the
 type inference algorithm? Why would we ever need to distinguish between
 generalized type variables and plain type variables if they're always going
@@ -343,7 +342,6 @@ data PCFLine = Empty | TopLet String Term | Run Term
 line :: Parser PCFLine
 line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
     (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
-  getV (Var s) = s
   term = ifz <|> letx <|> lam <|> app
   letx = Let <$> (str "let" >> v) <*> (str "=" >> term)
     <*> (str "in" >> term)
@@ -620,7 +618,7 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
       TopLet s term -> case typeOf gamma term of
         Left m  -> (concat
            [out, "type error: ", show term, ": ", m, "\n"], env)
-        Right t  -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
+        Right t -> (out ++ "[" ++ s ++ ":" ++ show t ++ "]\n",
           ((s, generalize [] t):gamma, (s, term):lets))
   reset
   resetB `onEvent` Click $ const reset
