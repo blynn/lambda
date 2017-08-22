@@ -1,7 +1,7 @@
 = System F =
 
 link:simply.html[Simply typed lambda calculus] is restrictive. The
-link:hm.html[let-polymorphism of Hindley-Milner] gives us more breathing room,
+link:pcf.html[let-polymorphism of Hindley-Milner] gives us more breathing room,
 but can we do better?
 
 System F frees the type system further by introducing parts of lambda calculus
@@ -60,7 +60,7 @@ E[forall X.X->X->X](shallow (not( not true)))
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 If we focus on the types, System F is a gentle generalization of
-link:hm.html[the Hindley-Milner system]. In the latter, any universal
+link:pcf.html[Hindley-Milner]. In the latter, any universal
 quantifiers `(∀)` must appear at the beginning of type, meaning they are scoped
 over the entire type. In System F, they can be arbitrary scoped. For example.
 `(∀X.X->X)->(∀X.X->X)` is a System F type, but not a Hindley-Milner type, while

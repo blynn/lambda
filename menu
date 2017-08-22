@@ -5,6 +5,7 @@ crazyl,Crazy L
 lisp,Lisp
 simply,Simply typed
 hm,Type inference
+pcf,PCF
 systemf,System F
 typo,Type operators
 pts,Pure Type Systems

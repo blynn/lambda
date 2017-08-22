@@ -401,6 +401,3 @@ There are two ways to fix this:
   2. We cautiously enrich our type system, at each step checking that
   well-typed programs normalize. With a sufficiently advanced type system,
   we gain some forms of recursion.
-
-link:hm.html[Our next interpreter demonstrates both approaches]: we add `fix`,
-but we also move to Hindley-Milner types.
