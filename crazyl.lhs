@@ -201,7 +201,7 @@ To this, we add lambda abstractions and top-level definitions, where all
 variables must be single characters.
 
 We also change the encoding of the input and output strings. Pairs are
-overkill for representing lists of bytes. After all, we can build aribtrary
+overkill for representing lists of bytes. After all, we can build arbitrary
 binary trees with pairs. Instead, we use
 https://en.wikipedia.org/wiki/Church_encoding#Represent_the_list_using_right_fold[the right fold representation of lists].
 List manipulations become elegant. A minor additional benefit is that lazy

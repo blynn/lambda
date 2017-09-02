@@ -59,9 +59,9 @@ we find lambda calculus is sometimes superior:
  skip the details and just explain why they exist.
 
  * *representing data with functions* can lead to rich algebras where a
- little goes a long way. For example, see
- http://projects.haskell.org/diagrams/gallery.html[a functional approach to
- drawing diagrams].
+ little goes a long way. For example, we can
+ http://projects.haskell.org/diagrams/gallery.html[draw intricate diagrams
+ with a few lines].
 
  * link:simply.html[*solves the halting problem*]: By adding types, we can
  ensure lambda calculus programs always halt. It's unclear how we can
@@ -70,9 +70,9 @@ we find lambda calculus is sometimes superior:
  * *provably correct*: More generally,
  https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[typed lambda
  calculus turns out to be deeply connected to the foundations of mathematics]
- Sufficiently advanced types leads to a language where bugs are impossible to
- express, that is, every valid program is correct. This connection is harder to
- see from a Turing-machine viewpoint.
+ Sufficiently advanced types make bugs impossible to express, that is, every
+ syntactically correct program is also semantically correct. This connection is
+ harder to see from a Turing-machine viewpoint.
 
 As the importance of software grows in our world, so does the importance of
 the advantages of lambda calculus, and in particular, its connections with the
@@ -109,23 +109,7 @@ for computing anything. A Turing machine has states, a tape of cells, and a
 movable head that reads and writes; how can putting formulas into formulas be
 equivalent?
 
-To build everything yourself, install http://haste-lang.org/[Haste] and
-http://asciidoc.org[AsciiDoc], and then type:
-
-------------------------------------------------------------------------------
-$ haste-cabal install parsec
-$ wget https://crypto.stanford.edu/~blynn/lambda/index.lhs
-$ hastec index.lhs
-$ sed 's/^\\.*{code}$/-----/' index.lhs | asciidoc -o - - > index.html
-$ cabal install parsec readline
-$ ghc index.lhs
-------------------------------------------------------------------------------
-
-Then run the command-line interpreter `./index` or browse to `index.html`.
-Other binaries on this website can be similarly built.
-
-To produce binaries for different systems, we need conditional compilation
-and various imports:
+We use code to help answer the question, which requires a bit of boilerplate:
 
 \begin{code}
 {-# LANGUAGE CPP #-}
@@ -735,3 +719,20 @@ q0 = Lam(\f.Lam(\x.Var x))
 E(App qsucc (App qsucc q0))  -- Compute `succ (succ 0)`.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+== DIY ==
+
+To build everything yourself, install http://haste-lang.org/[Haste] and
+http://asciidoc.org[AsciiDoc], and then type:
+
+------------------------------------------------------------------------------
+$ haste-cabal install parsec
+$ wget https://crypto.stanford.edu/~blynn/lambda/index.lhs
+$ hastec index.lhs
+$ sed 's/^\\.*{code}$/-----/' index.lhs | asciidoc -o - - > index.html
+$ cabal install parsec readline
+$ ghc index.lhs
+------------------------------------------------------------------------------
+
+Then run the command-line interpreter `./index` or browse to `index.html`.
+Other binaries on this website can be similarly built.

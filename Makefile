@@ -10,7 +10,8 @@ menu.html: menu ; cobble menu menu
 LHSNAMES=index simply hm lisp systemf typo pts wasm sk crazyl pcf
 LHSFILES=$(addsuffix .lhs, $(LHSNAMES)) $(addsuffix .html, $(LHSNAMES)) $(addsuffix .js, $(LHSNAMES))
 
-site: $(LHSFILES) menu.html
+SITE=$(LHSFILES) menu.html
 
-sync: site
-	rsync $(LHSFILES) blynn@xenon.stanford.edu:www/lambda/
+site: $(SITE)
+
+sync: $(SITE) ; rsync $^ blynn@xenon.stanford.edu:www/lambda/

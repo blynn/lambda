@@ -1,15 +1,20 @@
 = Outcoding UNIX geniuses =
 
-Static types catch bugs at compile time, preventing costly incidents.
-Unfortunately, in many languages, supplying type information is so laborious
-and stifling that some simply give up. Furthermore, some languages lack
-https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric polymorphism],
-forcing a programmer to choose between duplicating code or type casting.
+Static types prevent disasters by catching bugs at compile time.
+Yet many languages have self-defeating types. Type annotation can be so
+laborious that weary programmers give up and switch to unsafe languages.
 
-Advances in theory solve these problems, though mainstream programmers are
+Adding insult to injury, some of these prolix type systems are simultaneously
+inexpressive. Some lack
+https://en.wikipedia.org/wiki/Parametric_polymorphism[parametric polymorphism],
+forcing programmers to duplicate code or subvert static typing with casts.
+A purist might escape this dilemma by writing code to generate code, but
+this leads to another set of problems.
+
+Type theory shows how to avoid these pitfalls, but mainstream programmers seem
 unaware:
 
- * Popular authors Bruce Eckel and Robert C. Martin seem to mistakenly believe
+ * Popular authors Bruce Eckel and Robert C. Martin mistakenly believe
  https://docs.google.com/document/d/1aXs1tpwzPjW9MdsG5dI7clNFyYayFBkcXwRDo-qvbIk/preview[strong typing implies verbosity], and worse still, http://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[testing conquers all].
  Tests are undoubtedly invaluable, but at best they
  https://en.wikipedia.org/wiki/Proof_by_example[``prove'' by example]. As in
@@ -34,7 +39,7 @@ without requiring any type declarations.
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="hm.js"></script>
-<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80">
+<p><label for="input">Syntax Tree</label><textarea style="border: solid 2px; border-color: #999999" id="input" rows="10" cols="80">
 V "length"
 V "length" :@ S "hello"
 Lam "x" (V "x" :@ I 2)
@@ -46,7 +51,7 @@ Lam "x" (Lam "y" (Lam "z" ((V "x" :@ V "z") :@ (V "y" :@ V "z"))))
 </textarea></p>
 <p><button id="inferB">Infer!</button>
 </p>
-<p><textarea id="output" rows="10" cols="80" readonly></textarea></p>
+<p><label for="output">Inferred Type</label><textarea id="output" rows="10" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 The above type inference demo is a bit ugly; link:pcf.html[our next interpreter
@@ -253,7 +258,7 @@ both sides are branches.
 We take this opportunity to define `unify` using the state monad, which saves
 us from explicitly referring to the list of assignments found so far, that is,
 the list previously known as `acc`. To a first approximation, we're employing
-macros allows us to hide them.
+macros to hide uninteresting code.
 
 \begin{code}
 data Tree a = Var String | Leaf a | Branch (Tree a) (Tree a) deriving Show
@@ -290,12 +295,12 @@ Here's a demo of the above code:
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="hm.js"></script>
-<p><textarea style="border: solid 2px; border-color: #999999" id="treeIn" rows="10" cols="80">
+<p><label for="treeIn">Tree</label><textarea style="border: solid 2px; border-color: #999999" id="treeIn" rows="10" cols="80">
 ((a a) d) (((3 5) (b c)) d)
 </textarea></p>
 <p><button id="treeB">Solve</button>
 </p>
-<p><textarea id="treeOut" rows="8" cols="80" readonly></textarea></p>
+<p><label for="treeOut">Solution</label><textarea id="treeOut" rows="8" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 The given example ought to be enough enough to understand the input format,
