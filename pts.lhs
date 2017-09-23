@@ -147,9 +147,9 @@ zealously removed every last repetition.
 \begin{code}
 {-# LANGUAGE CPP #-}
 #ifdef __HASTE__
-import Haste (newSeed, randomR)
 import Haste.DOM
 import Haste.Events
+import System.Random
 #else
 import System.Console.Readline
 #endif
@@ -806,10 +806,8 @@ main = withElems ["input", "output", "spec", "starbox", "boxbox", "boxstar",
       setProp specE "readOnly" "true"
 
     newSlogan :: IO ()
-    newSlogan = do
-      seed <- newSeed
-      setProp sloganE "innerHTML" $ (slogans!!) $
-        fst $ randomR (0, length slogans - 1) seed
+    newSlogan = setProp sloganE "innerHTML" . (slogans!!) =<<
+      getStdRandom (randomR (0, length slogans - 1))
 
   newSlogan
   newSloganE `onEvent` Click $ const newSlogan
