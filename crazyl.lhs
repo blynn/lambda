@@ -987,7 +987,7 @@ streaming input `(<)` combinator:
   -- Data section.
   sect 11 [[0, i32const, 0, 0xb] ++ lenc heap]]
   where
-    heap = encodeTree $ case mode of 
+    heap = encodeTree $ case mode of
       "lazyk"  -> e :@ (Var "<" :@ Var "<")
       "fussyk" -> e :@ (Var "<" :@ Var "<") :@ Var ">"
       "crazyl" -> e :@ (Var "<" :@ Var "<") :@ Var ">" :@ Var "."

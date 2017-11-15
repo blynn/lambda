@@ -204,7 +204,7 @@ only apply the substitution at the last minute.
 data Tree a = Var String | Leaf a | Branch (Tree a) (Tree a) deriving Show
 
 gather (Leaf x) (Leaf y) | x == y    = Just []
-gather (Branch xl xr) (Branch yl yr) = (++) <$> gather xl yl <*> gather xr yr 
+gather (Branch xl xr) (Branch yl yr) = (++) <$> gather xl yl <*> gather xr yr
 gather (Var _) (Branch _ _)          = Nothing
 gather x@(Var v) y                   = Just [(x, y)]
 gather x y@(Var _)                   = gather y x
@@ -225,7 +225,7 @@ sub x t a = case a of Var x' | x == x' -> t
 solve t u = unify [] =<< gather t u
 ------------------------------------------------------------------------------
 
-The peppering of `acc` throughout the definition of `unify` is mildly 
+The peppering of `acc` throughout the definition of `unify` is mildly
 irritating. We can remove a few with an explicit case statement (which is
 what happens behind the scenes anyway):
 
@@ -246,7 +246,7 @@ We'll soon see a more thorough way to clean the code.
 
 What if variables can represent subtrees?
 
-'Solution:' Although we've significantly generalized the problem, our answer 
+'Solution:' Although we've significantly generalized the problem, our answer
 almost remains the same.
 
 We remove one case from the `gather` function, as it is now legal to equate a
@@ -256,8 +256,8 @@ side to avoid infinite recursion. Lastly, we add a case to `unify` when
 both sides are branches.
 
 We take this opportunity to define `unify` using the state monad, which saves
-us from explicitly referring to the list of assignments found so far, that is,
-the list previously known as `acc`. To a first approximation, we're employing
+us from explicitly referring to the list of assignments found so far:
+the list formerly known as `acc`. To a first approximation, we're employing
 macros to hide uninteresting code.
 
 \begin{code}
@@ -265,7 +265,7 @@ data Tree a = Var String | Leaf a | Branch (Tree a) (Tree a) deriving Show
 
 treeSolve :: (Show a, Eq a) => Tree a -> Tree a -> Maybe [(String, Tree a)]
 treeSolve t1 t2 = (`evalState` []) . unify =<< gather t1 t2 where
-  gather (Branch xl xr) (Branch yl yr) = (++) <$> gather xl yl <*> gather xr yr 
+  gather (Branch xl xr) (Branch yl yr) = (++) <$> gather xl yl <*> gather xr yr
   gather (Leaf x) (Leaf y) | x == y    = Just []
   gather v@(Var _) x                   = Just [(v, x)]
   gather t v@(Var _)                   = gather v t

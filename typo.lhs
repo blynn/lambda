@@ -109,7 +109,7 @@ instance Show Type where
       showL = case t of
         Forall _ _ -> "(" ++ show t ++ ")"
         _ :-> _    -> "(" ++ show t ++ ")"
-        _          -> show t 
+        _          -> show t
       showR = case u of
         Forall _ _ -> "(" ++ show u ++ ")"
         _          -> show u
@@ -339,7 +339,7 @@ typeOf gamma t = case t of
   TLam (s, k) t -> Forall (s, k) <$> typeOf (second ((s, k):) gamma) t
   TApp x y -> do
     tx <- tEval gamma <$> rec x
-    case tx of 
+    case tx of
       Forall (s, k) t -> do
         k' <- kindOf gamma y
         when (k /= k') $ Left $ "TApp: " ++ show k ++ " /= " ++ show k'

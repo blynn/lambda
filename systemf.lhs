@@ -467,7 +467,7 @@ main = repl ([], [])
 == Booleans, Integers, Pairs, Lists ==
 
 Hindley-Milner supports Church-encodings of booleans, integers, pairs, and
-lists. System F is more general, so of course supports them too. 
+lists. System F is more general, so of course supports them too.
 However, we must be explicit about types. With Hindley-Milner, globally scoped
 universal quantifiers for all type variables are implied. With System F,
 our terms must start with type abstractions or a term abstraction annotated
@@ -517,8 +517,8 @@ monad].
 == System F in System F ==
 
 The polymorphic identity function is typable in System F, hence we can
-construct the self-interpreter described 
-In http://compilers.cs.ucla.edu/popl16/popl16-full.pdf['Breaking Through the
+construct the self-interpreter described in
+http://compilers.cs.ucla.edu/popl16/popl16-full.pdf['Breaking Through the
 Normalization Barrier: A Self-Interpreter for F-omega'] by Matt Brown and Jens
 Palsberg.
 
