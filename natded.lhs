@@ -310,8 +310,16 @@ readMVar v = do
 
 Clunky UI code unfortunately intertwined with the rules of inference.
 
+A proof in progress is a forest along with a record of all discharges.
+We represent the forest with an inductive graph which is well-suited for
+handling player clicks on any node.
+
+With each edge, we associate an SVG line as well as an integer so out-edges
+are ordered.
+
 \begin{code}
 type Grx = Gr (Elem, Expr) (Elem, Int)
+type Proof = (Grx, M.Map G.Node G.Node)
 
 halfWidth :: Expr -> Int
 halfWidth x = 6 * (length $ show x)
@@ -385,41 +393,36 @@ main = withElems
      , nextB, undoB, hypoDiv, preT, postT] -> do
   let
     classicRules = [impliesI, impliesE, notNot]
-    intuRules = [impliesI, impliesE, andI, and1E, and2E, or1I, or2I, orE, falseE]
+    intuRules =
+      [impliesI, impliesE, andI, and1E, and2E, or1I, or2I, orE, falseE]
     allRules = classicRules ++ intuRules
   forM_ allRules disableRule
   forM_ allRules $ \e -> setStyle e "display" "none"
   forM_ classicRules $ \e -> setStyle e "display" "initial"
   sel <- newMVar []
-  gv <- newMVar $ mkGraph [] []
+  proof <- newMVar (mkGraph [] [], M.empty)
   acts <- newMVar []
-  dissed <- newMVar M.empty
   history <- newMVar []
   level <- newMVar 1
   let
     resetActs = swapMVar acts [] >>=
       mapM_ (\(e, h) -> disableRule e >> unregisterHandler h)
     nodeClick i = do
-      g <- readMVar gv
-      dis <- readMVar dissed
-      when (null (suc g i) && M.notMember i dis || null (pre g i)) $
-        select g i
+      (g, dis) <- readMVar proof
+      when (null (suc g i) && M.notMember i dis || null (pre g i)) $ select g i
 
-    activate :: Elem -> (Grx -> IO Grx) -> IO ()
+    activate :: Elem -> (Proof -> IO Proof) -> IO ()
     activate e f = do
       setStyle e "border" "2px solid black"
       setStyle e "color" "black"
       h <- e `onEvent` Click $ const $ do
-        g0 <- takeMVar gv
-        dis0 <- readMVar dissed
+        p@(g0, _) <- takeMVar proof
         swapMVar sel [] >>= mapM_ (deselectNode . nodeElem g0)
-        hist <- takeMVar history
-        putMVar history $ (g0, dis0):hist
-        g <- f g0
-        dis <- readMVar dissed
-        putMVar gv g
+        modifyMVar_ history $ pure . (p:)
+        (g, dis) <- f p
+        putMVar proof (g, dis)
         resetActs
-        redraw
+        redraw g
         let
           live = filter (`M.notMember` dis) $ filter (null . suc g) $ nodes g
           tips = filter (null . pre g) $ nodes g
@@ -438,22 +441,24 @@ main = withElems
         else setProp postT "innerHTML" ""
       modifyMVar_ acts $ pure . ((e, h):)
 
-    discharge g x y = do
-      dis <- takeMVar dissed
+    ghost x y t (g, dis) = do
+      deleteChild soil $ nodeElem g x
+      g1 <- delNode x . snd <$> newProp g [y] t
+      pure (g1, dis)
+
+    discharge g x y dis = do
       let xs = filter ((== nodeExpr g x) . nodeExpr g) (foliage g y) \\ M.keys dis
       forM_ xs $ dischargeElem . nodeElem g
-      putMVar dissed $ foldl' (\m k -> M.insert k y m) dis xs
+      pure $ foldl' (\m k -> M.insert k y m) dis xs
 
-    ghost x y t g = do
-      deleteChild soil $ nodeElem g x
-      delNode x . snd <$> newProp g [y] t
-
-    dSpawn x y t g = do
+    dSpawn x y t (g, dis) = do
       (k, g1) <- newProp g [y] t
-      discharge g1 x k
-      pure g1
+      dis1 <- discharge g1 x k dis
+      pure (g1, dis1)
 
-    spawn ks t g = snd <$> newProp g ks t
+    spawn ks t (g, dis) = do
+      g1 <- snd <$> newProp g ks t
+      pure (g1, dis)
 
     select g i = do
       let e = nodeElem g i
@@ -515,17 +520,17 @@ main = withElems
           | isLeaf x, isLeaf y,
             exprOf x :+ exprOf y == exprOf z, t <- exprOf (rootOf g x),
             t == exprOf (rootOf g y)
-            = [(orE, \g0 -> do
+            = [(orE, \(g0, dis0) -> do
           (k, g1) <- newProp g0 [rootOf g x, rootOf g y] OrHalf
-          discharge g1 x k
-          discharge g1 y k
-          snd <$> newProp g1 [k, z] t)]
+          dis1 <- discharge g1 x k dis0
+          dis2 <- discharge g1 y k dis1
+          g2 <- snd <$> newProp g1 [k, z] t
+          pure (g2, dis2))]
         orCheck _ = []
         efq
           | [y, x] <- xs, Bot <- exprOf y = [(falseE, ghost x y $ exprOf x)]
           | [x, y] <- xs, Bot <- exprOf y = [(falseE, ghost x y $ exprOf x)]
           | otherwise = []
-
       mapM_ (uncurry activate) $ concat [impi, mopo, lem, conj, disj, efq]
 
     translate :: Parser (String, String)
@@ -537,8 +542,7 @@ main = withElems
       void $ string ")"
       pure (x, y)
 
-    redraw = do
-      g <- readMVar gv
+    redraw g = do
       let
         f [] d acc = pure (acc, d)
         f (r:rs) d acc = do
@@ -589,24 +593,22 @@ main = withElems
         insNode (k, (e, t)) g)
 
     addHypo t = do
-      g0 <- takeMVar gv
+      (g0, dis0) <- takeMVar proof
+      modifyMVar_ history $ pure . ((g0, dis0):)
       (k, g1) <- newProp g0 [] t
-      if t == Top then modifyMVar_ dissed $ pure . M.insert k k
-        else chargeElem $ nodeElem g1 k
-      putMVar gv g1
-      dis <- readMVar dissed
-      hist <- takeMVar history
-      putMVar history $ (g0, dis):hist
-      redraw
+      dis1 <- if t == Top then pure $ M.insert k k dis0 else do
+        chargeElem $ nodeElem g1 k
+        pure dis0
+      putMVar proof (g1, dis1)
+      redraw g1
 
   void $ undoB `onEvent` Click $ const $ do
     hist <- takeMVar history
     case hist of
       [] -> putMVar history []
       ((g, dis):rest) -> do
-        g0 <- swapMVar gv g
+        (g0, _) <- swapMVar proof (g, dis)
         swapMVar sel [] >>= mapM_ (deselectNode . nodeElem g0)
-        void $ swapMVar dissed dis
         let
           ls = (\(_, _, (l, _)) -> l) <$> labEdges g
           ks = fst . snd <$> labNodes g
@@ -614,7 +616,7 @@ main = withElems
           (if M.member i dis then dischargeElem else chargeElem) $ nodeElem g i
         setChildren soil $ ls ++ ks
         setProp errT "innerHTML" ""
-        redraw
+        redraw g
         putMVar history rest
 
   void $ newHypoB `onEvent` Click $ const $ do
@@ -627,8 +629,7 @@ main = withElems
 
   let
     setup n = do
-      void $ swapMVar gv $ mkGraph [] []
-      void $ swapMVar dissed M.empty
+      void $ swapMVar proof (mkGraph [] [], M.empty)
       clearChildren soil
       setStyle nextB "visibility" "hidden"
       case getLevel n of
