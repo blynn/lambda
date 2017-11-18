@@ -13,9 +13,11 @@ drove Gentzen to devise
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<script src="natded.js"></script>
 <p>
 <span id="preT"></span>
 </p>
+<div id="ruleBar" style="display:none;">
 <div id="hypoDiv" style="display:none;">
 <p>
 <input id="hypoT" cols="64" type="text">
@@ -39,12 +41,13 @@ but some browsers lack the fonts to display these. -->
 <span class="logic" id="notNot">LEM</span>
 <button style="float:right;" id="undoB">Undo</button>
 </p>
-<script src="natded.js"></script>
+</div>
 <svg xmlns='http://www.w3.org/2000/svg' id='soil' width='100%' height='32em'>
 </svg>
-<p id="postT">
-</p>
-<button id="nextB" style="visibility:hidden;">Next Level!</button>
+<p id="postT"></p>
+<div style="text-align:center;">
+<button id="nextB" style="visibility:hidden;font-size:400%;">&#9654;</button>
+</div>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -280,6 +283,8 @@ getLevel n
     [ ("0->a", ["0", "a"], "Ex falso quodlibet.")
     , ("a&b->b&a", ["a&b", "a&b"], "")
     , ("a+b->b+a", ["a+b", "a", "a", "b", "b"], "")
+    , ("a&b+a&c->a&(b+c)", ["b","c","a&b","a&b","a&c","a&c","a&b+a&c"], "")
+    , ("a&(b+c)->a&b+a&c", ["a","a","b","c","a&b","a&c","b+c","a&(b+c)","a&(b+c)"], "")
     ]
 \end{code}
 
@@ -319,7 +324,8 @@ are ordered.
 
 \begin{code}
 type Grx = Gr (Elem, Expr) (Elem, Int)
-type Proof = (Grx, M.Map G.Node G.Node)
+type Dis = M.Map G.Node G.Node
+type Proof = (Grx, Dis)
 
 halfWidth :: Expr -> Int
 halfWidth x = 6 * (length $ show x)
@@ -351,13 +357,15 @@ drawGr :: Grx -> G.Node -> Tree (Int, G.Node)
 drawGr g node = drawRT (halfWidth . nodeExpr g) $ fromGraph node where
   fromGraph n = Node n $ fromGraph . fst <$> sortOn (snd . snd) (lsuc g n)
 
+discharge :: Grx -> G.Node -> G.Node -> Dis -> Dis
+discharge g x y dis = M.union dis $ M.fromList $ zip xs $ repeat y where
+  xs = filter ((== nodeExpr g x) . nodeExpr g) (foliage g y)
+
 chargeElem :: Elem -> IO ()
-chargeElem = ffi $ pack $
-  "e => e.childNodes[1].setAttribute('fill','red')"
+chargeElem = ffi $ pack $ "e => e.childNodes[1].setAttribute('fill','red')"
 
 dischargeElem :: Elem -> IO ()
-dischargeElem = ffi $ pack $
-  "e => e.childNodes[1].removeAttribute('fill')"
+dischargeElem = ffi $ pack $ "e => e.childNodes[1].removeAttribute('fill')"
 
 draw :: Elem -> Int -> Grx -> Int -> Tree (Int, G.Node) -> IO ()
 draw soil x0 g y (Node (x, n) ks) = do
@@ -370,24 +378,28 @@ disableRule e = do
   setStyle e "color" "grey"
 
 selectNode :: Elem -> IO ()
-selectNode =
-  ffi $ pack $ "e => e.childNodes[0].setAttribute('fill','yellow')"
+selectNode = ffi $ pack $ "e => e.childNodes[0].setAttribute('fill','yellow')"
 
 ageNode :: Elem -> IO ()
-ageNode =
-  ffi $ pack $ "e => e.childNodes[0].setAttribute('fill','orange')"
+ageNode = ffi $ pack $ "e => e.childNodes[0].setAttribute('fill','orange')"
 
 deselectNode :: Elem -> IO ()
-deselectNode =
-  ffi $ pack $ "e => e.childNodes[0].setAttribute('fill','white')"
+deselectNode = ffi $ pack $ "e => e.childNodes[0].setAttribute('fill','white')"
+
+theorem :: Proof -> Maybe Expr
+theorem (g, dis) | null live, [t] <- tips = Just $ nodeExpr g t
+                 | otherwise              = Nothing
+                 where
+  live = filter (`M.notMember` dis) $ filter (null . suc g) $ nodes g
+  tips = filter (null . pre g) $ nodes g
 
 main :: IO ()
 main = withElems
-  [ "soil", "hypoT", "newHypoB", "errT"
+  [ "soil", "ruleBar", "hypoT", "newHypoB", "errT"
   , "impliesI", "impliesE", "notNot"
   , "andI", "and1E", "and2E", "or1I", "or2I", "orE", "falseE"
   , "nextB", "undoB", "hypoDiv", "preT", "postT"] $
-    \[ soil, hypoT, newHypoB, errT
+    \[ soil, ruleBar, hypoT, newHypoB, errT
      , impliesI, impliesE, notNot
      , andI, and1E, and2E, or1I, or2I, orE, falseE
      , nextB, undoB, hypoDiv, preT, postT] -> do
@@ -416,29 +428,22 @@ main = withElems
       setStyle e "border" "2px solid black"
       setStyle e "color" "black"
       h <- e `onEvent` Click $ const $ do
-        p@(g0, _) <- takeMVar proof
-        swapMVar sel [] >>= mapM_ (deselectNode . nodeElem g0)
-        modifyMVar_ history $ pure . (p:)
-        (g, dis) <- f p
-        putMVar proof (g, dis)
         resetActs
-        redraw g
-        let
-          live = filter (`M.notMember` dis) $ filter (null . suc g) $ nodes g
-          tips = filter (null . pre g) $ nodes g
-        setStyle nextB "visibility" "hidden"
-        if null live && length tips == 1 then do
-          let thm = nodeExpr g $ head tips
-          lvl <- getLevel <$> readMVar level
-          case lvl of
-            Level goal _ comment _ -> if thm == goal then do
-                setProp postT "innerHTML" $ "<p><b>QED.</b></p>" ++ comment
-                setStyle nextB "visibility" "visible"
-              else
-                setProp postT "innerHTML" $ "Proved " ++ show thm
-                  ++ " but we want " ++ show goal
-            _ -> setProp postT "innerHTML" $ "Proved " ++ show thm
-        else setProp postT "innerHTML" ""
+        prf <- f =<< load
+        save prf
+        case theorem prf of
+          Just t -> do
+            lvl <- getLevel <$> readMVar level
+            case lvl of
+              Level goal _ comment _ -> if t == goal then do
+                  setProp postT "innerHTML" $ "<p><b>QED.</b></p>" ++ comment
+                  setStyle nextB "visibility" "visible"
+                  setStyle ruleBar "display" "none"
+                else
+                  setProp postT "innerHTML" $ "Proved " ++ show t
+                    ++ " but we want " ++ show goal
+              _ -> setProp postT "innerHTML" $ "Proved " ++ show t
+          _ -> setProp postT "innerHTML" ""
       modifyMVar_ acts $ pure . ((e, h):)
 
     ghost x y t (g, dis) = do
@@ -446,15 +451,9 @@ main = withElems
       g1 <- delNode x . snd <$> newProp g [y] t
       pure (g1, dis)
 
-    discharge g x y dis = do
-      let xs = filter ((== nodeExpr g x) . nodeExpr g) (foliage g y) \\ M.keys dis
-      forM_ xs $ dischargeElem . nodeElem g
-      pure $ foldl' (\m k -> M.insert k y m) dis xs
-
     dSpawn x y t (g, dis) = do
       (k, g1) <- newProp g [y] t
-      dis1 <- discharge g1 x k dis
-      pure (g1, dis1)
+      pure (g1, discharge g1 x k dis)
 
     spawn ks t (g, dis) = do
       g1 <- snd <$> newProp g ks t
@@ -522,16 +521,21 @@ main = withElems
             t == exprOf (rootOf g y)
             = [(orE, \(g0, dis0) -> do
           (k, g1) <- newProp g0 [rootOf g x, rootOf g y] OrHalf
-          dis1 <- discharge g1 x k dis0
-          dis2 <- discharge g1 y k dis1
           g2 <- snd <$> newProp g1 [k, z] t
-          pure (g2, dis2))]
+          pure (g2, discharge g1 y k $ discharge g1 x k dis0))]
         orCheck _ = []
         efq
           | [y, x] <- xs, Bot <- exprOf y = [(falseE, ghost x y $ exprOf x)]
           | [x, y] <- xs, Bot <- exprOf y = [(falseE, ghost x y $ exprOf x)]
           | otherwise = []
       mapM_ (uncurry activate) $ concat [impi, mopo, lem, conj, disj, efq]
+
+    -- | Reads proof from MVar. Records it to undo history. Clears selection.
+    load = do
+      p@(g, _) <- takeMVar proof
+      swapMVar sel [] >>= mapM_ (deselectNode . nodeElem g)
+      modifyMVar_ history $ pure . (p:)
+      pure p
 
     translate :: Parser (String, String)
     translate = do
@@ -542,7 +546,9 @@ main = withElems
       void $ string ")"
       pure (x, y)
 
-    redraw g = do
+    -- | Saves proof to MVar. Draws it.
+    save (g, dis) = do
+      putMVar proof (g, dis)
       let
         f [] d acc = pure (acc, d)
         f (r:rs) d acc = do
@@ -560,6 +566,8 @@ main = withElems
         setAttr l "y1" y1
         setAttr l "x2" x2
         setAttr l "y2" y2
+      forM_ (filter (null . suc g) $ nodes g) $ \i ->
+        (if M.member i dis then dischargeElem else chargeElem) $ nodeElem g i
       setAttr soil "viewBox" $ "-5 " ++ show (-40 * by1) ++ " "
         ++ show (bx1) ++ " " ++ show (40*by1 + 40)
 
@@ -593,31 +601,24 @@ main = withElems
         insNode (k, (e, t)) g)
 
     addHypo t = do
-      (g0, dis0) <- takeMVar proof
-      modifyMVar_ history $ pure . ((g0, dis0):)
+      (g0, dis0) <- load
       (k, g1) <- newProp g0 [] t
-      dis1 <- if t == Top then pure $ M.insert k k dis0 else do
-        chargeElem $ nodeElem g1 k
-        pure dis0
-      putMVar proof (g1, dis1)
-      redraw g1
+      let dis1 = if t == Top then M.insert k k dis0 else dis0
+      save (g1, dis1)
 
   void $ undoB `onEvent` Click $ const $ do
-    hist <- takeMVar history
+    hist <- readMVar history
     case hist of
-      [] -> putMVar history []
+      [] -> pure ()
       ((g, dis):rest) -> do
-        (g0, _) <- swapMVar proof (g, dis)
-        swapMVar sel [] >>= mapM_ (deselectNode . nodeElem g0)
+        void $ load
         let
           ls = (\(_, _, (l, _)) -> l) <$> labEdges g
           ks = fst . snd <$> labNodes g
-        forM_ (filter (null . suc g) $ nodes g) $ \i ->
-          (if M.member i dis then dischargeElem else chargeElem) $ nodeElem g i
         setChildren soil $ ls ++ ks
         setProp errT "innerHTML" ""
-        redraw g
-        putMVar history rest
+        save (g, dis)
+        void $ swapMVar history rest
 
   void $ newHypoB `onEvent` Click $ const $ do
     s <- getProp hypoT "value"
@@ -632,6 +633,7 @@ main = withElems
       void $ swapMVar proof (mkGraph [] [], M.empty)
       clearChildren soil
       setStyle nextB "visibility" "hidden"
+      setStyle ruleBar "display" "initial"
       case getLevel n of
         Level goal hs _ intu -> do
           forM_ allRules $ \e -> setStyle e "display" "none"
@@ -642,10 +644,11 @@ main = withElems
           setProp postT "innerHTML" ""
         FreePlay -> do
           forM_ allRules $ \e -> setStyle e "display" "initial"
-          setStyle hypoDiv "display" "block"
+          setStyle hypoDiv "display" "initial"
           setProp preT "innerHTML" "<h2>Free Play</h2><p>Type '=>' or '->' for implication, '0' and '1' for false and true.</p>"
           setProp postT "innerHTML" ""
       void $ swapMVar history []
+
   void $ nextB `onEvent` Click $ const $ do
     n <- takeMVar level
     putMVar level $ n + 1
