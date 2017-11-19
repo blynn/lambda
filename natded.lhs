@@ -26,7 +26,7 @@ drove Gentzen to devise
 </p>
 </div>
 <p>
-<style>.logic{cursor:pointer;border-radius:5px;padding:5px;margin:5px;}</style>
+<style>.logic{cursor:pointer;border:2px solid blue;border-radius:5px;padding:5px;margin:5px;}</style>
 <!-- I wanted &rArr;&#120024; and &rArr;&#120020;
 but some browsers lack the fonts to display these. -->
 <span class="logic" id="impliesI">&rArr;I</span>
@@ -39,20 +39,25 @@ but some browsers lack the fonts to display these. -->
 <span class="logic" id="orE">&or;E</span>
 <span class="logic" id="falseE">&perp;E</span>
 <span class="logic" id="notNot">LEM</span>
-<button style="float:right;" id="undoB">Undo</button>
+</p>
+<p style="float:right;">
+<span class="logic" id="undoB">Undo</span>
 </p>
 </div>
-<svg xmlns='http://www.w3.org/2000/svg' id='soil' width='100%' height='32em'>
+<svg xmlns='http://www.w3.org/2000/svg' id='soil' width='100%' height='24em'>
 </svg>
-<button id="hintB">Hint</button><p id="hintT"></p>
-<p id="postT"></p>
-<div id="winBar" style="text-align:center;visibility:hidden;">
+<span class="logic" id="hintB">Hint</span><p id="hintT"></p>
+<div id="winBar" style="visibility:hidden;">
+<b>QED.</b>
+<div style="text-align:center;">
 <p>
 <style>.winbutton{cursor:pointer;border:4px solid blue;border-radius:10px;padding:5px;margin:10px;font-size:400%}</style>
 <span class="winbutton" id="againB">&#8635;</span>
 <span class="winbutton" id="nextB">&#9654;</span>
 </p>
 </div>
+</div>
+<p id="postT"></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -73,6 +78,20 @@ but some browsers lack the fonts to display these. -->
  a function that takes an integer but is buggy then LEM is sort of claiming we
  can feed `f` to another buggy function to somehow cancel out the bugs and
  magically produce an integer!
+
+== Ideas ==
+
+ * Intuitionistic natural deduction satisfies the 'subformula property': a
+ theorem can be proved solely from hypotheses that appear somewhere in the
+ theorem.
++
+We could add some levels where the theorem is shown as a tree, and the player
+can select subtrees to create hypotheses.
+
+ * Theorems proved in previous levels ought to be available in later levels.
+
+ * We could add &forall; and &exist; for first-order logic. Or add
+ &Pi; and &Sigma; types and move towards homotopy type theory. Or both!
 
 == A Haste Bug ==
 
@@ -170,9 +189,9 @@ weave' f (accL, l) (accR, r)
 == Expression parser ==
 
 In free play mode, the player can type in arbitrary hypotheses, which we
-read using link:../haskell/parse.html[parser combinators]. The `OrHalf` is a special value
-that the &or;-elimination rule puts in a placeholder node in order to keep the
-tree binary.
+read using link:../haskell/parse.html[parser combinators]. The `OrHalf` is a
+special value that the &or;-elimination rule puts in a placeholder node in
+order to keep the tree binary.
 
 \begin{code}
 data Expr = Expr :-> Expr | Expr :& Expr | Expr :+ Expr
@@ -224,57 +243,72 @@ parseProp s = x where Right x = parse proposition "" s
 
 We look up a level's specifications from an association list.
 
+A hidden element in the HTML file stores level titles, hints, and victory
+messages.
+
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<div id="msgsDiv">
+<div id="msgsDiv" display="none">
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
  * Show yourself!
 
-   1. The moves are forced. We must use the &rArr;-'introduction' rule, or
-&rArr;I for short, which 'discharges' a 'hypothesis'.
-+
-This rule uses up a red node (hypothesis) to make a new root node containing
-the (&rArr;) symbol. On the left, it places the contents of the red node,
-and on the right, it places the contents of the old root node.
-+
-Here, the root node is also the hypothesis.
+   1. Click on the *a*, then on *⇒I*. This uses up a red node to make a new
+   root node containing the (⇒) symbol.
 
-   2. The I combinator. The `id` function of Haskell.
+   2. In English, the proof says: suppose "a" is true. Then "a" is true.
+   Therefore "a" implies "a".
++
+*⇒I* is the ⇒-'introduction' rule, which 'discharges' a 'hypothesis'
+(a red node) by creating a new root node containing an implication from the
+hypothesis to the old root node.
++
+In this case, the old root node is also the hypothesis.
++
+This is the type of the I combinator; Haskell's `id` function.
 
  * Ghosts of departed hypotheses
 
-   1. Select the two nodes in the right order before
-applying &rArr;I. Then apply &rArr;I again.
-+
-Here, we discharge zero copies of a hypothesis. That is, we use up a lone red
-node, which our game then removes to reduce clutter.
+   1. Select the two nodes in the right order and apply *⇒I* to use up
+a red node. It disappears because it is alone. Then apply *⇒I* again.
 
-   2. The K combinator. The `const` function of Haskell.
+   2. English: suppose "a" is true. Then "b" implies "a". Therefore
+"a" implies "b" implies "a".
++
+The disappearing red node represents discharging zero copies of a hypothesis.
++
+This is the type of the K combinator; Haskell's `const` function.
 
  * An introduction to elimination
 
-   1. Use the &rArr;-'elimination' rule first, or &rArr;E for short, which
-is affectionately called 'modus ponens'. Then apply &rArr;I to the hypotheses
-in the right order.
+   1. Use *⇒E*, then apply *⇒I* to the hypotheses in the right order.
 
-   2. The reverse apply operator. The `(&)` function in Haskell's `Data.Function`.
+   2. *⇒E* is the ⇒-'elimination' rule, affectionately known as 'modus ponens'.
++
+This is the type of the reverse apply operator; the `(&)` function in Haskell's
+`Data.Function`.
 
  * Take me to your Reader
 
-   1. Three doses of &rArr;E followed by three doses of &rArr;I.
-Observe multiple copies of a hypothesis can be discharged at once.
+   1. Three doses of *⇒E* followed by three doses of *⇒I*.
 
-   2. The S combinator. The function `ap` in Haskell's Reader monad.
+   2. Multiple copies of a hypothesis can be discharged at once.
++
+The *⇒* operator is right-associative, that is, *a⇒b⇒c* means *a⇒(b⇒c)*.
++
+This is the type of the S combinator; the function `ap` in Haskell's Reader
+monad.
 
  * Two wrongs make a right
 
-   1. After &rArr;E, apply LEM, the 'law of the excluded middle',
-or 'terium non datur' to the correct hypothesis. The rest is forced.
-Other presentations of logic may refer to this rule as 'proof by contradiction',
-or 'reductio ad absurdum'.
+   1. After *⇒E*, apply *LEM* to the correct hypothesis. The rest is forced.
 
-   2. Classical logic's 'reductio ad absurdum' or 'proof by contradiction'.
+   2. *LEM* is the 'law of the excluded middle', or 'tertium non datur', and
+equivalent to 'proof by contradiction', or 'reductio ad absurdum'. It is
+the hallmark of 'classical logic'.
++
+Some view *¬* as a primitive logical operator. For us, *¬a* is a synonym for
+*a⇒⊥*.
 
  * The puff of logic
 
@@ -305,45 +339,89 @@ the levels before.
 
    1. Good luck!
 
-   2. Łukasiewicz found this single axiom schema is all we need for a Hilbert-style classical propositional calculus.
+   2. https://www.jstor.org/stable/20488489[Łukasiewicz found this single axiom schema is all we need for a Hilbert-style classical propositional calculus].
 
- * Logic Bomb
+ * Aid and abet
 
-   1. Use &perp;E.
+   1. Choose the appropriate ∧-'elimination' rule; press 1 to keep
+   the left side and 2 to keep the right.
 
-   2. Instead of LEM, intuitionistic logic provides the weaker &perp;E rule,
-   that is, the principle of explosion. Minimal logic does without &perp;E.
+   2. Redundant conjunctions in law are called https://en.wikipedia.org/wiki/Legal_doublet['legal doublets'].
 
  * Caboodle and kit
 
-   1. In the names of the rules, "1" means left and "2" means right.
-   For &and;-introduction, pay attention to the order the nodes are selected.
+   1. Use *∧1E* on one and *∧2E* on the other, then *∧I*.
 
    2. Why do we prefer "kit and caboodle?"
    https://www.youtube.com/watch?v=9GubdYZPYPg[Steven Pinker explains (around minute 34)].
 
+ * Or else what?
+
+   1. The ∨-'introduction' rules work similarly to *⇒I* from a lone
+   hypothesis. Be mindful of the order the nodes are selected.
+
+   2. Up until now, the rules of natural deduction really do seem natural.
+   But how might ∨-'elimination' fit in?
+
  * Shine or rain
 
-   1. Form two trees with root node "b&or;a", then apply &or;E.
+   1. Form two trees with root node *b∨a*, then apply ∨E. This rule
+   requires 3 input nodes.
 
-   2. The above looks worse than it should, because our code only displays binary trees.
+   2. We only draw binary trees so the result of *∨E* looks a bit odd.
 
  * You say either and I say disjunction
 
    1. Similar to the previous level.
 
-   2. This is `either` in Haskell. http://www.paultaylor.eu/stable/Proofs+Types.html[Girard says &or;E is ``very bad'']. After working through proofs like this, one can sympathize.
+   2. This is the type of `either` in Haskell. After working through proofs
+   like this, we understand why
+   http://www.paultaylor.eu/stable/Proofs+Types.html[Girard says ∨-elimination
+   is ``very bad''].
+
+ * Logic bomb
+
+   1. Use *⊥E*.
+
+   2. Instead of LEM, intuitionistic logic provides the weaker *⊥E* rule,
+   that is, the principle of explosion. Without *⊥E*, we have
+   'minimal logic'.
+
+ * Two wrongs no longer make a right
+
+   1. Outline: *a* leads to *a⇒⊥* which leads to the theorem.
+
+   2. Without *LEM*, we can show it is a contradiction for *a∨¬a*
+   to lead to contradiction, but no further.
+
+ * Disjunction to implication
+
+   1. Show *a* leads to the right-hand side, and similarly for *b*.
+   Then use *∨E*.
+
+   2. In classical logic, we can define *∨* in terms of *⇒* thanks
+   to this theorem and its converse.
+
+ * One-way trip
+
+   1. Show *a* leads to a contradiction in the presence of
+   *(((a⇒b)⇒b)⇒a∨b)⇒⊥*. Use *⊥E* with *b* and *⇒I* to discharge *a* and
+   continue on to *((a⇒b)⇒b)⇒a∨b*. Now we are left with a hypothesis of
+   the form *P⇒⊥* leading to *P*; a few more steps lead to *P⇒⊥⇒⊥*.
+
+   2. The theorems *a∨b* and *(a⇒b)⇒b* are equivalent in the
+   presence of LEM, but without it, we can only go in one direction.
 
  * Not to be confused with Distributism
 
-   1. Show "a&and;b" leads to "a&and;(b&or;c)". Do the same for "a&and;c".
+   1. Show *a∧b* leads to *a∧(b∨c)*. Do the same for *a∧c*.
 
    2. One half of the many https://en.wikipedia.org/wiki/Distributive_property#Propositional_logic[distributive laws of propositional calculus].
 
  * The proof is always easier on the other side.
 
-   1. Show "a&and;(b&or;c)" and "b" lead to the right-hand side. Repeat
-   for "a&and;(b&or;c)" and "c".
+   1. Show *a∧(b∨c)* and *b* lead to the right-hand side. Repeat
+   for *a∧(b∨c)* and *c*.
 
    2. The converse of the previous theorem.
 
@@ -375,10 +453,15 @@ getLevel n
     , ("((a->b)->c)->((c->a)->(d->a))", ["a","a->0","a->0","b->0","b->0","d","c->a","(a->b)->c"])
     ]
   ilvls = zip (repeat True)
-    [ ("0->a", ["0", "a"])
-    , ("a&b->b&a", ["a&b", "a&b"])
-    , ("a+b->b+a", ["a+b", "a", "a", "b", "b"])
+    [ ("a&b->b", ["a&b"])
+    , ("a&b->b&a", ["a&b","a&b"])
+    , ("a->a+b", ["a","b"])
+    , ("a+b->b+a", ["a+b","a","a","b","b"])
     , ("(a->c)->(b->c)->a+b->c", ["a", "b", "a->c", "b->c", "a+b"])
+    , ("0->a", ["0", "a"])
+    , ("(a+(a->0)->0)->0", ["a","a","a->0","a+(a->0)->0","a+(a->0)->0"])
+    , ("a+b->(a->b)->b", ["a+b","a","b","a->b","a->b"])
+    , ("((((a->b)->b)->a+b)->0)->0", ["a","a","b","b","(a->b)->b","(a->b)->b","(((a->b)->b)->a+b)->0","(((a->b)->b)->a+b)->0"])
     , ("a&b+a&c->a&(b+c)", ["b","c","a&b","a&b","a&c","a&c","a&b+a&c"])
     , ("a&(b+c)->a&b+a&c", ["b","c","a&b","a&c","a&(b+c)","a&(b+c)","a&(b+c)"])
     ]
@@ -455,7 +538,7 @@ drawGr g node = drawRT (halfWidth . nodeExpr g) $ fromGraph node where
 
 discharge :: Grx -> G.Node -> G.Node -> Dis -> Dis
 discharge g x y dis = M.union dis $ M.fromList $ zip xs $ repeat y where
-  xs = filter ((== nodeExpr g x) . nodeExpr g) (foliage g y)
+  xs = filter ((== nodeExpr g x) . nodeExpr g) (foliage g $ rootOf g x)
 
 chargeElem :: Elem -> IO ()
 chargeElem = ffi $ pack $ "e => e.childNodes[1].setAttribute('fill','red')"
@@ -467,6 +550,11 @@ draw :: Elem -> Int -> Grx -> Int -> Tree (Int, G.Node) -> IO ()
 draw soil x0 g y (Node (x, n) ks) = do
   setAttr (nodeElem g n) "transform" $ "translate" ++ show (x0 + x, -40*y)
   mapM_ (draw soil x0 g $ y + 1) ks
+
+enableRule :: Elem -> IO ()
+enableRule e = do
+  setStyle e "border" "2px solid blue"
+  setStyle e "color" "black"
 
 disableRule :: Elem -> IO ()
 disableRule e = do
@@ -512,9 +600,6 @@ main = withElems
     intuRules =
       [impliesI, impliesE, andI, and1E, and2E, or1I, or2I, orE, falseE]
     allRules = classicRules ++ intuRules
-  forM_ allRules disableRule
-  forM_ allRules $ \e -> setStyle e "display" "none"
-  forM_ classicRules $ \e -> setStyle e "display" "initial"
   sel <- newMVar []
   proof <- newMVar (mkGraph [] [], M.empty)
   acts <- newMVar []
@@ -529,8 +614,7 @@ main = withElems
 
     activate :: Elem -> (Proof -> IO Proof) -> IO ()
     activate e f = do
-      setStyle e "border" "2px solid blue"
-      setStyle e "color" "black"
+      enableRule e
       h <- e `onEvent` Click $ const $ do
         resetActs
         prf <- f =<< load
@@ -540,7 +624,7 @@ main = withElems
             n <- readMVar level
             case getLevel n of
               Level goal _ _ -> if t == goal then do
-                  setProp postT "innerHTML" $ "<p><b>QED.</b></p>" ++ (msgs!!(n - 1)!!2)
+                  setProp postT "innerHTML" $ msgs!!(n - 1)!!2
                   setStyle winBar "visibility" "visible"
                   setStyle ruleBar "display" "none"
                   setStyle hintB "display" "none"
@@ -621,13 +705,13 @@ main = withElems
           | length xs == 3 = take 1 $ concatMap orCheck $ permutations xs
           | otherwise      = []
         orCheck [x, y, z]
-          | isLeaf x, isLeaf y,
-            exprOf x :+ exprOf y == exprOf z, t <- exprOf (rootOf g x),
-            t == exprOf (rootOf g y)
+          | isLeaf x, isLeaf y, rx <- rootOf g x, ry <- rootOf g y,
+            exprOf x :+ exprOf y == exprOf z, t <- exprOf rx,
+            rx /= ry, t == exprOf ry
             = [(orE, \(g0, dis0) -> do
-          (k, g1) <- newProp g0 [rootOf g x, rootOf g y] OrHalf
+          (k, g1) <- newProp g0 [rx, ry] OrHalf
           g2 <- snd <$> newProp g1 [k, z] t
-          pure (g2, discharge g1 y k $ discharge g1 x k dis0))]
+          pure (g2, discharge g0 y k $ discharge g0 x k dis0))]
         orCheck _ = []
         efq
           | [y, x] <- xs, Bot <- exprOf y = [(falseE, ghost x y $ exprOf x)]
@@ -637,6 +721,7 @@ main = withElems
 
     -- | Reads proof from MVar. Records it to undo history. Clears selection.
     load = do
+      enableRule undoB
       p@(g, _) <- takeMVar proof
       swapMVar sel [] >>= mapM_ (deselectNode . nodeElem g)
       modifyMVar_ history $ pure . (p:)
@@ -671,8 +756,12 @@ main = withElems
         setAttr l "y1" y1
         setAttr l "x2" x2
         setAttr l "y2" y2
-      forM_ (filter (null . suc g) $ nodes g) $ \i ->
-        (if M.member i dis then dischargeElem else chargeElem) $ nodeElem g i
+      forM_ (nodes g) $ \i -> do
+        let e = nodeElem g i
+        setStyle e "cursor" ""
+        when (null $ suc g i) $ if M.member i dis then dischargeElem e
+          else chargeElem e >> setStyle e "cursor" "pointer"
+        when (null $ pre g i) $ setStyle e "cursor" "pointer"
       setAttr soil "viewBox" $ "-5 " ++ show (-40 * by1) ++ " "
         ++ show (bx1) ++ " " ++ show (40*by1 + 40)
 
@@ -680,7 +769,7 @@ main = withElems
       let k = if isEmpty g then 0 else snd (nodeRange g) + 1
       e <- newElemSVG "g"
       let w = halfWidth t
-      appendChild e =<< newElemSVG "rect" `with`
+      er <- newElemSVG "rect" `with`
         [ attr "width"  =: show (2 * w)
         , attr "height" =: "24"
         , attr "fill"   =: "white"
@@ -688,14 +777,19 @@ main = withElems
         , attr "x"      =: show (-w)
         , attr "y"      =: "-12"
         ]
-      et <- newElemSVG "text" `with`
-        [ attr "x" =: "0"
-        , attr "y" =: "0"
-        , attr "text-anchor" =: "middle"
-        , attr "alignment-baseline" =: "central"
-        , prop "textContent" =: show t
-        ]
-      appendChild e et
+      when (t == OrHalf) $ do
+        setAttr er "stroke" "none"
+        setAttr er "fill" "none"
+      appendChild e er
+      when (t /= OrHalf) $ do
+        et <- newElemSVG "text" `with`
+          [ attr "x" =: "0"
+          , attr "y" =: "0"
+          , attr "text-anchor" =: "middle"
+          , attr "alignment-baseline" =: "central"
+          , prop "textContent" =: show t
+          ]
+        appendChild e et
       appendChild soil e
       void $ e `onEvent` Click $ const $ nodeClick k
       ls <- replicateM (length qs) $ newElemSVG "line" `with`
@@ -722,7 +816,9 @@ main = withElems
           ks = fst . snd <$> labNodes g
         setChildren soil $ ls ++ ks
         setProp errT "innerHTML" ""
+        setProp postT "innerHTML" ""
         save (g, dis)
+        when (null rest) $ disableRule undoB
         void $ swapMVar history rest
 
   void $ newHypoB `onEvent` Click $ const $ do
@@ -735,35 +831,39 @@ main = withElems
 
   let
     setup n = do
+      forM_ allRules disableRule
       void $ swapMVar proof (mkGraph [] [], M.empty)
       clearChildren soil
       setStyle winBar "visibility" "hidden"
-      setStyle ruleBar "display" "initial"
+      setStyle ruleBar "display" ""
       case getLevel n of
         Level goal hs intu -> do
-          setStyle hintB "display" "initial"
+          setStyle hintB "display" ""
           setProp hintT "innerHTML" ""
           forM_ allRules $ \e -> setStyle e "display" "none"
           forM_ (if intu then intuRules else classicRules) $
-            \e -> setStyle e "display" "initial"
+            \e -> setStyle e "display" ""
           mapM_ addHypo hs
           setProp preT "innerHTML" $ concat
-            [ "<h2>Level "
+            [ "<p>Level "
             , show n
-            , ":"
+            , ":<i>"
             , msgs!!(n - 1)!!0
-            , "</h2><p><b>Theorem</b>: "
+            , "</i></p><p><b>Theorem</b>:"
+            , "<div style='text-align:center;font-size:150%'><span>"
             , show goal
+            , "</span></div>"
             , "</p><b>Proof:</b>"
             ]
           setProp postT "innerHTML" ""
         FreePlay -> do
           setStyle hintB "display" "none"
           setProp hintT "innerHTML" ""
-          forM_ allRules $ \e -> setStyle e "display" "initial"
-          setStyle hypoDiv "display" "initial"
+          forM_ allRules $ \e -> setStyle e "display" ""
+          setStyle hypoDiv "display" ""
           setProp preT "innerHTML" "<h2>Free Play</h2><p>Type '=>' or '->' for implication, '0' and '1' for false and true.</p>"
           setProp postT "innerHTML" ""
+      disableRule undoB
       void $ swapMVar history []
   void $ nextB `onEvent` Click $ const $ do
     n <- takeMVar level
