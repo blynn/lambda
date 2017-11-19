@@ -26,7 +26,7 @@ drove Gentzen to devise
 </p>
 </div>
 <p>
-<style>.logic{cursor:pointer;border:1px solid black;padding:5px;margin:5px;}</style>
+<style>.logic{cursor:pointer;border-radius:5px;padding:5px;margin:5px;}</style>
 <!-- I wanted &rArr;&#120024; and &rArr;&#120020;
 but some browsers lack the fonts to display these. -->
 <span class="logic" id="impliesI">&rArr;I</span>
@@ -44,51 +44,18 @@ but some browsers lack the fonts to display these. -->
 </div>
 <svg xmlns='http://www.w3.org/2000/svg' id='soil' width='100%' height='32em'>
 </svg>
+<button id="hintB">Hint</button><p id="hintT"></p>
 <p id="postT"></p>
-<div style="text-align:center;">
-<button id="nextB" style="visibility:hidden;font-size:400%;">&#9654;</button>
+<div id="winBar" style="text-align:center;visibility:hidden;">
+<p>
+<style>.winbutton{cursor:pointer;border:4px solid blue;border-radius:10px;padding:5px;margin:10px;font-size:400%}</style>
+<span class="winbutton" id="againB">&#8635;</span>
+<span class="winbutton" id="nextB">&#9654;</span>
+</p>
 </div>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-*Level 1*: The moves are forced. We must use the &rArr;-'introduction' rule, or
-&rArr;I for short, which 'discharges' a 'hypothesis'.
-
-This rule uses up a red node (hypothesis) to make a new root node containing
-the (&rArr;) symbol. On the left, it places the contents of the red node,
-and on the right, it places the contents of the old root node.
-
-Here, the root node is also the hypothesis.
-
-*Level 2*: Select the two nodes in the right order before
-applying &rArr;I. Then apply &rArr;I again.
-
-Here, we discharge zero copies of a hypothesis. That is, we use up a lone red
-node, which our game then removes to reduce clutter.
-
-*Level 3*: Use the &rArr;-'elimination' rule first, or &rArr;E for short, which
-is affectionately called 'modus ponens'. Then apply &rArr;I to the hypotheses
-in the right order.
-
-*Level 4*: Three doses of &rArr;E followed by three doses of &rArr;I.
-Observe multiple copies of a hypothesis can be discharged at once.
-
-*Level 5*: After &rArr;E, apply LEM, the 'law of the excluded middle',
-or 'terium non datur' to the correct hypothesis. The rest is forced.
-Other presentations of logic may refer to this rule as 'proof by contradiction',
-or 'reductio ad absurdum'.
-
-*Level 6*: After a certain step, follow the same steps as the previous level.
-
-*Level 7*: The same as the previous level, with a few more steps.
-
-*Level 8*: Also the same as level 6, with a few more steps.
-
-*Level 9*: Redo the steps for the previous level, and combine with steps from
-the levels before.
-
-*Level 10*: Good luck!
 
 == See Also ==
 
@@ -257,34 +224,163 @@ parseProp s = x where Right x = parse proposition "" s
 
 We look up a level's specifications from an association list.
 
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<div id="msgsDiv">
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ * Show yourself!
+
+   1. The moves are forced. We must use the &rArr;-'introduction' rule, or
+&rArr;I for short, which 'discharges' a 'hypothesis'.
++
+This rule uses up a red node (hypothesis) to make a new root node containing
+the (&rArr;) symbol. On the left, it places the contents of the red node,
+and on the right, it places the contents of the old root node.
++
+Here, the root node is also the hypothesis.
+
+   2. The I combinator. The `id` function of Haskell.
+
+ * Ghosts of departed hypotheses
+
+   1. Select the two nodes in the right order before
+applying &rArr;I. Then apply &rArr;I again.
++
+Here, we discharge zero copies of a hypothesis. That is, we use up a lone red
+node, which our game then removes to reduce clutter.
+
+   2. The K combinator. The `const` function of Haskell.
+
+ * An introduction to elimination
+
+   1. Use the &rArr;-'elimination' rule first, or &rArr;E for short, which
+is affectionately called 'modus ponens'. Then apply &rArr;I to the hypotheses
+in the right order.
+
+   2. The reverse apply operator. The `(&)` function in Haskell's `Data.Function`.
+
+ * Take me to your Reader
+
+   1. Three doses of &rArr;E followed by three doses of &rArr;I.
+Observe multiple copies of a hypothesis can be discharged at once.
+
+   2. The S combinator. The function `ap` in Haskell's Reader monad.
+
+ * Two wrongs make a right
+
+   1. After &rArr;E, apply LEM, the 'law of the excluded middle',
+or 'terium non datur' to the correct hypothesis. The rest is forced.
+Other presentations of logic may refer to this rule as 'proof by contradiction',
+or 'reductio ad absurdum'.
+
+   2. Classical logic's 'reductio ad absurdum' or 'proof by contradiction'.
+
+ * The puff of logic
+
+   1. After a certain step, follow the same steps as the previous level.
+
+   2. The 'principle of explosion' or 'ex falso quodlibet'. The `absurd` function of Haskell's `Data.Void`.
+
+ * Aftershock
+
+   1. After a certain step, follow the same steps as the previous level.
+
+   2. We'll need this later.
+
+ * The lie becomes the truth
+
+   1. Start with a couple of eliminations.
+
+   2. https://en.wikipedia.org/wiki/Law_of_excluded_middle['Principia Mathematica' calls this the complement of 'reductio ad absurdum' (pp. 103-104)].
+
+ * Holding the Peirce strings
+
+   1. Redo the steps for the previous level, and combine with steps from
+the levels before.
+
+   2. Peirce's law.
+
+ * One rule to rule them all
+
+   1. Good luck!
+
+   2. Łukasiewicz found this single axiom schema is all we need for a Hilbert-style classical propositional calculus.
+
+ * Logic Bomb
+
+   1. Use &perp;E.
+
+   2. Instead of LEM, intuitionistic logic provides the weaker &perp;E rule,
+   that is, the principle of explosion. Minimal logic does without &perp;E.
+
+ * Caboodle and kit
+
+   1. In the names of the rules, "1" means left and "2" means right.
+   For &and;-introduction, pay attention to the order the nodes are selected.
+
+   2. Why do we prefer "kit and caboodle?"
+   https://www.youtube.com/watch?v=9GubdYZPYPg[Steven Pinker explains (around minute 34)].
+
+ * Shine or rain
+
+   1. Form two trees with root node "b&or;a", then apply &or;E.
+
+   2. The above looks worse than it should, because our code only displays binary trees.
+
+ * You say either and I say disjunction
+
+   1. Similar to the previous level.
+
+   2. This is `either` in Haskell. http://www.paultaylor.eu/stable/Proofs+Types.html[Girard says &or;E is ``very bad'']. After working through proofs like this, one can sympathize.
+
+ * Not to be confused with Distributism
+
+   1. Show "a&and;b" leads to "a&and;(b&or;c)". Do the same for "a&and;c".
+
+   2. One half of the many https://en.wikipedia.org/wiki/Distributive_property#Propositional_logic[distributive laws of propositional calculus].
+
+ * The proof is always easier on the other side.
+
+   1. Show "a&and;(b&or;c)" and "b" lead to the right-hand side. Repeat
+   for "a&and;(b&or;c)" and "c".
+
+   2. The converse of the previous theorem.
+
+[pass]
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+</div>
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 \begin{code}
-data Level = Level Expr [Expr] String Bool | FreePlay
+data Level = Level Expr [Expr] Bool | FreePlay
 
 getLevel :: Int -> Level
 getLevel n
-  | Just (intu, (goal, hs, comment)) <- lookup n lvls
-    = Level (parseProp goal) (parseProp <$> hs) comment intu
+  | Just (intu, (goal, hs)) <- lookup n lvls
+    = Level (parseProp goal) (parseProp <$> hs) intu
   | otherwise = FreePlay
   where
   lvls = zip [1..] $ clvls ++ ilvls
   clvls = zip (repeat False)
-    [ ("a->a", ["a"], "The I combinator. The `id` function of Haskell.")
-    , ("a->b->a", ["a", "b"], "The K combinator. The `const` function of Haskell.")
-    , ("a->(a->b)->b", ["a", "a->b"], "The reverse apply operator. The `(&amp;)` function in Haskell's `Data.Function`.")
-    , ("(a->b->c)->(a->b)->a->c", ["a","a","a->b","a->b->c"], "The S combinator. The function `ap` in Haskell's Reader monad.")
-    , ("((a->0)->0)->a", ["a->0","(a->0)->0"], "Classical logic's <i>reductio ad absurdum</i> or <i>proof by contradiction</i>.")
-    , ("0->a", ["0","a->0","a->0"], "The <i>principle of explosion</i> or <i>ex falso quodlibet</i>. The `absurd` function of Haskell's `Data.Void`.")
-    , ("(a->0)->a->b", ["a","a->0","b->0","b->0"], "")
-    , ("((a->0)->a)->a", ["a->0","a->0","(a->0)->a"], "")
-    , ("((a->b)->a)->a", ["a","a->0","a->0","b->0","b->0","(a->b)->a"], "Peirce's law.")
-    , ("((a->b)->c)->((c->a)->(d->a))", ["a","a->0","a->0","b->0","b->0","d","c->a","(a->b)->c"], "Łukasiewicz found this single axiom schema is all we need for a Hilbert-style classical propositional calculus.")
+    [ ("a->a", ["a"])
+    , ("a->b->a", ["a", "b"])
+    , ("a->(a->b)->b", ["a", "a->b"])
+    , ("(a->b->c)->(a->b)->a->c", ["a","a","a->b","a->b->c"])
+    , ("((a->0)->0)->a", ["a->0","(a->0)->0"])
+    , ("0->a", ["0","a->0","a->0"])
+    , ("(a->0)->a->b", ["a","a->0","b->0","b->0"])
+    , ("((a->0)->a)->a", ["a->0","a->0","(a->0)->a"])
+    , ("((a->b)->a)->a", ["a","a->0","a->0","b->0","b->0","(a->b)->a"])
+    , ("((a->b)->c)->((c->a)->(d->a))", ["a","a->0","a->0","b->0","b->0","d","c->a","(a->b)->c"])
     ]
   ilvls = zip (repeat True)
-    [ ("0->a", ["0", "a"], "Ex falso quodlibet.")
-    , ("a&b->b&a", ["a&b", "a&b"], "")
-    , ("a+b->b+a", ["a+b", "a", "a", "b", "b"], "")
-    , ("a&b+a&c->a&(b+c)", ["b","c","a&b","a&b","a&c","a&c","a&b+a&c"], "")
-    , ("a&(b+c)->a&b+a&c", ["a","a","b","c","a&b","a&c","b+c","a&(b+c)","a&(b+c)"], "")
+    [ ("0->a", ["0", "a"])
+    , ("a&b->b&a", ["a&b", "a&b"])
+    , ("a+b->b+a", ["a+b", "a", "a", "b", "b"])
+    , ("(a->c)->(b->c)->a+b->c", ["a", "b", "a->c", "b->c", "a+b"])
+    , ("a&b+a&c->a&(b+c)", ["b","c","a&b","a&b","a&c","a&c","a&b+a&c"])
+    , ("a&(b+c)->a&b+a&c", ["b","c","a&b","a&c","a&(b+c)","a&(b+c)","a&(b+c)"])
     ]
 \end{code}
 
@@ -393,16 +489,24 @@ theorem (g, dis) | null live, [t] <- tips = Just $ nodeExpr g t
   live = filter (`M.notMember` dis) $ filter (null . suc g) $ nodes g
   tips = filter (null . pre g) $ nodes g
 
+mustEldest :: Elem -> IO Elem
+mustEldest = fmap fromJust . getFirstChild
+
 main :: IO ()
 main = withElems
-  [ "soil", "ruleBar", "hypoT", "newHypoB", "errT"
+  [ "soil", "winBar", "ruleBar", "hypoT", "newHypoB", "errT", "msgsDiv"
   , "impliesI", "impliesE", "notNot"
   , "andI", "and1E", "and2E", "or1I", "or2I", "orE", "falseE"
-  , "nextB", "undoB", "hypoDiv", "preT", "postT"] $
-    \[ soil, ruleBar, hypoT, newHypoB, errT
+  , "againB", "nextB", "hintB", "hintT", "undoB", "hypoDiv", "preT", "postT"] $
+    \[ soil, winBar, ruleBar, hypoT, newHypoB, errT, msgsDiv
      , impliesI, impliesE, notNot
      , andI, and1E, and2E, or1I, or2I, orE, falseE
-     , nextB, undoB, hypoDiv, preT, postT] -> do
+     , againB, nextB, hintB, hintT, undoB, hypoDiv, preT, postT] -> do
+  msgsDivKids <- getChildren =<< mustEldest =<< mustEldest msgsDiv
+  msgs <- forM msgsDivKids $ \e -> do  -- Title, hint, victory message.
+    ol <- getChildren =<< mustEldest . (!!1) =<< getChildren e
+    eldest <- mustEldest e
+    mapM (`getProp` "innerHTML") $ eldest : ol
   let
     classicRules = [impliesI, impliesE, notNot]
     intuRules =
@@ -425,7 +529,7 @@ main = withElems
 
     activate :: Elem -> (Proof -> IO Proof) -> IO ()
     activate e f = do
-      setStyle e "border" "2px solid black"
+      setStyle e "border" "2px solid blue"
       setStyle e "color" "black"
       h <- e `onEvent` Click $ const $ do
         resetActs
@@ -433,12 +537,13 @@ main = withElems
         save prf
         case theorem prf of
           Just t -> do
-            lvl <- getLevel <$> readMVar level
-            case lvl of
-              Level goal _ comment _ -> if t == goal then do
-                  setProp postT "innerHTML" $ "<p><b>QED.</b></p>" ++ comment
-                  setStyle nextB "visibility" "visible"
+            n <- readMVar level
+            case getLevel n of
+              Level goal _ _ -> if t == goal then do
+                  setProp postT "innerHTML" $ "<p><b>QED.</b></p>" ++ (msgs!!(n - 1)!!2)
+                  setStyle winBar "visibility" "visible"
                   setStyle ruleBar "display" "none"
+                  setStyle hintB "display" "none"
                 else
                   setProp postT "innerHTML" $ "Proved " ++ show t
                     ++ " but we want " ++ show goal
@@ -632,26 +737,42 @@ main = withElems
     setup n = do
       void $ swapMVar proof (mkGraph [] [], M.empty)
       clearChildren soil
-      setStyle nextB "visibility" "hidden"
+      setStyle winBar "visibility" "hidden"
       setStyle ruleBar "display" "initial"
       case getLevel n of
-        Level goal hs _ intu -> do
+        Level goal hs intu -> do
+          setStyle hintB "display" "initial"
+          setProp hintT "innerHTML" ""
           forM_ allRules $ \e -> setStyle e "display" "none"
           forM_ (if intu then intuRules else classicRules) $
             \e -> setStyle e "display" "initial"
           mapM_ addHypo hs
-          setProp preT "innerHTML" $ "<h2>Level " ++ show n ++ "</h2><p><b>Theorem</b>: " ++ show goal ++ "</p><b>Proof:</b>"
+          setProp preT "innerHTML" $ concat
+            [ "<h2>Level "
+            , show n
+            , ":"
+            , msgs!!(n - 1)!!0
+            , "</h2><p><b>Theorem</b>: "
+            , show goal
+            , "</p><b>Proof:</b>"
+            ]
           setProp postT "innerHTML" ""
         FreePlay -> do
+          setStyle hintB "display" "none"
+          setProp hintT "innerHTML" ""
           forM_ allRules $ \e -> setStyle e "display" "initial"
           setStyle hypoDiv "display" "initial"
           setProp preT "innerHTML" "<h2>Free Play</h2><p>Type '=>' or '->' for implication, '0' and '1' for false and true.</p>"
           setProp postT "innerHTML" ""
       void $ swapMVar history []
-
   void $ nextB `onEvent` Click $ const $ do
     n <- takeMVar level
     putMVar level $ n + 1
     setup $ n + 1
+  void $ againB `onEvent` Click $ const $ setup =<< readMVar level
+  void $ hintB `onEvent` Click $ const $ do
+    n <- readMVar level
+    setStyle hintB "display" "none"
+    setProp hintT "innerHTML" $ msgs!!(n - 1)!!1
   setup =<< readMVar level
 \end{code}
