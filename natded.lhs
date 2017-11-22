@@ -26,7 +26,7 @@ drove Gentzen to devise
 </p>
 </div>
 <p>
-<style>.logic{cursor:pointer;border:2px solid blue;border-radius:5px;padding:5px;margin:5px;}</style>
+<style>.logic{cursor:pointer;border:2px solid blue;border-radius:10px;padding:5px;margin:5px;}</style>
 <!-- I wanted &rArr;&#120024; and &rArr;&#120020;
 but some browsers lack the fonts to display these. -->
 <span class="logic" id="impliesI">&rArr;I</span>
@@ -92,6 +92,8 @@ can select subtrees to create hypotheses.
 
  * We could add &forall; and &exist; for first-order logic. Or add
  &Pi; and &Sigma; types and move towards homotopy type theory. Or both!
+
+ * Proof relevance: show the Haskell equivalent of a proof.
 
 == A Haste Bug ==
 
@@ -277,6 +279,8 @@ a red node. It disappears because it is alone. Then apply *⇒I* again.
 +
 The disappearing red node represents discharging zero copies of a hypothesis.
 +
+The *⇒* operator is right-associative, that is, *a⇒b⇒c* means *a⇒(b⇒c)*.
++
 This is the type of the K combinator; Haskell's `const` function.
 
  * An introduction to elimination
@@ -294,8 +298,6 @@ This is the type of the reverse apply operator; the `(&)` function in Haskell's
 
    2. Multiple copies of a hypothesis can be discharged at once.
 +
-The *⇒* operator is right-associative, that is, *a⇒b⇒c* means *a⇒(b⇒c)*.
-+
 This is the type of the S combinator; the function `ap` in Haskell's Reader
 monad.
 
@@ -303,7 +305,9 @@ monad.
 
    1. After *⇒E*, apply *LEM* to the correct hypothesis. The rest is forced.
 
-   2. *LEM* is the 'law of the excluded middle', or 'tertium non datur', and
+   2. *⊥* represents falsehood.
++
+*LEM* is the 'law of the excluded middle', or 'tertium non datur', and
 equivalent to 'proof by contradiction', or 'reductio ad absurdum'. It is
 the hallmark of 'classical logic'.
 +
@@ -540,11 +544,29 @@ discharge :: Grx -> G.Node -> G.Node -> Dis -> Dis
 discharge g x y dis = M.union dis $ M.fromList $ zip xs $ repeat y where
   xs = filter ((== nodeExpr g x) . nodeExpr g) (foliage g $ rootOf g x)
 
-chargeElem :: Elem -> IO ()
-chargeElem = ffi $ pack $ "e => e.childNodes[1].setAttribute('fill','red')"
+elemjs :: Elem -> String -> IO ()
+elemjs e s = (ffi $ pack s :: Elem -> IO ()) e
 
-dischargeElem :: Elem -> IO ()
-dischargeElem = ffi $ pack $ "e => e.childNodes[1].removeAttribute('fill')"
+defaultNode :: Elem -> IO ()
+defaultNode e = do
+  setStyle e "cursor" ""
+  elemjs e "e => e.childNodes[0].setAttribute('stroke','grey')"
+  elemjs e "e => e.childNodes[0].setAttribute('stroke-dasharray','1,1')"
+  elemjs e "e => e.childNodes[1].removeAttribute('fill')"
+
+hypNode :: Elem -> IO ()
+hypNode e = do
+  setStyle e "cursor" "pointer"
+  elemjs e "e => e.childNodes[1].setAttribute('fill','red')"
+  elemjs e "e => e.childNodes[0].removeAttribute('stroke-dasharray')"
+  elemjs e "e => e.childNodes[0].setAttribute('stroke','blue')"
+
+rootNode :: Elem -> IO ()
+rootNode e = do
+  setStyle e "cursor" "pointer"
+  elemjs e "e => e.childNodes[0].setAttribute('stroke','black')"
+  elemjs e "e => e.childNodes[0].removeAttribute('stroke-dasharray')"
+  elemjs e "e => e.childNodes[0].setAttribute('stroke','blue')"
 
 draw :: Elem -> Int -> Grx -> Int -> Tree (Int, G.Node) -> IO ()
 draw soil x0 g y (Node (x, n) ks) = do
@@ -758,10 +780,9 @@ main = withElems
         setAttr l "y2" y2
       forM_ (nodes g) $ \i -> do
         let e = nodeElem g i
-        setStyle e "cursor" ""
-        when (null $ suc g i) $ if M.member i dis then dischargeElem e
-          else chargeElem e >> setStyle e "cursor" "pointer"
-        when (null $ pre g i) $ setStyle e "cursor" "pointer"
+        defaultNode e
+        when (null (suc g i) && M.notMember i dis) $ hypNode e
+        when (null $ pre g i) $ rootNode e
       setAttr soil "viewBox" $ "-5 " ++ show (-40 * by1) ++ " "
         ++ show (bx1) ++ " " ++ show (40*by1 + 40)
 
@@ -776,6 +797,8 @@ main = withElems
         , attr "stroke" =: "black"
         , attr "x"      =: show (-w)
         , attr "y"      =: "-12"
+        , attr "rx"     =: "4"
+        , attr "ry"     =: "4"
         ]
       when (t == OrHalf) $ do
         setAttr er "stroke" "none"
@@ -833,6 +856,7 @@ main = withElems
     setup n = do
       forM_ allRules disableRule
       void $ swapMVar proof (mkGraph [] [], M.empty)
+      void $ swapMVar sel []
       clearChildren soil
       setStyle winBar "visibility" "hidden"
       setStyle ruleBar "display" ""

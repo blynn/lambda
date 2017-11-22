@@ -337,8 +337,7 @@ pseudo-term is similar to typing terms in our previous interpreters:
 However, unlike our previous interpreters, we represent terms and types in the
 same data structure, so the `eval` and `norm` functions work for both.
 
-Our implementation is naive. [Also, I'm not sure I'm using the ``start'' and
-``weakening'' rules correctly.] As a result,
+Our implementation is naive. As a result,
 https://pdfs.semanticscholar.org/347e/ae0c68dff872c85b809be786d31539852c25.pdf[our
 type checking may be incomplete]. It works for our examples so we tolerate the
 sloppiness.
