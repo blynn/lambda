@@ -369,14 +369,14 @@ the levels before.
 
  * Shine or rain
 
-   1. Form two trees with root node *b∨a*, then apply ∨E. This rule
+   1. Form two trees with root node *b∨a*, then apply *∨E*. This rule
    requires 3 input nodes.
 
    2. We only draw binary trees so the result of *∨E* looks a bit odd.
 
  * You say either and I say disjunction
 
-   1. Similar to the previous level.
+   1. Apply *⇒E* twice, then *∨E*.
 
    2. This is the type of `either` in Haskell. After working through proofs
    like this, we understand why
@@ -387,16 +387,16 @@ the levels before.
 
    1. Use *⊥E*.
 
-   2. Instead of LEM, intuitionistic logic provides the weaker *⊥E* rule,
-   that is, the principle of explosion. Without *⊥E*, we have
-   'minimal logic'.
+   2. Instead of LEM, intuitionistic logic provides the weaker *⊥E* rule.
+   This is the 'principle of explosion', or 'ex falso quodlibet'.
++
+Without *⊥E*, we have 'minimal logic'.
 
  * Two wrongs no longer make a right
 
    1. Outline: *a* leads to *a⇒⊥* which leads to the theorem.
 
-   2. Without *LEM*, we can show it is a contradiction for *a∨¬a*
-   to lead to contradiction, but no further.
+   2. Without *LEM*, we can show *¬¬(a∨¬a)* but not *a∨¬a*.
 
  * Disjunction to implication
 
@@ -435,34 +435,34 @@ the levels before.
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 \begin{code}
-data Level = Level Expr [Expr] Bool | FreePlay
+data Level = Level Expr [Expr] String | FreePlay
 
 getLevel :: Int -> Level
 getLevel n
-  | Just (intu, (goal, hs)) <- lookup n lvls
-    = Level (parseProp goal) (parseProp <$> hs) intu
+  | Just ((goal, hs), rules) <- lookup n lvls
+    = Level (parseProp goal) (parseProp <$> hs) rules
   | otherwise = FreePlay
   where
-  lvls = zip [1..] $ clvls ++ ilvls
-  clvls = zip (repeat False)
-    [ ("a->a", ["a"])
-    , ("a->b->a", ["a", "b"])
-    , ("a->(a->b)->b", ["a", "a->b"])
-    , ("(a->b->c)->(a->b)->a->c", ["a","a","a->b","a->b->c"])
-    , ("((a->0)->0)->a", ["a->0","(a->0)->0"])
+  lvls = zip [1..] $
+    [ (("a->a", ["a"]), "impliesI")
+    , (("a->b->a", ["a", "b"]), "impliesI")
+    , (("a->(a->b)->b", ["a", "a->b"]), "impliesI impliesE")
+    , (("(a->b->c)->(a->b)->a->c", ["a","a","a->b","a->b->c"]), "impliesI impliesE")
+    ] ++ (`zip` (repeat "classy"))
+    [ ("((a->0)->0)->a", ["a->0","(a->0)->0"])
     , ("0->a", ["0","a->0","a->0"])
     , ("(a->0)->a->b", ["a","a->0","b->0","b->0"])
     , ("((a->0)->a)->a", ["a->0","a->0","(a->0)->a"])
     , ("((a->b)->a)->a", ["a","a->0","a->0","b->0","b->0","(a->b)->a"])
     , ("((a->b)->c)->((c->a)->(d->a))", ["a","a->0","a->0","b->0","b->0","d","c->a","(a->b)->c"])
-    ]
-  ilvls = zip (repeat True)
-    [ ("a&b->b", ["a&b"])
-    , ("a&b->b&a", ["a&b","a&b"])
-    , ("a->a+b", ["a","b"])
-    , ("a+b->b+a", ["a+b","a","a","b","b"])
-    , ("(a->c)->(b->c)->a+b->c", ["a", "b", "a->c", "b->c", "a+b"])
-    , ("0->a", ["0", "a"])
+    ] ++
+    [ (("a&b->b", ["a&b"]), "impliesI impliesE and1E and2E")
+    , (("a&b->b&a", ["a&b","a&b"]), "impliesI impliesE andI and1E and2E")
+    , (("a->a+b", ["a","b"]), "impliesI impliesE or1I or2I orE")
+    , (("a+b->b+a", ["a+b","a","a","b","b"]), "impliesI impliesE or1I or2I orE")
+    , (("(a->c)->(b->c)->a+b->c", ["a", "b", "a->c", "b->c", "a+b"]), "impliesI impliesE or1I or2I orE")
+    ] ++ (`zip` (repeat "intu"))
+    [ ("0->a", ["0", "a"])
     , ("(a+(a->0)->0)->0", ["a","a","a->0","a+(a->0)->0","a+(a->0)->0"])
     , ("a+b->(a->b)->b", ["a+b","a","b","a->b","a->b"])
     , ("((((a->b)->b)->a+b)->0)->0", ["a","a","b","b","(a->b)->b","(a->b)->b","(((a->b)->b)->a+b)->0","(((a->b)->b)->a+b)->0"])
@@ -778,11 +778,11 @@ main = withElems
         setAttr l "y1" y1
         setAttr l "x2" x2
         setAttr l "y2" y2
-      forM_ (nodes g) $ \i -> do
-        let e = nodeElem g i
-        defaultNode e
-        when (null (suc g i) && M.notMember i dis) $ hypNode e
-        when (null $ pre g i) $ rootNode e
+      forM_ (nodes g) $ \i -> let e = nodeElem g i in
+        when (nodeExpr g i /= OrHalf) $ do
+          defaultNode e
+          when (null (suc g i) && M.notMember i dis) $ hypNode e
+          when (null $ pre g i) $ rootNode e
       setAttr soil "viewBox" $ "-5 " ++ show (-40 * by1) ++ " "
         ++ show (bx1) ++ " " ++ show (40*by1 + 40)
 
@@ -853,6 +853,9 @@ main = withElems
       Left err -> setProp errT "innerHTML" $ show err
 
   let
+    ruleset "intu"   = pure intuRules
+    ruleset "classy" = pure classicRules
+    ruleset names    = catMaybes <$> mapM elemById (words names)
     setup n = do
       forM_ allRules disableRule
       void $ swapMVar proof (mkGraph [] [], M.empty)
@@ -861,12 +864,11 @@ main = withElems
       setStyle winBar "visibility" "hidden"
       setStyle ruleBar "display" ""
       case getLevel n of
-        Level goal hs intu -> do
+        Level goal hs rules -> do
           setStyle hintB "display" ""
           setProp hintT "innerHTML" ""
           forM_ allRules $ \e -> setStyle e "display" "none"
-          forM_ (if intu then intuRules else classicRules) $
-            \e -> setStyle e "display" ""
+          ruleset rules >>= mapM_ (\e -> setStyle e "display" "")
           mapM_ addHypo hs
           setProp preT "innerHTML" $ concat
             [ "<p>Level "
