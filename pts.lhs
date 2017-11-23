@@ -200,8 +200,8 @@ Here's the code to compare pseudo-terms:
 \begin{code}
 instance Eq Term where
   t1 == t2 = f [] t1 t2 where
-    f alpha (S s) (S t) = s == t
-    f alpha (V s) (V t)
+    f _      (S s) (S t) = s == t
+    f alpha  (V s) (V t)
       | Just t' <- lookup s alpha            = t' == t
       | Just _  <- lookup t (swap <$> alpha) = False
       | otherwise                            = s == t
@@ -214,7 +214,7 @@ instance Eq Term where
       | s == t              = f alpha x y
       | otherwise           = f ((s, t):alpha) x y
     f alpha (App a b) (App c d) = f alpha a c && f alpha b d
-    f alpha _ _ = False
+    f _     _ _ = False
 \end{code}
 
 and to print them:
@@ -285,7 +285,7 @@ line (ss, syn) = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
     ws
     pure s
   str s = try $ do
-    string s
+    void $ string s
     let c = last s
     when (isAlphaNum c && isAscii c) $ notFollowedBy alphaNum
     ws
@@ -795,7 +795,7 @@ main = withElems ["input", "output", "spec", "starbox", "boxbox", "boxstar",
       Just sar <- elemById $ id ++ "SAR"
       sarV   <- getProp sar   "value"
       blurbV <- getProp blurb "value"
-      b `onEvent` Click $ const $ do
+      void $ b `onEvent` Click $ const $ do
         setProp blurbE "innerHTML" blurbV
         setSar sarV
 
@@ -809,13 +809,13 @@ main = withElems ["input", "output", "spec", "starbox", "boxbox", "boxstar",
       getStdRandom (randomR (0, length slogans - 1))
 
   newSlogan
-  newSloganE `onEvent` Click $ const newSlogan
-  prop2typeE `onEvent` Click $ const cubeSpec
-  type2typeE `onEvent` Click $ const cubeSpec
-  type2propE `onEvent` Click $ const cubeSpec
-  lcubeE `onEvent` Click $ const cubeSpec
+  void $ newSloganE `onEvent` Click $ const newSlogan
+  void $ prop2typeE `onEvent` Click $ const cubeSpec
+  void $ type2typeE `onEvent` Click $ const cubeSpec
+  void $ type2propE `onEvent` Click $ const cubeSpec
+  void $ lcubeE `onEvent` Click $ const cubeSpec
   mapM_ sarPreset ["lstar", "sysu", "sysuminus", "lz"]
-  customE `onEvent` Click $ const $ do
+  void $ customE `onEvent` Click $ const $ do
     disableCube
     setProp blurbE "innerHTML" ""
     setProp specE "readOnly" ""
@@ -837,26 +837,26 @@ main = withElems ["input", "output", "spec", "starbox", "boxbox", "boxstar",
 
   zipWithM_ cubeClick verts [0..7]
 
-  factB `onEvent` Click $ const $ do
+  void $ factB `onEvent` Click $ const $ do
      getProp factP "value" >>= setProp iEl "value"
      setProp oEl "value" ""
      setToppings ["Fix", "Nat"]
      cubeSelect 0
 
-  eqB `onEvent` Click $ const $ do
+  void $ eqB `onEvent` Click $ const $ do
      getProp eqP "value" >>= setProp iEl "value"
      setProp oEl "value" ""
      setToppings []
      cubeSelect 7
 
-  indB `onEvent` Click $ const $ do
+  void $ indB `onEvent` Click $ const $ do
      getProp indP "value" >>= setProp iEl "value"
      setProp oEl "value" ""
      setToppings []
      cubeSelect 7
 
-  clearB `onEvent` Click $ const $ setProp oEl "value" ""
-  evalB `onEvent` Click $ const $ do
+  void $ clearB `onEvent` Click $ const $ setProp oEl "value" ""
+  void $ evalB `onEvent` Click $ const $ do
     sar <- parseSpec <$> getProp specE "value"
     let
       isChecked (s, el) = bool Nothing (Just s) . ("true" ==) <$>
@@ -944,14 +944,12 @@ axiom natInd = forall(n:nat)(P:nat->*).P O ->(forall m:nat.P m -> P (S m))->P n
 ------------------------------------------------------------------------------
 
 which simply declares `natInd` to be an inhabitant of the type on the
-right-hand side. We check that the type is valid, but we  term `natInd` is
+right-hand side. We check that the type is valid, but the term `natInd` is
 exempt from type checking: it gets a free pass and any time we're asked, its
 type is stated to be `forall(n:nat)(P:nat->*).P O ->(forall m:nat.P m -> P (S
-m))->P n`.
+m))->P n`. We then use `natInd` to prove theorems by induction.
 
-We then use `natInd` to prove theorems by induction.
-
-Later versions of Coq solve this problem by using a richer system known as
+Later versions of Coq employ a richer system known as
 http://www4.di.uminho.pt/~mjf/pub/SFV-CIC-2up.pdf[the calculus of inductive
 constructions (CIC)], which can be viewed as a generalization of &lambda;Z, as
 its specification is described by:

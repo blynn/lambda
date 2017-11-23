@@ -409,9 +409,8 @@ Without *⊥E*, we have 'minimal logic'.
  * One-way trip
 
    1. Show *a* leads to a contradiction in the presence of
-   *(((a⇒b)⇒b)⇒a∨b)⇒⊥*. Use *⊥E* with *b* and *⇒I* to discharge *a* and
-   continue on to *((a⇒b)⇒b)⇒a∨b*. Now we are left with a hypothesis of
-   the form *P⇒⊥* leading to *P*; a few more steps lead to *P⇒⊥⇒⊥*.
+   *(((a⇒b)⇒b)⇒a∨b)⇒⊥*. Use *⊥E* with *b*. Then apply *⇒I* to discharge *a* and
+   continue on to *((a⇒b)⇒b)⇒a∨b*. The rest is straightforward.
 
    2. The theorems *a∨b* and *(a⇒b)⇒b* are equivalent in the
    presence of LEM, but without it, we can only go in one direction.
