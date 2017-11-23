@@ -14,6 +14,7 @@ drove Gentzen to devise
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="natded.js"></script>
+<div id="gameTab">
 <p>
 <span id="preT"></span>
 </p>
@@ -42,6 +43,7 @@ but some browsers lack the fonts to display these. -->
 </p>
 <p style="float:right;">
 <span class="logic" id="undoB">Undo</span>
+<span class="logic" id="homeB2">&#8943;</span>
 </p>
 </div>
 <svg xmlns='http://www.w3.org/2000/svg' id='soil' width='100%' height='24em'>
@@ -52,12 +54,22 @@ but some browsers lack the fonts to display these. -->
 <div style="text-align:center;">
 <p>
 <style>.winbutton{cursor:pointer;border:4px solid blue;border-radius:10px;padding:5px;margin:10px;font-size:400%}</style>
+<span class="winbutton" id="homeB">&#8943;</span>
 <span class="winbutton" id="againB">&#8635;</span>
 <span class="winbutton" id="nextB">&#9654;</span>
 </p>
 </div>
 </div>
 <p id="postT"></p>
+</div> <!-- gameTab -->
+<style>.warpButton{cursor:pointer;border:2px solid blue;border-radius:5px;padding:5px;margin:10px;font-size:150%;text-align:center;width:2em;display:inline-grid;}
+.warpButton:hover{background-color:lightblue;}
+</style>
+<div id="homeTab" style="display:none;">
+<div style="display:flex;justify-content:flex-end;">
+<span class="logic" id="backB">Back</span>
+</div>
+</div>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -606,11 +618,12 @@ main = withElems
   [ "soil", "winBar", "ruleBar", "hypoT", "newHypoB", "errT", "msgsDiv"
   , "impliesI", "impliesE", "notNot"
   , "andI", "and1E", "and2E", "or1I", "or2I", "orE", "falseE"
-  , "againB", "nextB", "hintB", "hintT", "undoB", "hypoDiv", "preT", "postT"] $
+  , "againB", "nextB", "hintB", "hintT", "undoB", "hypoDiv", "preT", "postT"
+  , "homeB", "homeB2", "backB", "homeTab", "gameTab"] $
     \[ soil, winBar, ruleBar, hypoT, newHypoB, errT, msgsDiv
-     , impliesI, impliesE, notNot
-     , andI, and1E, and2E, or1I, or2I, orE, falseE
-     , againB, nextB, hintB, hintT, undoB, hypoDiv, preT, postT] -> do
+     , impliesI, impliesE, notNot , andI, and1E, and2E, or1I, or2I, orE, falseE
+     , againB, nextB, hintB, hintT, undoB, hypoDiv, preT, postT
+     , homeB, homeB2, backB, homeTab, gameTab] -> do
   msgsDivKids <- getChildren =<< mustEldest =<< mustEldest msgsDiv
   msgs <- forM msgsDivKids $ \e -> do  -- Title, hint, victory message.
     ol <- getChildren =<< mustEldest . (!!1) =<< getChildren e
@@ -625,7 +638,7 @@ main = withElems
   proof <- newMVar (mkGraph [] [], M.empty)
   acts <- newMVar []
   history <- newMVar []
-  level <- newMVar 1
+  level <- newMVar undefined  -- Replaced later by `setup`.
   let
     resetActs = swapMVar acts [] >>=
       mapM_ (\(e, h) -> disableRule e >> unregisterHandler h)
@@ -856,6 +869,7 @@ main = withElems
     ruleset "classy" = pure classicRules
     ruleset names    = catMaybes <$> mapM elemById (words names)
     setup n = do
+      void $ swapMVar level n
       forM_ allRules disableRule
       void $ swapMVar proof (mkGraph [] [], M.empty)
       void $ swapMVar sel []
@@ -867,6 +881,7 @@ main = withElems
           setStyle hintB "display" ""
           setProp hintT "innerHTML" ""
           forM_ allRules $ \e -> setStyle e "display" "none"
+          setStyle hypoDiv "display" "none"
           ruleset rules >>= mapM_ (\e -> setStyle e "display" "")
           mapM_ addHypo hs
           setProp preT "innerHTML" $ concat
@@ -899,5 +914,26 @@ main = withElems
     n <- readMVar level
     setStyle hintB "display" "none"
     setProp hintT "innerHTML" $ msgs!!(n - 1)!!1
-  setup =<< readMVar level
+  void $ homeB `onEvent` Click $ const $ do
+    setStyle gameTab "display" "none"
+    setStyle homeTab "display" ""
+  void $ homeB2 `onEvent` Click $ const $ do
+    setStyle gameTab "display" "none"
+    setStyle homeTab "display" ""
+  let
+    addWarp n = do
+      e <- newElem "div" `with`
+        [ attr "class"     =: "warpButton"
+        , prop "innerHTML" =: show n
+        ]
+      appendChild homeTab e
+      void $ e `onEvent` Click $ const $ do
+        setStyle gameTab "display" ""
+        setStyle homeTab "display" "none"
+        setup n
+  void $ backB `onEvent` Click $ const $ do
+    setStyle homeTab "display" "none"
+    setStyle gameTab "display" ""
+  forM_ [1..22] addWarp
+  setup 1
 \end{code}
