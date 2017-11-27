@@ -21,13 +21,12 @@ drove Gentzen to devise
 <div id="ruleBar" style="display:none;">
 <div id="hypoDiv" style="display:none;">
 <p>
-<input id="hypoT" cols="64" type="text">
+<input id="hypoT" size="64" type="text">
 <button id="newHypoB">New Hypothesis</button>
-<div><span id="errT"></span></div>
 </p>
+<div><span id="errT"></span></div>
 </div>
 <p>
-<style>.logic{cursor:pointer;border:2px solid blue;border-radius:10px;padding:5px;margin:5px;}</style>
 <!-- I wanted &rArr;&#120024; and &rArr;&#120020;
 but some browsers lack the fonts to display these. -->
 <span class="logic" id="impliesI">&rArr;I</span>
@@ -53,7 +52,6 @@ but some browsers lack the fonts to display these. -->
 <b>QED.</b>
 <div style="text-align:center;">
 <p>
-<style>.winbutton{cursor:pointer;border:4px solid blue;border-radius:10px;padding:5px;margin:10px;font-size:400%}</style>
 <span class="winbutton" id="homeB">&#8943;</span>
 <span class="winbutton" id="againB">&#8635;</span>
 <span class="winbutton" id="nextB">&#9654;</span>
@@ -62,9 +60,6 @@ but some browsers lack the fonts to display these. -->
 </div>
 <p id="postT"></p>
 </div> <!-- gameTab -->
-<style>.warpButton{cursor:pointer;border:2px solid blue;border-radius:5px;padding:5px;margin:10px;font-size:150%;text-align:center;width:2em;display:inline-grid;}
-.warpButton:hover{background-color:lightblue;}
-</style>
 <div id="homeTab" style="display:none;">
 <div style="display:flex;justify-content:flex-end;">
 <span class="logic" id="backB">Back</span>
@@ -262,7 +257,7 @@ messages.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<div id="msgsDiv" display="none">
+<div id="msgsDiv" style="display:none;">
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
  * Show yourself!
@@ -516,6 +511,9 @@ handling player clicks on any node.
 With each edge, we associate an SVG line as well as an integer so out-edges
 are ordered.
 
+We record the step that discharges a hypothesis, but we have no use for
+this information yet.
+
 \begin{code}
 type Grx = Gr (Elem, Expr) (Elem, Int)
 type Dis = M.Map G.Node G.Node
@@ -624,6 +622,19 @@ main = withElems
      , impliesI, impliesE, notNot , andI, and1E, and2E, or1I, or2I, orE, falseE
      , againB, nextB, hintB, hintT, undoB, hypoDiv, preT, postT
      , homeB, homeB2, backB, homeTab, gameTab] -> do
+  styleElem <- newElem "style"
+  [headElem] <- elemsByQS document "head"
+  appendChild styleElem =<< newTextElem (concat
+    [ ".logic{cursor:pointer;border:2px solid blue;"
+    ,   "border-radius:10px;padding:5px;margin:5px;}"
+    , ".warpButton{cursor:pointer;border:2px solid blue;border-radius:5px;"
+    ,   "padding:5px;margin:10px;font-size:150%;text-align:center;"
+    ,   "width:2em;display:inline-grid;}"
+    , ".warpButton:hover{background-color:lightblue;}"
+    , ".winbutton{cursor:pointer;border:4px solid blue;border-radius:10px;"
+    ,   "padding:5px;margin:10px;font-size:400%}"
+    ])
+  appendChild headElem styleElem
   msgsDivKids <- getChildren =<< mustEldest =<< mustEldest msgsDiv
   msgs <- forM msgsDivKids $ \e -> do  -- Title, hint, victory message.
     ol <- getChildren =<< mustEldest . (!!1) =<< getChildren e
@@ -744,7 +755,7 @@ main = withElems
             rx /= ry, t == exprOf ry
             = [(orE, \(g0, dis0) -> do
           (k, g1) <- newProp g0 [rx, ry] OrHalf
-          g2 <- snd <$> newProp g1 [k, z] t
+          g2 <- snd <$> newProp g1 [z, k] t
           pure (g2, discharge g0 y k $ discharge g0 x k dis0))]
         orCheck _ = []
         efq
