@@ -113,8 +113,7 @@ eval env (Let x y z) = eval env $ beta (x, y) z
 ------------------------------------------------------------------------------
 
 That is, we add a new binding to the environment before evaluating the let
-body. An easy exercise is to add this to our previous interpreter: after
-trivially modify parsing and type-checking, it should just work.
+body. An easy exercise is to add this to our previous interpreter.
 
 As for type inference, we could treat `let` as a macro: we could fully expand
 all let definitions before type checking if we accept that work may be
@@ -140,10 +139,10 @@ However, this approach has drawbacks. Functions can be more complicated than
 repeated computations.  Also, we may one day wish to support a recursive
 variant of `let`, where full expansion is impossible.
 
-Better to https://en.wikipedia.org/wiki/Memoization[memoize: cache the results
-of a computation for later reuse]. We introduce 'generalized type variables'
-for this purpose. A generalized type variable is a placeholder that generates a
-fresh type variable on demand.
+Better to https://en.wikipedia.org/wiki/Memoization[memoize: we cache the
+results of a computation for later reuse]. We introduce 'generalized type
+variables' for this purpose. A generalized type variable is a placeholder that
+generates a fresh type variable on demand.
 
 In our example above, we first use type inference to determine `id` has type `X
 -> X` where `X` is a type variable. Next, we mark `X` as a generalized type
@@ -686,7 +685,7 @@ confidence in my code now.
 Hindley-Milner is considered a sweet spot in the language design space because
 type inference is simple and decidable, yet the type system is powerful.
 There is a blemish: type inference takes exponential time for certain
-pathological caess. Luckily, they never show up in real life.
+pathological cases. Luckily, they never show up in real life.
 
 Still, experience suggests we should weaken Hindley-Milner in practical
 programming languages.

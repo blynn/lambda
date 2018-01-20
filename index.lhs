@@ -81,7 +81,8 @@ engineering without physics.
 
 == Why Lambda? ==
 
-See https://nsl.cs.usc.edu/\~jkna/fpl/church.pdf['The impact of lambda calculus
+See
+http://www-users.mat.umk.pl/\~adwid/materialy/doc/church.pdf['The impact of lambda calculus
 in logic and computer science'] by Henk Barendregt, and
 http://www.users.waitrose.com/\~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
 J. Roger Hindley. It seems its true name should be ``hat calculus''.
@@ -238,11 +239,11 @@ lambda calculus; a true lambda calculus term is unable to refer to itself.
 The quote business is a special feature that will be explained later.
 
 \begin{code}
-eval env (App (Var "quote") t)                   = quote env t
-eval env term@(App m a) | Lam v f <- eval env m  =
+eval env (App (Var "quote") t)              = quote env t
+eval env (App m a) | Lam v f <- eval env m  =
   eval env $ beta (fv env [] a) (v, a) f
-eval env term@(Var v)   | Just x <- lookup v env = eval env x
-eval _   term                                    = term
+eval env (Var v)   | Just x <- lookup v env = eval env x
+eval _   term                               = term
 
 beta fvs (v, a) t = case t of
   Var s | s == v         -> a

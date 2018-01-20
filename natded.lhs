@@ -716,11 +716,13 @@ main = withElems
         isLeaf = null . suc g
         impi
           | [y, x] <- xs, isLeaf x, isRoot x, isRoot y
+-- [Del x, New x [y] $ exprOf x :-> exprOF y]
             = [(impliesI, ghost x y $ exprOf x :-> exprOf y)]
           | [x] <- xs, isLeaf x, y <- rootOf g x
             = [(impliesI, dSpawn x y $ exprOf x :-> exprOf y)]
           | [y] <- filter isRoot xs, [x] <- delete y xs, rootOf g x == y
             = [(impliesI, dSpawn x y $ exprOf x :-> exprOf y)]
+-- [Dis x, New x [y] $ exprOf x :-> exprOF y]
           | otherwise = []
         mopo
           | [x, y] <- xs, isRoot x, isRoot y, a :-> b <- exprOf y, a == exprOf x

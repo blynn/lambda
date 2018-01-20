@@ -257,8 +257,8 @@ both sides are branches.
 
 We take this opportunity to define `unify` using the state monad, which saves
 us from explicitly referring to the list of assignments found so far:
-the list formerly known as `acc`. To a first approximation, we're employing
-macros to hide uninteresting code.
+the list formerly known as `acc`. For those with a background in C: to a first
+approximation, we're employing macros to hide uninteresting code.
 
 \begin{code}
 data Tree a = Var String | Leaf a | Branch (Tree a) (Tree a) deriving Show

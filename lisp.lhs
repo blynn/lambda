@@ -445,7 +445,7 @@ ourRemoveIf f (x:xs) | f x       = ourRemoveIf f xs
 ------------------------------------------------------------------------------
 
 In this small example we see various sweeteners:
-https://en.wikipedia.org/wiki/Off-side_rule{the off-side rule]; pattern
+https://en.wikipedia.org/wiki/Off-side_rule[the off-side rule]; pattern
 matching; guards; infix and prefix notation; concise notation for lists.
 
 There is substance behind the delicious style. Patterns are sophisticated
