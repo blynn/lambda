@@ -6,7 +6,7 @@ http://webassembly.org/[WebAssembly] and run it.
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="wasm.js"></script>
-<p><textarea style="border: solid 4px; border-color: #999999" id="input" rows="1" cols="40">1/(sqrt 8/9801*1103)</textarea>
+<p><textarea style="border: solid 4px; border-color: #999999" id="input" rows="1" cols="40">1/(sqrt 8/(99*99)*1103)</textarea>
 <br>
 <span id="output"></span>
 <br>
@@ -250,12 +250,12 @@ non-trivial task is compiling the expression to assembly.
 Wasm is stack-based, so for each operator:
 
  1. We recursively compile the subtrees for each of its operands (from left to
- right), so when executed, the operaands will be on top of the stack.
+ right), so when executed, the operands will be on top of the stack.
 
  2. We output the opcode corresponding to the operator.
 
-We place the arity and opcodes for all the `f64` operators in an associative
-list, which suffices for our simple demo.
+We place the opcodes for all the `f64` operators in an associative list, which
+suffices for our simple demo.
 
 In wasm, the 8 bytes of a double are encoded in little-endian.
 Normally, we can take care of this in Haskell with, say,
@@ -275,12 +275,8 @@ function fromDouble(d) {return new Uint8Array(new Float64Array([d]).buffer);}
 We wrap it in `unsafePerformIO` so we can use it as a pure function.
 
 \begin{code}
-f64una = zip (words "abs neg ceil floor trunc nearest sqrt") [0x99..]
-f64bin = zip (words "+ - * / min max copysign") [0xa0..]
-
-ops =
-  ((\(x, b) -> (x, (1, b))) <$> f64una) ++
-  ((\(x, b) -> (x, (2, b))) <$> f64bin)
+ops = zip (words $ "abs neg ceil floor trunc nearest sqrt "
+  ++ "+ - * / min max copysign") [0x99..]
 
 compile m e = case e of
   App a b -> compile (b:m) a
@@ -294,7 +290,7 @@ compile m e = case e of
 #endif
   V s -> case lookup s ops of
     Nothing -> error $ "bad op: " ++ s
-    Just (a, b) -> concatMap (compile m) (take a m) ++ [b]
+    Just b -> concatMap (compile []) m ++ [b]
 \end{code}
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

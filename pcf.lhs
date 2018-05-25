@@ -572,7 +572,10 @@ main = repl ([], [])
 
 What's the desert island function from Haskell's `Data.List` package?
 
-It's `foldr`. We can build everything else from right-folding over a list:
+It's `foldr`. http://www.cs.nott.ac.uk/~pszgmh/fold.pdf[Fold has many
+superpowers]. We describe but a few of them.
+
+We can build the rest of the API from right-folding over a list:
 
 ------------------------------------------------------------------------------
 map f = foldr (\x xs -> f x : xs) []

@@ -193,12 +193,12 @@ such as `a = a`. Thus a variable may wind up with no integer assigned to it,
 which means if a solution exists, it can take any value.
 
 For clarity, we separate the gathering of constraints from their unification.
-Lazy evaluation means these steps are actually interleaved, but our code will
-appear to solve the problem in two phases.
+Lazy evaluation means these steps are actually interleaved, but our code
+appears to solve the problem in two phases.
 
-Also for clarity, our code is inefficient: it's likely faster to maintain a
-`Data.Map` of substitutions, have each new substitution affect this map, and
-only apply the substitution at the last minute.
+Also for clarity, our code is inefficient. We should use
+https://en.wikipedia.org/wiki/Disjoint-set_data_structure[something faster than
+lists for our disjoint-set data structure].
 
 ------------------------------------------------------------------------------
 data Tree a = Var String | Leaf a | Branch (Tree a) (Tree a) deriving Show
