@@ -54,7 +54,7 @@ import Haste.Events
 import Haste.Foreign
 import Numeric
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Data.Char
 import qualified Data.IntMap as I
@@ -405,7 +405,7 @@ Bruijn indices.
     getlocal, ax, i32const, 1, i32add, setlocal, ax,
     -- IP = [[SP] + 4]
     getlocal, sp, i32load, 2, 0, -- align 2, offset 0.
-    i32const, 4, i32add, i32load, 2, 0,
+    i32load, 2, 4,
     setlocal, ip,
     -- SP = SP + 4
     -- In a correct program, the stack should now be empty.
@@ -414,7 +414,7 @@ Bruijn indices.
     0xb,  -- end 2
 -- K combinator.
     -- IP = [[SP] + 4]
-    getlocal, sp, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
     setlocal, ip,
     -- SP = SP + 8
     getlocal, sp, i32const, 8, i32add, setlocal, sp,
@@ -423,22 +423,20 @@ Bruijn indices.
 -- S combinator.
     -- [HP] = [[SP] + 4]
     getlocal, hp,
-    getlocal, sp, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
     i32store, 2, 0,
     -- [HP + 4] = [[SP + 8] + 4]
-    getlocal, hp, i32const, 4, i32add,
-    getlocal, sp, i32const, 8, i32add, i32load, 2, 0,
-    i32const, 4, i32add, i32load, 2, 0,
-    i32store, 2, 0,
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 8, i32load, 2, 4,
+    i32store, 2, 4,
     -- [HP + 8] = [[SP + 4] + 4]
-    getlocal, hp, i32const, 8, i32add,
-    getlocal, sp, i32const, 4, i32add, i32load, 2, 0,
-    i32const, 4, i32add, i32load, 2, 0,
-    i32store, 2, 0,
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 4, i32load, 2, 4,
+    i32store, 2, 8,
     -- [HP + 12] = [HP + 4]
-    getlocal, hp, i32const, 12, i32add,
-    getlocal, hp, i32const, 4, i32add, i32load, 2, 0,
-    i32store, 2, 0,
+    getlocal, hp,
+    getlocal, hp, i32load, 2, 4,
+    i32store, 2, 12,
     -- SP = SP + 8
     -- [[SP]] = HP
     getlocal, sp, i32const, 8, i32add, teelocal, sp,
@@ -446,9 +444,9 @@ Bruijn indices.
     getlocal, hp,
     i32store, 2, 0,
     -- [[SP] + 4] = HP + 8
-    getlocal, sp, i32load, 2, 0, i32const, 4, i32add,
+    getlocal, sp, i32load, 2, 0,
     getlocal, hp, i32const, 8, i32add,
-    i32store, 2, 0,
+    i32store, 2, 4,
     -- IP = HP
     -- HP = HP + 16
     getlocal, hp, teelocal, ip,
@@ -531,16 +529,16 @@ expr :: Parser Expr
 expr = foldl1 (:@) <$>
   many1 ((Var . pure <$> letter) <|> between (char '(') (char ')') expr)
 
+skRepl :: InputT IO ()
 skRepl = do
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
+    Nothing -> outputStrLn ""
     Just s  -> do
-      addHistory s
       let Right e = parse expr "" s
-      print $ encodeTree e
-      print $ compile e
-      print $ run 4 [] $ I.fromAscList $ zip [0..] $ encodeTree e
+      outputStrLn $ show $ encodeTree e
+      outputStrLn $ show $ compile e
+      outputStrLn $ show $ run 4 [] $ I.fromAscList $ zip [0..] $ encodeTree e
       skRepl
 #endif
 \end{code}

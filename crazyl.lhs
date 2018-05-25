@@ -226,7 +226,7 @@ import Haste.Foreign
 import Data.Bool
 #else
 {-# LANGUAGE TemplateHaskell #-}
-import System.Console.Readline
+import System.Console.Haskeline
 import System.Environment
 import System.IO
 import Test.QuickCheck.All
@@ -557,27 +557,25 @@ runAllTests = $quickCheckAll
 A REPL glues the above together. The first two command-line arguments determine
 the language (or dump format) and the input to the program; if omitted, they
 default to Lazy K and ``Hello, World!''.  Lines of the program itself are read
-from standard input using GNU Readline.
+from standard input using Haskeline.
 
 \begin{code}
 repl lang inp env = do
   let rec = repl lang inp
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
-    Just s  -> do
-      addHistory s
-      case parseLine s of
-        Left err  -> do
-          putStrLn $ "parse: " ++ show err
-          rec env
-        Right (Super s rhs) -> do
-          let t = babs rhs
-          putStrLn $ s ++ "=" ++ show t
-          rec ((s, t):env)
-        Right (Main term) -> do
-          putStrLn $ lang (sub env $ babs term) inp
-          rec env
+    Nothing -> outputStrLn ""
+    Just s  -> case parseLine s of
+      Left err  -> do
+        outputStrLn $ "parse: " ++ show err
+        rec env
+      Right (Super s rhs) -> do
+        let t = babs rhs
+        outputStrLn $ s ++ "=" ++ show t
+        rec ((s, t):env)
+      Right (Main term) -> do
+        outputStrLn $ lang (sub env $ babs term) inp
+        rec env
 
 main = do
   as <- getArgs
@@ -585,7 +583,9 @@ main = do
     f lang = g lang $ case tail as of
       []    -> ""
       (a:_) -> a
-    g lang inp = hSetBuffering stdout NoBuffering >> repl lang inp []
+    g lang inp = do
+      hSetBuffering stdout NoBuffering
+      runInputT defaultSettings $ repl lang inp []
   if null as then g lazyK "Hello, World!" else case head as of
     "n"     -> f succ0
     "n2n"   -> f nat2nat
@@ -761,16 +761,15 @@ be implemented with special-purpose combinators.
         -- [HP] = IP
         getlocal, hp, getlocal, ip, i32store, 2, 0,
         -- [HP + 4] = Var "k"
-        getlocal, hp, i32const, 4, i32add, i32const, 128 - 3, i32store, 2, 0,
+        getlocal, hp, i32const, 128 - 3, i32store, 2, 4,
         -- [HP + 8] = HP
-        getlocal, hp, i32const, 8, i32add, getlocal, hp, i32store, 2, 0,
+        getlocal, hp, getlocal, hp, i32store, 2, 8,
         -- [HP + 12] = Var "+"
-        getlocal, hp, i32const, 12, i32add, i32const, 128 - 2, i32store, 2, 0,
+        getlocal, hp, i32const, 128 - 2, i32store, 2, 12,
         -- [HP + 16] = HP + 8
-        getlocal, hp, i32const, 16, i32add, getlocal, hp, i32const, 8, i32add,
-        i32store, 2, 0,
+        getlocal, hp, getlocal, hp, i32const, 8, i32add, i32store, 2, 16,
         -- [HP + 20] = Var "0"
-        getlocal, hp, i32const, 20, i32add, i32const, 128 - 1, i32store, 2, 0,
+        getlocal, hp, i32const, 128 - 1, i32store, 2, 20,
         -- IP = HP + 16
         -- HP = HP + 24
         getlocal, hp, i32const, 16, i32add, setlocal, ip,
@@ -802,12 +801,11 @@ right fold representation automatically does this for us.
         -- [HP] = BX
         getlocal, hp, getlocal, bx, i32store, 2, 0,
         -- [HP + 4] = HP + 8
-        getlocal, hp, i32const, 4, i32add, getlocal, hp, i32const, 8, i32add,
-        i32store, 2, 0,
+        getlocal, hp, getlocal, hp, i32const, 8, i32add, i32store, 2, 4,
         -- [HP + 8] = Var "s"
-        getlocal, hp, i32const, 8, i32add, i32const, 128 - 4, i32store, 2, 0,
+        getlocal, hp, i32const, 128 - 4, i32store, 2, 8,
         -- [HP + 12] = Var "k"
-        getlocal, hp, i32const, 12, i32add, i32const, 128 - 3, i32store, 2, 0,
+        getlocal, hp, i32const, 128 - 3, i32store, 2, 12,
         -- IP = HP
         -- HP = HP + 16
         getlocal, hp, setlocal, ip,
@@ -821,7 +819,7 @@ right fold representation automatically does this for us.
         -- [HP] = BX
         getlocal, hp, getlocal, bx, i32store, 2, 0,
         -- [HP + 4] = Var ">"
-        getlocal, hp, i32const, 4, i32add, i32const, 128 - 5, i32store, 2, 0,
+        getlocal, hp, i32const, 128 - 5, i32store, 2, 4,
         -- IP = HP
         -- HP = HP + 8
         getlocal, hp, setlocal, ip,
@@ -848,7 +846,7 @@ The `(+)`, S, and K combinators have the same effects in all languages.
     getlocal, ax, i32const, 1, i32add, setlocal, ax,
     -- IP = [[SP] + 4]
     getlocal, sp, i32load, 2, 0, -- align 2, offset 0.
-    i32const, 4, i32add, i32load, 2, 0,
+    i32load, 2, 4,
     setlocal, ip,
     -- SP = SP + 4
     getlocal, sp, i32const, 4, i32add, setlocal, sp,
@@ -856,7 +854,7 @@ The `(+)`, S, and K combinators have the same effects in all languages.
     0xb,  -- end 2
 -- K combinator.
     -- IP = [[SP] + 4]
-    getlocal, sp, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
     setlocal, ip,
     -- SP = SP + 8
     getlocal, sp, i32const, 8, i32add, setlocal, sp,
@@ -865,22 +863,20 @@ The `(+)`, S, and K combinators have the same effects in all languages.
 -- S combinator.
     -- [HP] = [[SP] + 4]
     getlocal, hp,
-    getlocal, sp, i32load, 2, 0, i32const, 4, i32add, i32load, 2, 0,
+    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
     i32store, 2, 0,
     -- [HP + 4] = [[SP + 8] + 4]
-    getlocal, hp, i32const, 4, i32add,
-    getlocal, sp, i32const, 8, i32add, i32load, 2, 0,
-    i32const, 4, i32add, i32load, 2, 0,
-    i32store, 2, 0,
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 8, i32load, 2, 4,
+    i32store, 2, 4,
     -- [HP + 8] = [[SP + 4] + 4]
-    getlocal, hp, i32const, 8, i32add,
-    getlocal, sp, i32const, 4, i32add, i32load, 2, 0,
-    i32const, 4, i32add, i32load, 2, 0,
-    i32store, 2, 0,
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 4, i32load, 2, 4,
+    i32store, 2, 8,
     -- [HP + 12] = [HP + 4]
-    getlocal, hp, i32const, 12, i32add,
-    getlocal, hp, i32const, 4, i32add, i32load, 2, 0,
-    i32store, 2, 0,
+    getlocal, hp,
+    getlocal, hp, i32load, 2, 4,
+    i32store, 2, 12,
     -- SP = SP + 8
     -- [[SP]] = HP
     getlocal, sp, i32const, 8, i32add, teelocal, sp,
@@ -888,9 +884,9 @@ The `(+)`, S, and K combinators have the same effects in all languages.
     getlocal, hp,
     i32store, 2, 0,
     -- [[SP] + 4] = HP + 8
-    getlocal, sp, i32load, 2, 0, i32const, 4, i32add,
+    getlocal, sp, i32load, 2, 0,
     getlocal, hp, i32const, 8, i32add,
-    i32store, 2, 0,
+    i32store, 2, 4,
     -- IP = HP
     -- HP = HP + 16
     getlocal, hp, teelocal, ip,
@@ -908,19 +904,17 @@ language selected.
 \begin{code}
 -- ">": Fussy K / Crazy L.
     -- [HP] = [[SP] + 4]
-    getlocal, hp, getlocal, sp, i32load, 2, 0, i32const, 4, i32add,
-    i32load, 2, 0, i32store, 2, 0,
+    getlocal, hp, getlocal, sp, i32load, 2, 0, i32load, 2, 4, i32store, 2, 0,
     -- [HP + 4] = Var "+"
-    getlocal, hp, i32const, 4, i32add, i32const, 128 - 2, i32store, 2, 0,
+    getlocal, hp, i32const, 128 - 2, i32store, 2, 4,
     -- [HP + 8] = HP
-    getlocal, hp, i32const, 8, i32add, getlocal, hp, i32store, 2, 0,
+    getlocal, hp, getlocal, hp, i32store, 2, 8,
     -- [HP + 12] = Var "0"
-    getlocal, hp, i32const, 12, i32add, i32const, 128 - 1, i32store, 2, 0,
+    getlocal, hp, i32const, 128 - 1, i32store, 2, 12,
     -- IP = HP + 8
     getlocal, hp, i32const, 8, i32add, setlocal, ip,
     -- BX = [[SP + 4] + 4]
-    getlocal, sp, i32const, 4, i32add, i32load, 2, 0,
-    i32const, 4, i32add, i32load, 2, 0, setlocal, bx,
+    getlocal, sp, i32load, 2, 4, i32load, 2, 4, setlocal, bx,
     -- HP = HP + 16
     getlocal, hp, i32const, 16, i32add, setlocal, hp,
     -- SP = SP + 8
@@ -951,26 +945,24 @@ streaming input `(<)` combinator:
     ++ leb128 (if mode == "crazyl" then addrRFold else addrVireo) ++
     [i32store, 2, 0,
     -- [HP + 4] = getChar * 8
-    getlocal, hp, i32const, 4, i32add, 0x10, 1, i32const, 8, i32mul,
-    i32store, 2, 0] ++ (if mode /= "crazyl" then [] else
+    getlocal, hp, 0x10, 1, i32const, 8, i32mul,
+    i32store, 2, 4] ++ (if mode /= "crazyl" then [] else
       -- [HP + 4] = 256 * 8?
       [2, 0x40,  -- block Crazy L nil
-      getlocal, hp, i32const, 4, i32add,
-      i32load, 2, 0, i32const, 128, 16, i32lt_u,
+      getlocal, hp, i32load, 2, 4, i32const, 128, 16, i32lt_u,
       br_if, 0,  -- br Crazy L nil
       -- [IP] = Var "S"
       getlocal, ip, i32const, 128 - 4, i32store, 2, 0,
       -- [IP + 4] = Var "K"
-      getlocal, ip, i32const, 4, i32add, i32const, 128 - 3, i32store, 2, 0,
+      getlocal, ip, i32const, 128 - 3, i32store, 2, 4,
       br, 1,     -- br <
       0xb])      -- end Crazy L nil
     -- [HP + 8] = Var "<"
-    ++ [getlocal, hp, i32const, 8, i32add, i32const, 128 - 8, i32store, 2, 0,
+    ++ [getlocal, hp, i32const, 128 - 8, i32store, 2, 8,
     -- [IP] = HP
     getlocal, ip, getlocal, hp, i32store, 2, 0,
     -- [IP + 4] = HP + 8
-    getlocal, ip, i32const, 4, i32add,
-    getlocal, hp, i32const, 8, i32add, i32store, 2, 0,
+    getlocal, ip, getlocal, hp, i32const, 8, i32add, i32store, 2, 4,
     -- HP = HP + 16
     getlocal, hp, i32const, 16, i32add, setlocal, hp,
     0xb,      -- end <
