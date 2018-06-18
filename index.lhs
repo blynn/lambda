@@ -118,7 +118,7 @@ We use code to help answer the question, which requires a bit of boilerplate:
 import Haste.DOM
 import Haste.Events
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Data.Char
 import Data.List
@@ -156,7 +156,7 @@ application.
 
 \begin{code}
 instance Show Term where
-  show (Lam x y)  = "\0955" ++ x ++ showB y where
+  show (Lam s t)  = "\0955" ++ s ++ showB t where
     showB (Lam x y) = " " ++ x ++ showB y
     showB expr      = "." ++ show expr
   show (Var s)    = s
@@ -193,7 +193,7 @@ data LambdaLine = Empty | Let String Term | Run Term
 
 line :: Parser LambdaLine
 line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
-    (try $ Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
+    try (Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = lam <|> app
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term where
     lam0 = str "\\" <|> str "\0955"
@@ -241,20 +241,20 @@ The quote business is a special feature that will be explained later.
 \begin{code}
 eval env (App (Var "quote") t)              = quote env t
 eval env (App m a) | Lam v f <- eval env m  =
-  eval env $ beta (fv env [] a) (v, a) f
+  eval env $ beta env (v, a) f
 eval env (Var v)   | Just x <- lookup v env = eval env x
 eval _   term                               = term
 
-beta fvs (v, a) t = case t of
-  Var s | s == v         -> a
-        | otherwise      -> Var s
-  Lam s m
-        | s == v         -> Lam s m
-        | s `elem` fvs   -> let s1 = newName s fvs in
-          Lam s1 $ rec $ rename s s1 m
-        | otherwise      -> Lam s (rec m)
+beta env (v, a) t = case t of
+  Var s   | s == v       -> a
+          | otherwise    -> Var s
+  Lam s m | s == v       -> Lam s m
+          | s `elem` fvs -> Lam s1 $ rec $ rename s s1 m
+          | otherwise    -> Lam s (rec m)
+          where s1 = newName s $ fvs `union` fv env [] m
   App m n                -> App (rec m) (rec n)
-  where rec = beta fvs (v, a)
+  where rec = beta env (v, a)
+        fvs = fv env [] a
 
 fv env vs (Var s) | s `elem` vs            = []
                   -- Handle free variables in let definitions.
@@ -269,6 +269,7 @@ To pick a new name, we increment the number at the end of the name (or append
 "1" if there is no number) until we've avoided all the given names.
 
 \begin{code}
+newName :: String -> [String] -> String
 newName x ys = head $ filter (`notElem` ys) $ (s ++) . show <$> [1..] where
   s = dropWhileEnd isDigit x
 \end{code}
@@ -277,6 +278,7 @@ Renaming a free variable is a tree traversal that skips lambda abstractions
 that bind them:
 
 \begin{code}
+rename :: String -> String -> Term -> Term
 rename x x1 term = case term of
   Var s   | s == x    -> Var x1
           | otherwise -> term
@@ -293,6 +295,7 @@ reduce other function applications throughout the tree, resulting in the
 renaming (which is called 'alpha-conversion').
 
 \begin{code}
+norm :: [(String, Term)] -> Term -> Term
 norm env term = case eval env term of
   Var v   -> Var v
   Lam v m -> Lam v (rec m)
@@ -366,22 +369,20 @@ main = withElems ["input", "output", "evalB",
     setProp oEl "value" $ fst $ foldl' run ("", []) es
 #else
 repl env = do
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
-    Just s  -> do
-      addHistory s
-      case parse line "" s of
-        Left err  -> do
-          putStrLn $ "parse error: " ++ show err
-          repl env
-        Right Empty -> repl env
-        Right (Run term) -> do
-          print $ norm env term
-          repl env
-        Right (Let s term) -> repl ((s, term):env)
+    Nothing -> outputStrLn ""
+    Just s  -> case parse line "" s of
+      Left err  -> do
+        outputStrLn $ "parse error: " ++ show err
+        repl env
+      Right Empty -> repl env
+      Right (Run term) -> do
+        outputStrLn $ show $ norm env term
+        repl env
+      Right (Let v term) -> repl ((v, term):env)
 
-main = repl []
+main = runInputT defaultSettings $ repl []
 #endif
 \end{code}
 
@@ -565,14 +566,14 @@ where $a, b, c$ may be renamed to avoid clashing with any free variables in
 the term being encoded. In our code, this translates to:
 
 \begin{code}
-quote env t = case t of
+quote env term = case term of
   Var x   | Just t <- lookup x env -> rec t
           | otherwise              -> f 0 (\v -> App v $ Var x)
   App m n                          -> f 1 (\v -> App (App v (rec m)) (rec n))
   Lam x m                          -> f 2 (\v -> App v $ Lam x $ rec m)
   where
     rec = quote env
-    fvs = fv env [] t
+    fvs = fv env [] term
     f n g = Lam a (Lam b (Lam c (g $ Var $ abc!!n)))
     abc@[a, b, c] = renameIfNeeded <$> ["a", "b", "c"]
     renameIfNeeded s | s `elem` fvs = newName s fvs
