@@ -82,7 +82,7 @@ import Data.Char
 import Data.Function
 import Data.List
 import Data.Tuple
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 data Kind = Star | Kind :=> Kind deriving Eq
 data Type = TV String | Forall (String, Kind) Type | Type :-> Type
@@ -177,11 +177,11 @@ parsed as an operator application. One solution is write more lambdas.
 We add the `typo` expression, which is a type-level let expression.
 
 \begin{code}
-data FOmegaLine = Empty | Typo String Type
+data FOmegaLine = Blank | Typo String Type
   | TopLet String Term | Run Term deriving Show
 
-line :: Parser FOmegaLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ typo <|>
+line :: Parsec String () FOmegaLine
+line = between ws eof $ option Blank $ typo <|>
     (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   typo = Typo <$> between (str "typo") (str "=") v <*> typ
   term = letx <|> lam <|> app
@@ -195,7 +195,7 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ typo <|>
       <|> (str ":"  >> (\t s -> Lam  (s, t)) <$> typ))
   typ = olam <|> fun
   olam = flip (foldr OLam) <$> between lam0 lam1 (many1 vk) <*> typ
-  fun = oapp `chainr1` (str "->" >> pure (:->))
+  fun = oapp `chainr1` (const (:->) <$> str "->")
   oapp = foldl1' OApp <$> many1 (forallt <|> (TV <$> v)
     <|> between (str "(") (str ")") typ)
   forallt = flip (foldr Forall) <$> between fa0 fa1 (many1 vk) <*> typ where
@@ -203,7 +203,7 @@ line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $ typo <|>
     fa1 = str "."
   vk = (,) <$> v <*> option Star (str "::" >> kin)
   kin = ((str "*" >> pure Star) <|> between (str "(") (str ")") kin)
-    `chainr1` (str "->" >> pure (:=>))
+    `chainr1` (const (:=>) <$> str "->")
   app = termArg >>= moreArg
   termArg = (Var <$> v) <|> between (str "(") (str ")") term
   moreArg t = option t $ ((App t <$> termArg)
@@ -434,7 +434,7 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
     run (out, env) (Left err) =
       (out ++ "parse error: " ++ show err ++ "\n", env)
     run (out, env@(lets, types, kinds)) (Right m) = case m of
-      Empty      -> (out, env)
+      Blank      -> (out, env)
       Run term   -> case typeOf (types, kinds) term of
         Left msg -> (out ++ "type error: " ++ msg ++ "\n", env)
         Right t  -> (out ++ show (norm (lets, types) term) ++ "\n", env)
@@ -465,7 +465,7 @@ repl env@(lets, types, kinds) = do
         Left err  -> do
           putStrLn $ "parse error: " ++ show err
           redo
-        Right Empty -> redo
+        Right Blank -> redo
         Right (Run term) -> case typeOf (types, kinds) term of
           Left msg -> putStrLn ("type error: " ++ msg) >> redo
           Right ty -> do

@@ -122,7 +122,7 @@ import System.Console.Haskeline
 #endif
 import Data.Char
 import Data.List
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 \end{code}
 
 == Terms ==
@@ -189,17 +189,17 @@ Our parser accepts empty lines, let definitions, or terms that should be
 evaluated immediately.
 
 \begin{code}
-data LambdaLine = Empty | Let String Term | Run Term
+data LambdaLine = Blank | Let String Term | Run Term
 
-line :: Parser LambdaLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+line :: Parsec String () LambdaLine
+line = between ws eof $ option Blank $
     try (Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = lam <|> app
-  lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term where
-    lam0 = str "\\" <|> str "\0955"
-    lam1 = str "->" <|> str "."
+  lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term
+  lam0 = str "\\" <|> str "\0955"
+  lam1 = str "->" <|> str "."
   app = foldl1' App <$> many1 ((Var <$> v) <|> between (str "(") (str ")") term)
-  v   = many1 alphaNum >>= (ws >>) . pure
+  v   = many1 alphaNum <* ws
   str = (>> ws) . string
   ws = spaces >> optional (try $ string "--" >> many anyChar)
 \end{code}
@@ -346,23 +346,20 @@ We've saved the worst for last:
 
 \begin{code}
 #ifdef __HASTE__
-main = withElems ["input", "output", "evalB",
-                  "factB", "factP", "quoteB", "quoteP", "surB", "surP"] $
-  \[iEl, oEl, evalB, factB, factP, quoteB, quoteP, surB, surP] -> do
+main = withElems ["input", "output", "evalB"] $ \[iEl, oEl, evalB] -> do
   let
-    bp button para = button `onEvent` Click $ const $
-      getProp para "value" >>= setProp iEl "value" >> setProp oEl "value" ""
     prep s = do
      Just button <- elemById $ s ++ "B"
      Just para   <- elemById $ s ++ "P"
-     bp button para
-  mapM prep $ words "fact quote sur sha"
+     button `onEvent` Click $ const $
+      getProp para "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+  mapM_ prep $ words "fact quote sur sha"
   evalB `onEvent` Click $ const $ do
     let
       run (out, env) (Left err) =
         (out ++ "parse error: " ++ show err ++ "\n", env)
       run (out, env) (Right m) = case m of
-        Empty      -> (out, env)
+        Blank      -> (out, env)
         Run term   -> (out ++ show (norm env term) ++ "\n", env)
         Let s term -> (out, (s, term):env)
     es <- map (parse line "") . lines <$> getProp iEl "value"
@@ -376,7 +373,7 @@ repl env = do
       Left err  -> do
         outputStrLn $ "parse error: " ++ show err
         repl env
-      Right Empty -> repl env
+      Right Blank -> repl env
       Right (Run term) -> do
         outputStrLn $ show $ norm env term
         repl env
@@ -487,7 +484,7 @@ Admittedly, the predecessor function is complicated, probably more so than the
 a typical Turing machine implementation. However, this is an artifact of the
 Church encoding. With
 https://ifl2014.github.io/submissions/ifl2014_submission_13.pdf[the Scott
-encoding], we have a fast and simple predecesor function:
+encoding], we have a fast and simple predecessor function:
 
 ------------------------------------------------------------------------------
 0 = \f x -> x

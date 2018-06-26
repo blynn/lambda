@@ -251,7 +251,7 @@ and to parse them (the `axiom` keyword will be explained later):
 data PTSLine = Empty | TopLet String Term | Axiom String Term | Run Term
 
 line :: ([String], [String]) -> Parser PTSLine
-line (ss, syn) = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+line (ss, syn) = between ws eof $ option Empty $
     axiom <|> (try $ TopLet <$> v <*> (str "=" >> term))
     <|> (Run <$> term) where
   axiom = str "axiom" >> Axiom <$> v <*> (str "=" >> term)

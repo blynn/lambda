@@ -227,9 +227,9 @@ expr = between ws ws $ atom <|> list <|> quot where
   comm = void $ char ';' >> manyTill anyChar (void (char '\n') <|> eof)
   atom = Lf <$> many1 (alphaNum <|> char '.')
   list = foldr (:.) (Lf "") <$> between (char '(') (char ')') (many expr)
-  quot = char '\'' >> expr >>= pure . (Lf "quote" :.) . (:. Lf "")
+  quot = char '\'' >> (Lf "quote" :.) . (:. Lf "") <$> expr
 
-oneExpr = expr >>= (eof >>) . pure
+oneExpr = expr <* eof
 \end{code}
 
 We use a list to store bindings. We permanently augment the global environment
@@ -259,9 +259,9 @@ main = withElems ["input", "output", "evalB",
                   "surpriseB", "surpriseP",
                   "quoteB", "quoteP"] $
   \[iEl, oEl, evalB, surB, surP, quoB, quoP] -> do
-  surB  `onEvent` Click $ const $ do
+  surB  `onEvent` Click $ const $
     getProp surP "innerHTML" >>= setProp iEl "value" >> setProp oEl "value" ""
-  quoB  `onEvent` Click $ const $ do
+  quoB  `onEvent` Click $ const $
     getProp quoP "innerHTML" >>= setProp iEl "value" >> setProp oEl "value" ""
 
   evalB `onEvent` Click $ const $ do
@@ -456,8 +456,8 @@ that would go unnoticed in a Lisp `cond`.
 With this in mind, we see the source of our interpreter is almost the same as
 Graham's, except it's less cluttered and more robust. For example, for
 the 7 primitives, thanks to pattern matching, the function `f` reduces
-duplicated code such as `eq (car e)` gives the compiler more power, and detects
-errors when the wrong number of arguments are supplied.
+duplicated code such as `eq (car e)` and
+detects errors when the wrong number of arguments are supplied.
 
 By the way, as with Lisp, in reality we would never bother defining the above
 function, because `ourRemoveIf = filter . (not .)`.

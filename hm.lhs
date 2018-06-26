@@ -329,9 +329,7 @@ tree = tr where
     pure $ Branch l r
   leaf = do
     s <- many1 alphaNum
-    pure $ case readMaybe s of
-      Nothing -> Var s
-      Just a -> Leaf a
+    pure $ maybe (Var s) Leaf $ readMaybe s
 \end{code}
 
 == 5. Type inference! ==

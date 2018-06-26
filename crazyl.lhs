@@ -277,9 +277,9 @@ expr' = jotRev . reverse <$> many1 (oneOf "01")
     <|> (char '`' >> (:@) <$> expr <*> expr)
     <|> (char '*' >> (:@) <$> iotaexpr <*> iotaexpr)
     <|> flip (foldr Lam) <$> between (char '\\' <|> char '\0955') (char '.')
-      (many1 $ (:[]) <$> var) <*> ccexpr
+      (many1 var) <*> ccexpr
 
-var = lookAhead (noneOf "skiSKI") >> letter
+var = lookAhead (noneOf "skiSKI") >> pure <$> letter
 
 jotRev []       = skk
 jotRev ('0':js) = jotRev js :@ Var "s" :@ Var "k"
@@ -288,15 +288,9 @@ jotRev ('1':js) = Var "s" :@ (Var "k" :@ jotRev js)
 data Top = Super String Term | Main Term
 
 top :: Parser Top
-top = do
-  t <- try super <|> Main <$> ccexpr
-  eof
-  pure t
+top = (try super <|> Main <$> ccexpr) <* eof
 
-super = do
-  name <- pure <$> var
-  char '='
-  Super name <$> ccexpr
+super = Super <$> var <*> (char '=' >> ccexpr)
 
 parseLine = parse top "" . filter (not . isSpace) . takeWhile (/= '#')
 

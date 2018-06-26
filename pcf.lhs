@@ -298,20 +298,20 @@ We also rename `Let` to `TopLet` (for top-level let expressions) to avoid
 clashing with our above `Let` constructor.
 
 \begin{code}
-data PCFLine = Empty | TopLet String Term | Run Term
+data PCFLine = Blank | TopLet String Term | Run Term
 
 line :: Parser PCFLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+line = between ws eof $ option Blank $
     (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = ifz <|> letx <|> lam <|> app
   letx = Let <$> (str "let" >> v) <*> (str "=" >> term)
     <*> (str "in" >> term)
   ifz = Ifz <$> (str "ifz" >> term) <*> (str "then" >> term)
     <*> (str "else" >> term)
-  lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term where
-    lam0 = str "\\" <|> str "\0955"
-    lam1 = str "."
-    vt   = (,) <$> v <*> option (TV "_") (str ":" >> typ)
+  lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term
+  lam0 = str "\\" <|> str "\0955"
+  lam1 = str "."
+  vt   = (,) <$> v <*> option (TV "_") (str ":" >> typ)
   typ = ((str "Nat" >> pure Nat) <|> (TV <$> v)
     <|> between (str "(") (str ")") typ)
       `chainr1` (str "->" >> pure (:->))
@@ -521,7 +521,7 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
     run (out, env) (Left err) =
       (out ++ "parse error: " ++ show err ++ "\n", env)
     run (out, env@(gamma, lets)) (Right m) = case m of
-      Empty      -> (out, env)
+      Blank      -> (out, env)
       Run term   -> case typeOf gamma term of
         Left m  -> (concat
            [out, "type error: ", show term, ": ", m, "\n"], env)
@@ -550,7 +550,7 @@ repl env@(gamma, lets) = do
         Left err  -> do
           putStrLn $ "parse error: " ++ show err
           redo
-        Right Empty -> redo
+        Right Blank -> redo
         Right (Run term) -> do
           case typeOf gamma term of
             Left msg -> putStrLn $ "bad type: " ++ msg

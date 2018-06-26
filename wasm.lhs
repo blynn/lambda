@@ -180,23 +180,24 @@ import System.IO.Unsafe
 import Data.ReinterpretCast
 #endif
 import Data.Char
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 data Expr = D Double | V String | App Expr Expr
+type Parser = Parsec String ()
 
 line :: Parser Expr
 line = spaces >> expr >>= (eof >>) . pure where
   eat :: Parser a -> Parser a
-  eat p = p >>= (spaces >>) . pure
+  eat p = p <* spaces
   var  = eat $ V <$> many1 letter
   num  = eat $ D . read <$> many1 (digit <|> char '.')
-  tok = eat . string
-  una  = option id (tok "-" >> pure (App (V "neg")))
+  tok  = eat . string
+  una  = option id $ const (App (V "neg")) <$> tok "-"
   fac  = una <*> (foldl1 App <$> many1
     (var <|> num <|> between (tok "(") (tok ")") expr))
-  term = fac  `chainl1` ((tok "*" >> bin "*") <|> (tok "/" >> bin "/"))
-  expr = term `chainl1` ((tok "+" >> bin "+") <|> (tok "-" >> bin "-"))
-  bin s = pure $ \a b -> App (App (V s) a) b
+  term = fac  `chainl1` (bin "*" <|> bin "/")
+  expr = term `chainl1` (bin "+" <|> bin "-")
+  bin s = const (\a b -> App (App (V s) a) b) <$> tok s
 \end{code}
 
 == Compiler ==

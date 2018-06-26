@@ -67,14 +67,14 @@ data Expr = Expr :@ Expr | Var String | Lam String Expr
 
 source :: Parser [(String, Expr)]
 source = catMaybes <$> many maybeLet where
-  maybeLet = (((newline >>) . pure) =<<) . (ws >>) $
-    optionMaybe $ (,) <$> v <*> (str "=" >> term)
+  maybeLet = between ws newline $ optionMaybe $ (,) <$> v <*> (str "=" >> term)
   term = lam <|> app
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term where
     lam0 = str "\\" <|> str "\0955"
     lam1 = str "->" <|> str "."
-  app = foldl1' (:@) <$> many1 ((Var <$> v) <|> between (str "(") (str ")") term)
-  v   = many1 alphaNum >>= (ws >>) . pure
+  app = foldl1' (:@) <$> many1
+    ((Var <$> v) <|> between (str "(") (str ")") term)
+  v   = many1 alphaNum <* ws
   str = (>> ws) . string
   ws = many (oneOf " \t") >> optional (try $ string "--" >> many (noneOf "\n"))
 \end{code}
