@@ -9,9 +9,9 @@ forever?
 http://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[One might
 claim extensive testing is the answer]. We check a variety of cases work as
 intended, then hope for the best. But though helpful, testing alone rarely
-suffices. An untested case might occur naturally and cause bad behavour.  Worse
-still, a malicious user could scour the untested cases for ways to deliberately
-sabotage our program.
+suffices. An untested case might occur naturally and behave badly. Worse
+still, a malicious user could scour the untested cases for ways to
+deliberately sabotage our program.
 
 The only true fix is to rein in those unruly Turing machines. Constraining our
 code, might make it behave. We might try banning GOTO statements for example.

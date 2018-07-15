@@ -71,6 +71,8 @@ but some browsers lack the fonts to display these. -->
 
 == See Also ==
 
+ * http://incredible.pm/[The Incredible Proof Machine].
+
  * http://teachinglogic.liglab.fr/DN/index.php[An automated theorem prover].
 
  * https://www.cs.cmu.edu/~fp/courses/atp/handouts/atp.pdf[Course notes on

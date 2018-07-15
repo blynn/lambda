@@ -17,22 +17,27 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="index.js"></script>
-<p><button id="evalB">Run</button>
+<p>
+<button id="expB">2^3</button>
 <button id="factB">Factorial</button>
 <button id="quoteB">Quote</button>
 <button id="surB">Surprise Me!</button>
 <button id="shaB">Shallow</button></p>
-<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80">2 = \f x -> f (f x)
+<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80" id="expP">2 = \f x -> f (f x)
 3 = \f x -> f (f (f x))
 exp = \m n -> n m
 exp 2 3  -- Compute 2^3.
 </textarea></p>
+<button id="evalB">Run</button>
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 The above interprets lambda calculus terms in a Haskell program that has been
 compiled to JavaScript. Elsewhere, we'll write link:sk.html[a compiler for
 lambda calculus].
+
+Also see
+http://projectultimatum.org/cgi-bin/lambda[Hai (Paul) Liu's step-by-step Lambda Viewer].
 
 == Why Lambda Calculus? ==
 
@@ -84,7 +89,7 @@ engineering without physics.
 See
 http://www-users.mat.umk.pl/\~adwid/materialy/doc/church.pdf['The impact of lambda calculus
 in logic and computer science'] by Henk Barendregt, and
-http://www.users.waitrose.com/\~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
+http://www.users.waitrose.com/~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
 J. Roger Hindley. It seems its true name should be ``hat calculus''.
 We'll find that lambdas are redundant, but I suppose we need a symbol of some sort
 to avoid calling it just ``calculus''.
@@ -353,7 +358,7 @@ main = withElems ["input", "output", "evalB"] $ \[iEl, oEl, evalB] -> do
      Just para   <- elemById $ s ++ "P"
      button `onEvent` Click $ const $
       getProp para "value" >>= setProp iEl "value" >> setProp oEl "value" ""
-  mapM_ prep $ words "fact quote sur sha"
+  mapM_ prep $ words "exp fact quote sur sha"
   evalB `onEvent` Click $ const $ do
     let
       run (out, env) (Left err) =
