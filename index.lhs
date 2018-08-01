@@ -23,10 +23,7 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 <button id="quoteB">Quote</button>
 <button id="surB">Surprise Me!</button>
 <button id="shaB">Shallow</button></p>
-<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80" id="expP">2 = \f x -> f (f x)
-3 = \f x -> f (f (f x))
-exp = \m n -> n m
-exp 2 3  -- Compute 2^3.
+<p><textarea style="border: solid 2px; border-color: #999999" id="input" rows="12" cols="80">
 </textarea></p>
 <button id="evalB">Run</button>
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
@@ -354,10 +351,12 @@ We've saved the worst for last:
 main = withElems ["input", "output", "evalB"] $ \[iEl, oEl, evalB] -> do
   let
     prep s = do
-     Just button <- elemById $ s ++ "B"
-     Just para   <- elemById $ s ++ "P"
-     button `onEvent` Click $ const $
+      Just button <- elemById $ s ++ "B"
+      button `onEvent` Click $ const $ setInput s
+    setInput s = do
+      Just para   <- elemById $ s ++ "P"
       getProp para "value" >>= setProp iEl "value" >> setProp oEl "value" ""
+  setInput "exp"
   mapM_ prep $ words "exp fact quote sur sha"
   evalB `onEvent` Click $ const $ do
     let
@@ -533,6 +532,12 @@ function that carries out the state transitions.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+<textarea id="expP" hidden>
+2 = \f x -> f (f x)
+3 = \f x -> f (f (f x))
+exp = \m n -> n m
+exp 2 3  -- Compute 2^3.
+</textarea>
 <textarea id="factP" hidden>
 true = \x y -> x
 false = \x y -> y
