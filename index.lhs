@@ -60,8 +60,8 @@ we find lambda calculus is sometimes superior:
  In contrast, universal Turing machines are so tedious that textbooks often
  skip the details and just explain why they exist.
 
- * *representing data with functions* can lead to rich algebras where a
- little goes a long way. For example, we can
+ * *representing data with functions* leads to rich algebras where a
+ little notation goes a long way. For example, we can
  http://projects.haskell.org/diagrams/gallery.html[draw intricate diagrams
  with a few lines].
 
@@ -71,7 +71,7 @@ we find lambda calculus is sometimes superior:
 
  * *provably correct*: More generally,
  https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[typed lambda
- calculus turns out to be deeply connected to the foundations of mathematics]
+ calculus turns out to be deeply connected to the foundations of mathematics].
  Sufficiently advanced types make bugs impossible to express, that is, every
  syntactically correct program is also semantically correct. This connection is
  harder to see from a Turing-machine viewpoint.
@@ -80,6 +80,10 @@ As the importance of software grows in our world, so does the importance of
 the advantages of lambda calculus, and in particular, its connections with the
 foundations of mathematics. Computer science without lambda calculus is like
 engineering without physics.
+
+A better analogy would be mathematics without proofs, but proofs have been part
+of mathematics for so long that it may be difficult to imagine one without the
+other.
 
 == Why Lambda? ==
 
@@ -419,20 +423,22 @@ entire tree is considered. With renaming, my program gave the correct answer:
 
 When starting out with lambda calculus, we soon miss the symbols of Turing
 machines. We endlessly substitute functions in other functions. They never
-``bottom out''. Apart from punctuation, we only see a soup of variable names
+bottom out. Apart from punctuation, we only see a soup of variable names
 and lambdas. No numbers nor arithmetic operations. Even computing 1 + 1 seems
 impossible!
 
 The trick is to use functions to represent data. This is less intuitive than
 encoding Turing machines on a tape, but well worth learning. The original and
-most famous scheme is known as 'Church encoding'.
-https://www.reddit.com/r/haskell/comments/5vbvul/keynote_why_functional_programming_matters_john/[``Why
+most famous scheme is known as 'Church encoding'. We'll only summarize briefly.
+See:
+
+ * https://www.reddit.com/r/haskell/comments/5vbvul/keynote_why_functional_programming_matters_john/[``Why
 functional programming matters'', a keynote address by John Hughes and Mary
-Sheeran] is an excellent introduction. See also
-http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf['A Brief and Informal
-Introduction to the Lambda Calculus'] by Paul Hudak, and
-https://en.wikipedia.org/wiki/Church_encoding[Wikipedia's entry on Church
-encoding]. We'll only summarize briefly.
+Sheeran].
+ * http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf['A Brief and Informal
+Introduction to the Lambda Calculus'] by Paul Hudak.
+ * https://en.wikipedia.org/wiki/Church_encoding[Wikipedia's entry on Church
+encoding].
 
 Booleans look cute in the Church encoding:
 
@@ -472,7 +478,7 @@ eq = \m n -> and (le m n) (le n m)
 
 The predecessor function is far slower than the successor function, as it
 constructs the answer by starting from 0 and repeatedly computing the successor.
-There is no quick way to ``strip off'' one layer of a function application.
+There is no quick way to strip off one layer of a function application.
 
 We can pair up any two terms as follows:
 
@@ -629,17 +635,17 @@ of `quote`? Maybe we can define it within lambda calculus.
 Let's suppose so. Then consider the expression:
 
 ------------------------------------------------------------------------------
-(\f.f ((\y.y) x)) quote
+quote ((\y.y) x)
 ------------------------------------------------------------------------------
 
-This reduces to `quote ((\y.y) x)`, which is:
+If we evaluate the outermost function application, we get:
 
 ------------------------------------------------------------------------------
 λa b c.b(λa b c.c(λy a b c.a y))(λa b c.a x)
 ------------------------------------------------------------------------------
 
 On the other hand, if we first evaluate the sub-expression `((\y.y) x)`, then
-it reduces to `(\f.f x) quote`, which reduces to `quote x`, which is:
+it reduces to `quote x`, which is:
 
 ------------------------------------------------------------------------------
 λa b c.a x

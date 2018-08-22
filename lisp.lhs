@@ -272,7 +272,7 @@ main = withElems ["input", "output", "evalB",
         where r    = eval env expr
               env1 = addEnv r env
     s <- getProp iEl "value"
-    setProp oEl "value" $ case parse (many expr >>= (eof >>) . pure) "" s of
+    setProp oEl "value" $ case parse (many expr <* eof) "" s of
       Left  e  -> "Error: " ++ show e ++ "\n"
       Right es -> fst $ foldl' run ("", preload) es
 #else

@@ -170,7 +170,7 @@ invalid variable names.
 data SimplyLambda = Empty | Let String Term | Run Term
 
 line :: Parser SimplyLambda
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+line = (<* eof) . (ws >>) $ option Empty $
     (try $ Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = ifthenelse <|> lam <|> app
   ifthenelse = If <$> (str "if" >> term)

@@ -186,7 +186,7 @@ data Expr = D Double | V String | App Expr Expr
 type Parser = Parsec String ()
 
 line :: Parser Expr
-line = spaces >> expr >>= (eof >>) . pure where
+line = spaces >> expr <* eof where
   eat :: Parser a -> Parser a
   eat p = p <* spaces
   var  = eat $ V <$> many1 letter

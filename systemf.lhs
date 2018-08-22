@@ -240,7 +240,7 @@ abbreviation similar to the one we've been using in sequences of abstractions.
 data FLine = Empty | TopLet String Term | Run Term deriving Show
 
 line :: Parser FLine
-line = (((eof >>) . pure) =<<) . (ws >>) $ option Empty $
+line = (<* eof) . (ws >>) $ option Empty $
     (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = letx <|> lam <|> app
   letx = Let <$> (str "let" >> v) <*> (str "=" >> term)

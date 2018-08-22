@@ -227,24 +227,18 @@ instance Show Expr where
     showOr t           = show t
 
 proposition :: Parser Expr
-proposition = do
-  spaces
-  r <- expr
-  eof
-  pure r
-    where
-    expr = atm `chainl1` and' `chainl1` or' `chainr1` imp
-    atm = between (sp $ char '(') (sp $ char ')') expr <|> do
-      s <- sp $ many1 alphaNum
-      pure $ case s of
-        "0" -> Bot
-        "1" -> Top
-        _   -> Var s
-    imp = sp (string "->" <|> string "=>") >> pure (:->)
-    and' = sp (string "&" <|> string "*") >> pure (:&)
-    or' = sp (string "|" <|> string "+") >> pure (:+)
-    sp :: Parser a -> Parser a  -- Eats trailing spaces.
-    sp = (>>= (spaces >>) . pure)
+proposition = spaces >> expr <* eof where
+  expr = atm `chainl1` and' `chainl1` or' `chainr1` imp
+  atm = between (sp $ char '(') (sp $ char ')') expr <|> do
+    s <- sp $ many1 alphaNum
+    pure $ case s of
+      "0" -> Bot
+      "1" -> Top
+      _   -> Var s
+  imp = sp (string "->" <|> string "=>") >> pure (:->)
+  and' = sp (string "&" <|> string "*") >> pure (:&)
+  or' = sp (string "|" <|> string "+") >> pure (:+)
+  sp = (<* spaces)
 
 parseProp :: String -> Expr
 parseProp s = x where Right x = parse proposition "" s
