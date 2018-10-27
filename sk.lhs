@@ -88,35 +88,13 @@ The names of variables in lambda abstractions only serve to record where a
 variable is bound. The choice of a name is irrelevant, so long as we avoid
 clashes.
 
-This bookkeeping convention adds complexity. For example, we may need to rename
-variables (&alpha;-conversion) to determine if two lambda terms are equal, or to avoid
-names clobbering each other when building expressions.
-
-One way to get rid of names is to use
-https://en.wikipedia.org/wiki/De_Bruijn_index['De Bruijn indices]'. Briefly, we
-replace each variable with an integer representing the number of `Lam` nodes we
-encounter as we travel up the tree before reaching the binding abstraction. For
-example,
-
-\[
-\lambda f.(\lambda x.x x)(\lambda x.f(x x))
-\]
-
-becomes:
-
-\[
-\lambda(\lambda 0 0)(\lambda 1(0 0))
-\]
-
-(Some prefer to start counting from 1 instead of 0.)
-
-Instead of De Bruijn indices, we'll do something much more fun.
+Names make bookkeeping more complex. For example, we may need to rename
+variables (&alpha;-conversion) to determine if two lambda terms are equal, or
+to avoid names clobbering each other when building expressions.
 
 == SKI Combinator calculus ==
 
-We define $S = \lambda x y z . x z (y z)$ and $K = \lambda x y . x$,
-or in De Bruijn notation, $S = \lambda\lambda\lambda 2 0(1 0)$
-and $K = \lambda\lambda 1$.
+We define $S = \lambda x y z . x z (y z)$ and $K = \lambda x y . x$.
 Then it turns out we can rewrite any closed lambda term with $S$ and $K$ alone.
 
 First, we notice $S K K x = x$ for all $x$; a handy convention is to write $I$
@@ -132,8 +110,9 @@ the following:
 \]
 
 where $\lceil T \rceil$ denotes the lambda term $T$ written without
-lambda abstractions. This conversion is known as 'bracket
-abstraction'. (In the third equation, $M, N$ denote lambda terms.)
+lambda abstractions. This conversion is known as
+http://www.cantab.net/users/antoni.diller/brackets/intro.html['bracket
+abstraction']. (In the third equation, $M, N$ denote lambda terms.)
 
 Other choices of combinators are possible, for example, it turns out every
 closed lambda term can be written using the
@@ -178,8 +157,8 @@ babs0 env (Var s)
 babs0 env (m :@ n) = babs0 env m :@ babs0 env n
 \end{code}
 
-Even better are https://tromp.github.io/cl/LC.pdf[the rules
-described by John Tromp]:
+https://tromp.github.io/cl/LC.pdf[The rules
+described by John Tromp] produce shorter output:
 
 \begin{code}
 babs env (Lam x e)
@@ -208,6 +187,9 @@ noLamEq (Var x) (Var y) = x == y
 noLamEq (a :@ b) (c :@ d) = a `noLamEq` c && b `noLamEq` d
 noLamEq _ _ = False
 \end{code}
+
+There's an even better algorithm, but that will have to wait until
+link:crazyl.html[our next compiler].
 
 Stricter checks such as avoiding recursive let definitions and prohibiting `s`
 and `k` to be used as symbols are left as exercises.
@@ -372,8 +354,7 @@ Load and store instructions must be given alignment and offset arguments.
 
 There are no explicit labels or jumps. Instead, labels are implicitly defined
 by declaring well-nested `block-end` and `loop-end` blocks, and branch
-statements break out a given number of blocks, a scheme reminiscent of De
-Bruijn indices.
+statements break out a given number of blocks.
 
 \begin{code}
   -- Code section.

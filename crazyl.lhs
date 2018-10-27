@@ -1,6 +1,7 @@
 == Crazy L ==
 
-Our next compiler generates WebAssembly for a family of languages related to
+Let's build a better compiler based on combinators.
+This time, we'll produce WebAssembly for a family of languages related to
 https://tromp.github.io/cl/lazy-k.html[Lazy K], which in turn is a union of
 minimalist languages based on combinator calculus.
 
@@ -19,10 +20,13 @@ function runWasmInts(a) {
 <button id="lazykB">Reverse</button>
 <button id="fussykB">Const Q</button>
 <button id="crazylB">Length</button>
+<button id="revB">Yum!</button>
+<button id="sortB">Sort</button>
 <br>
-<textarea hidden>
-  # Sort a list in Crazy L
-  # Too slow :(
+<textarea id="revDemo" hidden>
+\l.l(\htx.t(\cn.ch(xcn)))i(sk)
+</textarea>
+<textarea id="sortDemo" hidden># Sort a list in Crazy L
 Y=ssk(s(k(ss(s(ssk))))k)
 z=\n.n(\x.sk)k
 V=\xyf.fxy
@@ -65,7 +69,7 @@ u=\nfx.f(nfx)
 m=\mnf.m(nf)
 z=m(\fx.f(f(fx)))((\fx.f(f(f(fx))))(\fx.f(fx)))
 c=\htcn.ch(tcn)
-\l.c(l(ku)z)i
+\l.c(l(ku)z)(sk)
 </textarea>
 <br>
 <input type="radio" id="natRadio"    name="mode">Nat<br>
@@ -90,10 +94,6 @@ Output: <textarea id="output" rows="1" cols="16" readonly></textarea>
 </p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-In these languages, all variables must be one character, and instead of
-defining `main`, we expect an expression at the top-level. Comments begin with
-`#` and all whitespace except newlines are ignored.
-
 == Vanishingly Small ==
 
 The syntax of link:sk.html[SKI combinator calculus] is already terse, but we
@@ -111,8 +111,7 @@ We squeeze the syntax harder by playing with combinators.
 
 In Iota, we define the combinator $\iota = \lambda x . x S K$.
 It's handy to define $V = \lambda x y z . z x y$, which Smullyan calls the
-Vireo, or the pairing bird, so we can write $\iota = V S K$.
-Then
+Vireo, or the pairing bird, so we can write $\iota = V S K$. Then
 
 \[
 \iota \iota = \iota S K = S S K K = S K (K K) = I
@@ -122,9 +121,9 @@ from which we deduce $\iota (\iota \iota) = S K$,
 $\iota (\iota (\iota \iota)) = K$, and
 $\iota (\iota (\iota (\iota \iota))) = S$.
 
-https://esolangs.org/wiki/Jot[The Jot language] goes even further, managing to
-handle the S combinator, K combinator, and arbitrary application order with
-just two symbols:
+https://esolangs.org/wiki/Jot[The Jot language] is another two-symbol
+language with an interesting property: any string of 0s and 1s is a valid
+program:
 
 \[
 \begin{align}
@@ -134,11 +133,9 @@ just two symbols:
 \end{align}
 \]
 
-where $[F]$ represents the decoding of a string $F$ of 0s and 1s. In
+Here $[F]$ represents the decoding of a string $F$ of 0s and 1s. In
 particular, the empty string is a valid program: it represents $I$, the
 identity combinator.
-
-Later, our `dumpJot` function will show how to encode SK programs in Jot.
 
 Incidentally, https://en.wikipedia.org/wiki/Iota_and_Jot[the description of Jot
 on Wikipedia seems erroneous] (as of May 2017). I get the impression that
@@ -165,12 +162,10 @@ input string be (the Church encoding of) 256. For example, the string "AB"
 would be represented as:
 
 ------------------------------------------------------------------------------
-V (church 65) (V (church 66) (V (church 256) (V (church 256) (...))))
+V 65 (V 66 (V 256 (V 256 (...))))
 ------------------------------------------------------------------------------
 
-where, as before, `Vxyz = zxy`, and `church n` is the Church encoding of the
-number `n`. From now on, we drop the `church`, and assume numbers are
-Church-encoded.
+where, as before, `Vxyz = zxy`, and the numbers are Church-encoded.
 
 == Fussy K ==
 
@@ -182,9 +177,9 @@ combinator, and if this returns 256 then the program halts. Indeed, the
 documentation explicitly mentions that `K 256` is a valid end-of-output
 marker.
 
-However, in general `V 256 x` behaves differently to `K 256`, because
-`V 256 x (KI) = x` while `K 256 (KI) = 256`. This turns out to complicate our
-implementation below.
+However `V 256 x` behaves differently to `K 256`. For example
+`V 256 x (KI) = x` while `K 256 (KI) = 256`. This complicates our
+implementation.
 
 We tie up this loose end by defining Fussy K to be the Lazy K language as it
 is specified, that is, the output list must be terminated with a 256 in the
@@ -211,32 +206,36 @@ We name the resulting language Crazy L.
 
 == Parsing ==
 
-We define the V combinator, successor combinator, and right fold combinator
-in terms of the S and K combinators. Our code would probably be faster if we
-made them part of our language instead, but let's start simple.
+We catch up with an old friend: an AST for lambda calculus terms. Once again,
+we wish to eliminate all the lambda abstractions, leaving only variables and
+applications.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 #ifdef __HASTE__
 {-# LANGUAGE OverloadedStrings #-}
-import Control.Concurrent.MVar
 import Haste.DOM
 import Haste.Events
 import Haste.Foreign
 import Data.Bool
+import Data.IORef
 #else
 {-# LANGUAGE TemplateHaskell #-}
 import System.Console.Haskeline
 import System.Environment
 import System.IO
 import Test.QuickCheck.All
+import Criterion.Main hiding (env)
 #endif
 import Control.Monad
 import Data.Char
+import Data.Function (fix)
 import Data.List
-import Data.Maybe
+import qualified Data.Map as M
+import Data.Map (Map, (!))
 import Text.ParserCombinators.Parsec
-import Text.Read
 
 infixl 5 :@
 data Term = Var String | Term :@ Term | Lam String Term
@@ -246,245 +245,758 @@ instance Show Term where
   show (l :@ r)  = show l ++ showR r where
     showR t@(_ :@ _) = "(" ++ show t ++ ")"
     showR t          = show t
-
-vireo = mustParse "s(k(s(k(s(k(s(k(ss(kk)))k))s))(s(skk))))k"
-foldBird = mustParse "s(k(s(k(s(ks)(s(k(s(ks)k)))))(s(skk))))k"
-skk = Var "s" :@ Var "k" :@ Var "k"
-vsk = vireo :@ Var "s" :@ Var "k"
-succBird = Var "s" :@ (Var "s" :@ (Var "k" :@ Var "s") :@ Var "k")
+  show _ = error "lambda present"
 \end{code}
 
-Our expression parser closely follows
-https://tromp.github.io/cl/lazy-k.html[the grammar specified in the description
-of Lazy K]. The only differences are that we support lambda abstractions and
-treat unreserved letters as variables.
+We define a few combinators. Some of their names are a nod to Smullyan's "To
+Mock a Mockingbird".
 
 \begin{code}
-ccexpr :: Parser Term
-ccexpr = do
-  xs <- many expr
-  pure $ case xs of
-    [] -> skk
-    _  -> foldl1 (:@) xs
+consBird, succBird, vireo, skk, vsk :: Term
+consBird = mustParse "((bs)((b(bb))(ci)))"
+succBird = Var "s" :@ Var "b"
+vireo = Var "b" :@ Var "c" :@ (Var "c" :@ Var "i")
+skk = Var "i"
+vsk = vireo :@ Var "s" :@ Var "k"
+\end{code}
 
-expr     = const skk <$> char 'i' <|> expr'
-iotaexpr = const vsk <$> char 'i' <|> expr'
-expr' = jotRev . reverse <$> many1 (oneOf "01")
-    <|> const skk <$> char 'I'
-    <|> Var . pure . toLower <$> oneOf "KS"
-    <|> Var . pure <$> letter
-    <|> between (char '(') (char ')') ccexpr
-    <|> (char '`' >> (:@) <$> expr <*> expr)
-    <|> (char '*' >> (:@) <$> iotaexpr <*> iotaexpr)
-    <|> flip (foldr Lam) <$> between (char '\\' <|> char '\0955') (char '.')
-      (many1 var) <*> ccexpr
+Our parser closely follows https://tromp.github.io/cl/lazy-k.html[the grammar
+specified in the description of Lazy K]. Differences:
 
-var = lookAhead (noneOf "skiSKI") >> pure <$> letter
+ * We support lambda abstractions, e.g: `\x.x`
+ * With `=`, we can assign terms to any letter except those in `"skiSKI"`, e.g:
+ `c=\htcn.ch(tcn)`.
+ * If left undefined, the letters `b` and `c` are interpreted as the B and C
+ combinators.
 
-jotRev []       = skk
-jotRev ('0':js) = jotRev js :@ Var "s" :@ Var "k"
-jotRev ('1':js) = Var "s" :@ (Var "k" :@ jotRev js)
+Definitions may only use the core language and previously defined letters. In
+particular, recursive functions must be defined via the Y combinator.
 
-data Top = Super String Term | Main Term
+We expect a term at the top-level, which we consider to be a definition of
+the special symbol `main`.
 
-top :: Parser Top
-top = (try super <|> Main <$> ccexpr) <* eof
+Comments begin with `#` and all whitespace except newlines are ignored.
 
-super = Super <$> var <*> (char '=' >> ccexpr)
+Later definitions override earlier ones. In particular, because we support Jot,
+any trailing newlines (possibly with comments) are significant and change the
+program to be simply the I combinator.
 
+\begin{code}
+top :: Parser (String, Term)
+top = (try super <|> (,) "main" <$> ccexpr) <* eof where
+  super = (,) <$> var <*> (char '=' >> ccexpr)
+
+  ccexpr   = option skk $ foldl1 (:@) <$> many1 expr
+  expr     = const skk <$> char 'i' <|> expr'
+  iotaexpr = const vsk <$> char 'i' <|> expr'
+  expr' = jotRev . reverse <$> many1 (oneOf "01")
+      <|> const skk <$> char 'I'
+      <|> Var . pure . toLower <$> oneOf "KS"
+      <|> Var . pure <$> letter
+      <|> between (char '(') (char ')') ccexpr
+      <|> (char '`' >> (:@) <$> expr <*> expr)
+      <|> (char '*' >> (:@) <$> iotaexpr <*> iotaexpr)
+      <|> flip (foldr Lam) <$> between (char '\\' <|> char '\0955') (char '.')
+        (many1 var) <*> ccexpr
+
+  var = lookAhead (noneOf "skiSKI") >> pure <$> letter
+
+  jotRev []       = skk
+  jotRev ('0':js) = jotRev js :@ Var "s" :@ Var "k"
+  jotRev ('1':js) = Var "s" :@ (Var "k" :@ jotRev js)
+  jotRev _        = error "bad Jot term"
+
+parseLine :: String -> Either ParseError (String, Term)
 parseLine = parse top "" . filter (not . isSpace) . takeWhile (/= '#')
 
-mustParse s = t where Right (Main t) = parseLine s
-
-parseProgram s = case mEnv of
-  Left err -> Left $ "parse error: " ++ show err
-  Right env -> case lookup "main" env of
-    Nothing -> Left "missing main"
-    Just m  -> Right $ sub env m
-  where
-    mEnv = map f <$> mapM parseLine (lines s)
-    f (Super s rhs) = (s,        babs rhs)
-    f (Main term)   = ("main", babs term)
-mustParseProgram s = t where Right t = parseProgram s
+mustParse :: String -> Term
+mustParse = either undefined snd . parseLine
 \end{code}
 
-== Bracket Abstraction ==
-
-Again, we use https://tromp.github.io/cl/LC.pdf[the bracket abstraction rules
-described by Tromp] to transform the source to an intermediate form consisting
-of S and K combinators only.
+Since a definition may only use previously defined symbols, we can substitute
+letters for their definitions terms as we parse a program line by line, and
+keep our terms fully expanded and bracket abstracted in `env`.
 
 \begin{code}
-fv vs (Var s) | s `elem` vs = []
-              | otherwise   = [s]
-fv vs (x :@ y)              = fv vs x `union` fv vs y
-fv vs (Lam s f)             = fv (s:vs) f
+sub :: [(String, Term)] -> Term -> Term
+sub env = \case
+  x :@ y -> sub env x :@ sub env y
+  Var s | Just t <- lookup s env -> t
+        | otherwise              -> Var s
+  Lam s t -> Lam s $ sub (filter ((/= s) . fst) env) t
 
-babs (Lam x e)
-  | Var "s" :@ Var"k" :@ _ <- t = Var "s" :@ Var "k"
-  | x `notElem` fv [] t         = Var "k" :@ t
-  | Var y <- t, x == y          = Var "s" :@  Var "k" :@ Var "k"
-  | m :@ Var y <- t, x == y, x `notElem` fv [] m = m
-  | Var y :@ m :@ Var z <- t, x == y, x == z =
-    babs $ Lam x $ Var "s" :@ Var "s" :@ Var "k" :@ Var x :@ m
-  | m :@ (n :@ l) <- t, isComb m, isComb n =
-    babs $ Lam x $ Var "s" :@ Lam x m :@ n :@ l
-  | (m :@ n) :@ l <- t, isComb m, isComb l =
-    babs $ Lam x $ Var "s" :@ m :@ Lam x l :@ n
-  | (m :@ l) :@ (n :@ l') <- t, l `noLamEq` l', isComb m, isComb n =
-    babs $ Lam x $ Var "s" :@ m :@ n :@ l
-  | m :@ n <- t = Var "s" :@ babs (Lam x m) :@ babs (Lam x n)
-  where t = babs e
-babs (Var s) = Var s
-babs (m :@ n) = babs m :@ babs n
+parseProgram :: String -> Either String Term
+parseProgram program = case go [] $ lines program of
+  Left err -> Left err
+  Right env -> maybe (Left "missing main") Right $ lookup "main" env
+  where
+  go acc [] = Right acc
+  go acc (ln:rest) = case parseLine ln of
+    Left e -> Left $ show e
+    Right (s, t) -> go ((s, babs $ sub acc t):acc) rest
+\end{code}
 
-sub env (x :@ y) = sub env x :@ sub env y
-sub env (Var s)  | s `elem` ["s", "k"]    = Var s
-                 | Just t <- lookup s env = sub env t
-                 | otherwise              = error $ "no binding for " ++ s
+We can express SK terms in various languages as follows:
 
-isComb e = null $ fv [] e \\ ["s", "k"]
+\begin{code}
+dumpIota, dumpJot, dumpUnlambda :: Term -> String
+dumpIota     = dumpWith '*' "*i*i*ii" "*i*i*i*ii"
+dumpJot      = dumpWith '1' "11100"   "11111000"
+dumpUnlambda = dumpWith '`' "k"       "s"
 
-noLamEq (Var x) (Var y) = x == y
-noLamEq (a :@ b) (c :@ d) = a `noLamEq` c && b `noLamEq` d
-noLamEq _ _ = False
+dumpWith :: Char -> String -> String -> Term -> String
+dumpWith apCh kStr sStr = fix $ \f -> \case
+  x :@ y  -> apCh:f x ++ f y
+  Var "k" -> kStr
+  Var "s" -> sStr
+  _       -> error "SK terms only"
+\end{code}
+
+A program is interpreted according to which language variant we've chosen.
+Lazy K, Fussy K, and Crazy L all take streams of bytes as input and all produce
+streams of bytes as output. To this, we add the Nat language, we expects
+no input and just outputs a Church-encoded number.
+
+\begin{code}
+data Lang = LazyK | FussyK | CrazyL | Nat
+\end{code}
+
+== De Bruijn indices ==
+
+We shall need
+https://en.wikipedia.org/wiki/De_Bruijn_index['De Bruijn indices]', that is,
+we replace each variable with an integer representing the number of `Lam` nodes
+we encounter as we travel up the parse tree before reaching the binding
+abstraction. (This is similar to wasm branch labels!)
+
+For example,
+
+\[
+\lambda f.(\lambda x.x x)(\lambda x.f(x x))
+\]
+
+becomes:
+
+\[
+\lambda(\lambda 0 0)(\lambda 1(0 0))
+\]
+
+For example, in De Bruijn notation, $S = \lambda\lambda\lambda 2 0(1 0)$
+and $K = \lambda\lambda 1$.
+
+We employ http://okmij.org/ftp/tagless-final/[a tagless final representation]
+for De Bruijn terms:
+
+\begin{code}
+infixl 5 #
+class Deb repr where
+  ze :: repr
+  su :: repr -> repr
+  lam :: repr -> repr
+  (#) :: repr -> repr -> repr
+\end{code}
+
+We declare an instance so we can display De Bruijn terms for debugging and
+testing.
+
+\begin{code}
+data Out = Out { unOut :: String }
+instance Deb Out where
+  ze = Out "Z"
+  su e = Out $ "S(" <> unOut e <> ")"
+  lam e = Out $ "^" <> unOut e
+  e1 # e2 = Out $ unOut e1 <> unOut e2
+\end{code}
+
+== Sick B ==
+
+The bracket abstraction (i.e. removing lambdas) we use needs B and C
+combinators (`(.)` and `flip` in Haskell) as well as the S and K combinators.
+We also directly implement I combinators, rather than making do with SKK.
+
+A straightforward recursion computes the De Bruijn indices.
+Because we may be asked to perform bracket abstraction on the output of our
+bracket abstraction routine, we must support B and C when converting to De
+Bruijn indices.
+
+\begin{code}
+toDeb :: Deb repr => [String] -> Term -> repr
+toDeb env = \case
+  Var s -> case elemIndex s env of
+    Nothing -> case s of
+      "s" -> lam $ lam $ lam $ su(su ze) # ze # (su ze # ze)
+      "b" -> lam $ lam $ lam $ su(su ze)      # (su ze # ze)
+      "c" -> lam $ lam $ lam $ su(su ze) # ze #  su ze
+      "k" -> lam $ lam $ su ze
+      "i" -> lam ze
+      _ -> error $ s <> " is free"
+    Just n -> iterate su ze !! n
+  Lam s t -> lam $ toDeb (s:env) t
+  x :@ y -> toDeb env x # toDeb env y
+\end{code}
+
+Now we can apply http://okmij.org/ftp/tagless-final/ski.pdf[a powerful bracket
+abstraction algorithm due to Oleg Kiselyov].
+
+Again we use a tagless final representation for the output of the algorithm.
+
+\begin{code}
+infixl 5 ##
+class SickB repr where
+  kS :: repr
+  kI :: repr
+  kC :: repr
+  kK :: repr
+  kB :: repr
+  (##) :: repr -> repr -> repr
+\end{code}
+
+We declare an instance so we can convert back to our `Term` AST. This allows
+messy shortcuts suitable for prototyping: we can print `Term` values, we can
+reuse code from the previous compiler, and we can add new combinators without
+adding them to the typeclass since a `Var` holds any string.
+
+\begin{code}
+instance SickB Term where
+  kS = Var "s"
+  kI = Var "i"
+  kC = Var "c"
+  kK = Var "k"
+  kB = Var "b"
+  e1 ## e2 = e1 :@ e2
+\end{code}
+
+We introduce another data type because the algorithm needs to distinguish
+between closed terms, and several kinds of unclosed terms. We return a closed
+term, but along the way we manipulate open terms.
+
+\begin{code}
+data Oleg repr = C {unC :: repr} | N (Oleg repr) | W (Oleg repr) | V
+instance SickB repr => Deb (Oleg repr) where
+  ze = V
+  su = W
+  l # r = case (l, r) of
+    (W e, V) -> N e
+    (V, W e) -> N $ C (kC ## kI) # e
+    (N e, V) -> N $ C kS # e # C kI
+    (V, N e) -> N $ C (kS ## kI) # e
+    (C d, V) -> N $ C d
+    (V, C d) -> N $ C $ kC ## kI ## d
+    (V, V)   -> N $ C $ kS ## kI ## kI
+
+    (W e1, W e2) -> W $ e1 # e2
+    (W e, C d)   -> W $ e # C d
+    (C d, W e)   -> W $ C d # e
+    (W e1, N e2) -> N $ C kB # e1 # e2
+    (N e1, W e2) -> N $ C kC # e1 # e2
+    (N e1, N e2) -> N $ C kS # e1 # e2
+    (C d, N e)   -> N $ C (kB ## d) # e
+    (N e, C d)   -> N $ C (kC ## kC ## d) # e
+    (C d1, C d2) -> C $ d1 ## d2
+  lam = \case
+    V   -> C kI
+    C d -> C $ kK ## d
+    N e -> e
+    W e -> C kK # e
+
+babs :: Term -> Term
+babs = unC . toDeb []
 \end{code}
 
 == Interpreter ==
 
-For the command-line version, we interpret the program instead of compiling it.
+We build an interpreter to guide our compiler design.
 
-A term returns either a Church-encoded number or a string, encoded with
-Church pairs or the right fold.
-One solution is to introduce a corresponding data type:
+We envision a machine with 4 registers (you can tell I grew up on x86 assembly):
+
+ * IP: instruction pointer that also holds instructions
+ * SP: stack pointer, growing downwards from the top of memory.
+ * HP: heap pointer, growing upwards from the bottom of memory.
+ * AX: accumulator
+
+We arbitrarily decide our wasm instances will request 64 pages of memory.
 
 \begin{code}
-#ifndef __HASTE__
-data RunValue = I Int | S String
+pageCount :: Int
+pageCount = 64
+
+maxSP :: Int
+maxSP = pageCount * 65536
+
+data VM = VM
+  { ip, hp, sp :: Int
+  , ax :: Int
+  , mem :: Map Int Int
+  , input :: String
+  , lang :: Lang
+  }
 \end{code}
 
-For all languages except Lazy K, we can introduce special combinators
-to do most of the heavy lifting:
-
-  * For Nat, let `0` represent the number 0, and let `(+)` be a combinator
-  that assumes its argument is a number and increments it. Then given a
-  Nat program `p`, we recover its output by reducing `p(+)0`, since its
-  output is Church-encoded.
-
-  * For Fussy K, we maintain a string that is initially empty. Let `(!)` be a
-  combinator such that  `(!)xy` runs `x(+)0`. If the result is 256, then we
-  output the string and terminate, otherwise we append the corresponding byte
-  to a buffer, and run `y(!)`. Then given a Fussy K program `p` and its input
-  `q`, we interpret it by reducing `pq(!)`.
-
-  * For Crazy L, again we maintain a string that is initially empty. Define
-  the combinator `(>)` so that `(>)xy` appends the byte corresponding to
-  `x(+)0` to the string then reduces `y`. Let `(.)` be a combinator that
-  returns the string when run. Then we interpret a Crazy L program `p` run on
-  an input `q` by reducing `pq(>)(.)`.
+The SICKB combinators are standard. We introduce special combinators to deal
+with the real world.
 
 \begin{code}
-run (m :@ n) stack = run m (n:stack)
-run (Var "k") (x:_:stack)   = run x stack
-run (Var "s") (x:y:z:stack) = run x $ z:(y :@ z):stack
-run (Var "+") [x] | I n <- run x [] = I $ 1 + n
-run (Var "0") [] = I 0
-run (Var "!") [x, y] | I n <- run x [Var "+", Var "0"] = S $ case n of
-  256 -> []
-  _   -> chr n : t where S t = run y [Var "!"]
-run (Var ">") [x, y] = S $ chr n : t where
-  I n = run x [Var "+", Var "0"]
-  S t = run y []
-run (Var ".") [] = S []
-run e s = error $ show e
+combs :: [Char]
+combs = "sickb0+<>."
 \end{code}
 
-An alternative is to just use String. We can encode a number as a
-single-character string. However, this limits the Nat language to programs
-whose outputs are less than 256:
+The heap is organized as an array of 8-byte entries, each consisting of two
+4-byte combinators `x` and `y`. The meaning of such an entry is `xy`.
+
+A negative 4-byte value represents one of the primitive combinators.
+Otherwise it is the address of another 8-byte entry in the heap.
+
+This encoding scheme means if a term consists of a single primitive combinator,
+such as K, then we must represent it as IK since at minimum a cell holds two
+combinators.
 
 \begin{code}
-run' (m :@ n) stack = run' m (n:stack)
-run' (Var "k") (x:_:stack)   = run' x stack
-run' (Var "s") (x:y:z:stack) = run' x $ z:(y :@ z):stack
-run' (Var "+") [x] | ord c == 255 = []
-                   | otherwise = [succ c]
-                   where [c] = run' x []
-run' (Var "0") [] = [chr 0]
-run' (Var "!") [x, y] | [c] <- run' x [Var "+", Var "0"] = c:run' y [Var "!"]
-                      | otherwise = []
-run' (Var ">") [x, y] = run' x [Var "+", Var "0"] ++ run' y []
-run' (Var ".") [] = []
-run' e s = error $ show e
+wlen :: [a] -> Int
+wlen = (4*) . length
+
+enCom :: String -> Int
+enCom [c] | Just n <- elemIndex c combs = -n - 1
+enCom s = error $ show s
+
+encAt :: Int -> Term -> [Int]
+encAt _ (Var a :@ Var b) = [enCom a, enCom b]
+encAt n (Var a :@ y)     = enCom a : n + 8 : encAt (n + 8) y
+encAt n (x     :@ Var b) = n + 8 : enCom b : encAt (n + 8) x
+encAt n (x     :@ y)     = n + 8 : nl : l ++ encAt nl y
+  where l  = encAt (n + 8) x
+        nl = n + 8 + wlen l
+encAt _ _                = error "want application"
+
+dump :: VM -> String
+dump VM{..} = unlines $ take 50 . f <$> ps where
+  f a | a < 0 = pure $ combs!!(-a - 1)
+  f a         = "(" ++ f (de a) ++ f (de $ a + 4) ++ ")"
+  ps = ip:[de $ 4 + de p | p <- [sp, sp + 4..maxSP - 4]]
+  de k | Just v <- M.lookup k mem = v
+       | otherwise = error $ "bad deref: " ++ show k
 \end{code}
 
-We provide functions to convert the input into Church numerals, one-pair
-lists, and right-fold lists:
+We place the Church encoded integers from [0..256] in linear memory starting
+from 0.  Each takes one 8-byte cell, so that the Church encoding of 'n' lies at
+address '8n' in memory.
+
+Zero is represented by SK, and 'n + 1' is represented by 'm n' where 'm' is
+the combinator that computes the successor of a Church number. We place the
+definition of 'm' just after the Church numbers, that is, at memory address
+`8*257`.
 
 \begin{code}
-church 0 = Var "k" :@ skk
-church n = Var "s" :@ (Var "s" :@ (Var "k" :@ Var "s") :@ Var "k")
-  :@ church (n - 1)
-
-pList []     = vireo :@ church 256     :@ pList []
-pList (x:xs) = vireo :@ church (ord x) :@ pList xs
-
-rfList s = foldr (\a b -> foldBird :@ a :@ b)
-  (Var "s" :@ Var "k") $ church . ord <$> s
+gen :: [Int]
+gen = enCom "s" : enCom "k" :           -- Zero
+  concat [[m, 8*n] | n <- [0..255]] ++  -- [1..256]
+  encAt m succBird                      -- Successor combinator.
+  where m = 8*257
 \end{code}
 
-The Lazy K interpreter encodes the input as a Church one-pair list, and feeds
-this to the given term `u` along with the K combinator. We use the `(+)` and
-`0` combinators to recover the integer represented by a Church numeral. If this
-is 256 then execution is halted, otherwise we record the corresponding byte and
-recurse on `uSK`.
+We encode a program immediately after the above. We add our special combinators
+differently for each language so that the term will behave accordingly, which
+we explain later.
 
 \begin{code}
-lazyK t inp = g (t :@ pList inp) where
-  g u = case run u [Var "k", Var "+", Var "0"] of
-    I 256 -> []
-    I n   -> chr n : g (u :@ (Var "s" :@ Var "k"))
+encodeTerm :: Lang -> Term -> [Int]
+encodeTerm lang t = (gen ++) $ encAt (wlen gen) $ case lang of
+  Nat     -> t :@ Var "+" :@ Var "0"
+  LazyK   -> t :@ (Var "<" :@ vireo) :@ Var ">" :@ Var "+" :@ Var "0"
+  FussyK  -> t :@ (Var "<" :@ vireo) :@ Var ">"
+  CrazyL  -> t :@ (Var "<" :@ consBird) :@ Var ">" :@ Var "."
 \end{code}
 
-The other languages are thin wrappers around combinators we have already
-defined.
-
-We also add a ``Nat to Nat'' language for programs that expect a Church numeral
-and return a Church numeral.
+The IP register points to our term, which is just after the Church-encoded
+integers. The HP register points to the free heap, which begins just after our
+program. The SP register points to the top of memory, as the stack is
+initially empty.
 
 \begin{code}
-fussyK t inp = s where S s = run t [pList inp, Var "!"]
-crazyL t inp = s where S s = run t [rfList inp, Var ">", Var "."]
-succ0 t _ = show n where I n = run t [Var "+", Var "0"]
-nat2nat t inp = show n where
-  I n = run t [church $ fromMaybe 0 $ readMaybe inp, Var "+", Var "0"]
+sim :: Lang -> String -> Term -> String
+sim mode inp e = exec VM
+  { ip = wlen gen
+  , sp = maxSP
+  , hp = wlen bs
+  , ax = 0
+  , mem = M.fromList $ zip [0,4..] bs
+  , input = inp
+  , lang = mode
+  } where
+  bs = encodeTerm mode e
+\end{code}
+
+Executing a combinator involves a few subtleties. Lazy evaluation is
+important for the S, B, and C combinators, that is, we must memoize so future
+evaluations avoid recomputing the same reduction. Without this, even simple
+programs may be too slow.
+
+We also memoize the result of the K combinator, but this is less vital.
+
+There may be some memoization possible with the I combinator, but it seems
+similar to a tag to me, so this may be unimportant.
+
+The `upd` function updates the heap entry that the top of the stack refers to,
+as well as the IP register. It powers memoization and lazy input.
+
+\begin{code}
+upd :: Int -> Int -> VM -> VM
+upd a b vm@VM{..} = setIP a $ vm
+  { mem = M.insert (mem!sp) a $ M.insert ((mem!sp) + 4) b mem }
+
+exec :: VM -> String
+exec vm@VM{..} | ip < 0 = case combs!!(-ip - 1) of
+  's' -> rec $ upd hp (hp + 8) . pop 2 . putHP [arg 0, arg 2, arg 1, arg 2, hp, hp + 8]
+  'i' -> rec $ setIP (arg 0) . pop 1
+  'c' -> rec $ putHP [arg 0, arg 2] . upd hp (arg 1) . pop 2
+  -- Unmemoized: 'k' -> rec $ setIP (arg 0) . pop 2
+  'k' -> rec $ upd (enCom "i") (arg 0) . pop 1
+  'b' -> rec $ putHP [arg 1, arg 2] . upd (arg 0) hp . pop 2
+\end{code}
+
+The meaning of our special combinators depends on the language.
+
+For Nat, the `(+)` combinator acts like I except it also increments AX and the
+`0` combinator outputs AX and terminates. Then given a Nat program `t`, we
+recover its output by reducing `t(+)0`, since its output is Church-encoded.
+
+In theory, `exec` should return values, the `0` combinator should return the
+integer 0, and `(+)` should increment its first argument and return it.
+(Ultimately some outer function would print the result of `exec`.)
+But since we assume `t` evaluates to a Church number, and since we control the
+evaluation order, we optimize by giving certain side effects to these two
+combinators. We cheat similarly with the other languages.
+
+The `(<)` combinator is always applied to some combinator `x`. Then when we
+reach it during evaluation, we know the top entry of the stack is `(<)x`.
+
+For Lazy K and Fussy K, we choose `x` to be the V combinator and
+we replace the entry with `Vn(<V)`, where `n` is the Church encoding of the
+next byte of input, or 256 if there is no more input. Recall we have placed
+[0..256] at the beginning of memory, so this is just the address `8*n`.
+
+For Crazy L, we choose `x` to be the cons combinator for right-fold
+representations of lists, and we replace the entry with `xn(<0)` where `n` is
+the Church encoding of the next byte of input, or `SK` if there is no more
+input.
+
+The `(>)` combinator is `\xy.x(+)(0y)`. By tweaking how `0` works for the
+other languages, we cause this term to turn the first argument (which should
+be a Church number) into a byte which we emit, then recurse on `y`.
+
+Lazy K is fiddly because we must handle the case when it skips over our `(>)`
+combinator, such as for the program `K(K(256))`. (Normally we supply an
+argument to `0` for non-Nat programs to ensure IP == [[SP]] when we evaluate
+`0`, but we can skip it for the special-case Lazy K `0` because we know it
+should terminate if it gets evaluated.)
+
+\begin{code}
+  '0' -> case lang of
+    Nat     -> show ax
+    CrazyL  -> chr ax : rec (setIP (arg 0) . setAX 0 . pop 1)
+    FussyK  -> if ax == 256 then "" else
+      chr ax : rec (upd (arg 0) (enCom ">") . setAX 0)
+    LazyK   -> if ax == 256 then "" else
+      chr ax : rec (upd (hp + 8) (enCom "0") . putHP
+        [arg 0, enCom ">", hp, enCom "+"] . setAX 0)
+  -- I combinator with side effect.
+  '+' -> rec $ setIP (arg 0) . pop 1 . setAX (ax + 1)
+  '>' -> rec $ upd hp (hp + 8) . pop 1 . putHP
+    [arg 0, enCom "+", enCom "0", arg 1]
+  '.' -> ""
+  -- Lazy input. If we reach here, then IP == [[SP]].
+  '<' | CrazyL <- lang -> case input of
+     (h:t) -> exec $ putHP [arg 0, ord h * 8, enCom "<", arg 0] $ upd hp (hp + 8) vm { input = t }
+     _     -> rec $ upd (enCom "s") (enCom "k")
+  '<' -> exec
+    $ putHP [arg 0, (case input of { (h:_) -> ord h; _ -> 256 }) * 8, enCom "<", arg 0]
+    $ upd hp (hp + 8)
+    $ vm { input = case input of { (_:t) -> t; _ -> [] }}
+  _ -> error $ "bad combinator\n" ++ dump vm
+  where
+  rec f = exec $ f vm
+  arg n = mem ! (mem ! (sp + n * 4) + 4)
+  setAX a v = v {ax = a}
+exec vm@VM{..} = exec $ checkOverflow $ vm { sp = sp - 4, mem = M.insert (sp - 4) ip mem, ip = mem ! ip }
+
+pop :: Int -> VM -> VM
+pop n vm@VM{..} = vm { sp = sp + 4*n }
+
+setIP :: Int -> VM -> VM
+setIP a v = v {ip = a}
+
+putHP :: [Int] -> VM -> VM
+putHP as vm@VM{..} = checkOverflow $ vm
+ { mem = M.union (M.fromList $ zip [hp, hp + 4..] as) mem, hp = hp + wlen as }
+
+checkOverflow :: VM -> VM
+checkOverflow vm@VM{..} | hp >= sp  = error "overflow"
+                        | otherwise = vm
+\end{code}
+
+== Compiler ==
+
+We have a three import functions this time:
+
+  * We give output bytes to `f`.
+  * We call `g` to get the next input byte. This function should return 256
+    if there is no more input.
+  * The Nat language calls `h` to return an integer.
+
+\begin{code}
+leb128 :: Int -> [Int]
+leb128 n | n < 64   = [n]
+         | n < 128  = [128 + n, 0]
+         | otherwise = 128 + (n `mod` 128) : leb128 (n `div` 128)
+
+i32 :: Int
+i32 = 0x7f
+
+i32const :: Int
+i32const = 0x41
+
+compile :: Lang -> Term -> [Int]
+compile mode e = concat
+  [ [0, 0x61, 0x73, 0x6d, 1, 0, 0, 0]  -- Magic string, version.
+  -- Type section.
+  , sect 1 [encSig [i32] [], encSig [] [], encSig [] [i32]]
+  -- Import section.
+  , sect 2 [
+    -- [0, 0] = external_kind Function, type index 0.
+    encStr "i" ++ encStr "f" ++ [0, 0],
+    -- [0, 2] = external_kind Function, type index 2.
+    encStr "i" ++ encStr "g" ++ [0, 2],
+    encStr "i" ++ encStr "h" ++ [0, 0]]
+  -- Function section. [1] = Type index.
+  , sect 3 [[1]]
+  -- Memory section. 0 = no-maximum
+  , sect 5 [[0, pageCount]]
+  -- Export section.
+  -- [0, 3] = external_kind Function, function index 3.
+  , sect 7 [encStr "e" ++ [0, 3]]
+  -- Code section.
+  , sect 10 [lenc $ codeSection mode $ length heap]
+  -- Data section.
+  , sect 11 [[0, i32const, 0, 0xb] ++ lenc heap]] where
+  heap = concatMap quad $ encodeTerm mode e
+  sect t xs = t : lenc (leb128 (length xs) ++ concat xs)
+  -- 0x60 = Function type.
+  encSig ins outs = 0x60 : lenc ins ++ lenc outs
+  encStr s = lenc $ ord <$> s
+  lenc xs = leb128 (length xs) ++ xs
+  quad n | n < 0     = [256 + n, 255, 255, 255]
+         | otherwise = take 4 $ byteMe n
+  byteMe n | n < 256   = n : repeat 0
+           | otherwise = n `mod` 256 : byteMe (n `div` 256)
+\end{code}
+
+We translate our interpreter into WebAssembly for our compiler.
+
+Our `asmCase` helper deals with the branch numbers for each case in the
+`br_table`.
+
+\begin{code}
+codeSection :: Lang -> Int -> [Int]
+codeSection mode heapEnd =
+  [1, 4, i32,
+  i32const] ++ leb128 (wlen gen) ++ [setlocal, ip,
+  i32const] ++ leb128 maxSP ++ [setlocal, sp,
+  i32const] ++ leb128 heapEnd ++ [setlocal, hp,
+  3, 0x40]  -- loop
+  ++ concat (replicate (ccount + 1) [2, 0x40])  -- blocks
+  ++ [i32const, 128 - 1, getlocal, ip, i32sub,  -- -1 - IP
+  br_table] ++ (ccount:[0..ccount])  -- br_table
+  ++ [0xb] ++ concat (zipWith asmCase [0..] combs)
+\end{code}
+
+Function application walks down the tree to find the combinator to run next, and
+builds up a spine on the stack as it goes.
+
+\begin{code}
+  -- Application is the default case.
+  -- SP = SP - 4
+  -- [SP] = IP
+  ++ [getlocal, sp, i32const, 4, i32sub, teelocal, sp,
+  getlocal, ip, i32store, 2, 0,
+  -- IP = [IP]
+  getlocal, ip, i32load, 2, 0, setlocal, ip,
+  br, 0,  -- br loop
+  0xb,    -- end loop
+  0xb]  -- end function
+  where
+  br       = 0xc
+  br_if    = 0xd
+  br_table = 0xe
+  getlocal = 0x20
+  setlocal = 0x21
+  teelocal = 0x22
+  i32load  = 0x28
+  i32store = 0x36
+  i32lt_u  = 0x49
+  i32ge_u  = 0x4f
+  i32add   = 0x6a
+  i32sub   = 0x6b
+  i32mul   = 0x6c
+  ip = 0  -- instruction pointer, can also hold instructions
+  sp = 1  -- stack pointer
+  hp = 2  -- heap pointer
+  ax = 3  -- accumulator
+  ccount = length combs
+  asmCase combIndex combName = let
+    loopLabel = ccount - combIndex
+    exitLabel = loopLabel + 1
+    loop = [br, loopLabel]
+    asmCom c = [i32const, 128 + enCom c]
+    asmIP ops = ops ++ [setlocal, ip]
+    asmArg n = [getlocal, sp, i32load, 2, 4*n, i32load, 2, 4]
+    asmPop 0 = []
+    asmPop n = [getlocal, sp, i32const, 4*n, i32add, setlocal, sp]
+    withHeap xs body = concat (zipWith hAlloc xs [0..]) ++ body
+      ++ [getlocal, hp, i32const, 4*length xs, i32add, setlocal, hp]
+    hAlloc x n = [getlocal, hp] ++ x ++ [i32store, 2, 4*n]
+    hNew 0 = [getlocal, hp]
+    hNew n = [getlocal, hp, i32const, 8*n, i32add]
+    updatePop n x y = concat
+      [ [getlocal, sp, i32load, 2, 4*n], x, [teelocal, ip, i32store, 2, 0]
+      , [getlocal, sp, i32load, 2, 4*n], y, [i32store, 2, 4]
+      , asmPop n
+      ]
+    in (++ [0xb]) $ case combName of
+\end{code}
+
+The following is similar to the `exec` function of our interpreter.
+
+\begin{code}
+    '0' -> case mode of
+      Nat -> [getlocal, ax, 0x10, 2, br, exitLabel]  -- Print AX.
+      LazyK ->
+        [getlocal, ax, i32const, 128, 2, i32ge_u,  -- AX >= 256?
+        br_if, exitLabel,  -- br_if exit
+        getlocal, ax, 0x10, 0,  -- else output AX
+        -- AX = 0
+        i32const, 0, setlocal, ax
+        ] ++ withHeap [asmArg 0, asmCom ">", hNew 0, asmCom "+", asmCom "0", asmCom "."] (updatePop 0 (hNew 1) (hNew 2)) ++ loop
+      FussyK ->
+        [getlocal, ax, i32const, 128, 2, i32ge_u,  -- AX >= 256?
+        br_if, exitLabel,  -- br_if exit
+        getlocal, ax, 0x10, 0,  -- else output AX
+        -- AX = 0
+        i32const, 0, setlocal, ax
+        ] ++ updatePop 0 (asmArg 0) (asmCom ">") ++ loop
+      CrazyL -> concat
+        [ [getlocal, ax, 0x10, 0, i32const, 0, setlocal, ax]
+        , asmIP (asmArg 0), asmPop 1, loop]
+    '+' -> concat
+      [ [getlocal, ax, i32const, 1, i32add, setlocal, ax]  -- AX = AX + 1
+      , asmIP (asmArg 0) , asmPop 1 , loop ]
+    'k' -> updatePop 1 (asmCom "i") (asmArg 0) ++ loop
+    's' -> withHeap (asmArg <$> [0, 2, 1, 2]) (updatePop 2 (hNew 0) (hNew 1)) ++ loop
+    '>' -> withHeap [asmArg 0, asmCom "+", asmCom "0", asmArg 1] (updatePop 1 (hNew 0) (hNew 1)) ++ loop
+    '.' -> [br, exitLabel]  -- br exit
+    'i' -> concat [asmIP $ asmArg 0, asmPop 1, loop]
+    '<' | CrazyL <- mode -> concat
+      [ [0x10, 1, teelocal, ip]  -- Get next character in IP.
+      , [i32const, 128, 2, i32lt_u, 4, 0x40]  -- if < 256
+      , withHeap [asmArg 0, [getlocal, ip, i32const, 8, i32mul], asmCom "<", asmArg 0] (updatePop 0 (hNew 0) (hNew 1))
+      , [5]  -- else
+      , updatePop 0 (asmCom "s") (asmCom "k")
+      , [0xb]  -- end if
+      , loop
+      ]
+    '<' -> withHeap [asmArg 0, [0x10, 1, i32const, 8, i32mul], asmCom "<", asmArg 0] (updatePop 0 (hNew 0) (hNew 1)) ++ loop
+    'b' -> withHeap [asmArg 1, asmArg 2] (updatePop 2 (asmArg 0) (hNew 0)) ++ loop
+    'c' -> withHeap [asmArg 0, asmArg 2] (updatePop 2 (hNew 0) (asmArg 1)) ++ loop
+    e -> error $ "bad combinator: " ++ [e]
+\end{code}
+
+== Web UI ==
+
+We conclude by connecting buttons and textboxes with code.
+
+\begin{code}
+#ifdef __HASTE__
+(<>) = (++)
+
+main :: IO ()
+main = withElems ["source", "input", "output", "sk", "asm", "compB", "runB"] $
+    \[sEl, iEl, oEl, skEl, aEl, compB, runB] -> do
+  inp <- newIORef []
+  bin <- newIORef []
+  let
+    putCh :: Int -> IO ()
+    putCh c = do
+      v <- getProp oEl "value"
+      setProp oEl "value" $ v ++ [chr c]
+    putInt :: Int -> IO ()
+    putInt n = setProp oEl "value" $ show n
+    getCh :: IO Int
+    getCh = do
+      s <- readIORef inp
+      case s of
+        [] -> do
+          writeIORef inp []
+          pure 256
+        (h:t) -> do
+          writeIORef inp t
+          pure $ ord h
+  export "putChar" putCh
+  export "putInt"  putInt
+  export "getChar" getCh
+  let
+    setupDemo mode name s = do
+      Just b <- elemById $ name ++ "B"
+      Just d <- elemById $ name ++ "Demo"
+      Just r <- elemById $ mode ++ "Radio"
+      void $ b `onEvent` Click $ const $ do
+        setProp sEl "value" =<< getProp d "value"
+        setProp r "checked" "true"
+        setProp iEl "value" s
+        setProp oEl "value" ""
+  setupDemo "nat" "nat" ""
+  setupDemo "lazyk" "lazyk" "gateman"
+  setupDemo "fussyk" "fussyk" "(ignored)"
+  setupDemo "crazyl" "crazyl" "length"
+  setupDemo "crazyl" "rev" "stressed"
+  setupDemo "crazyl" "sort" "froetf"
+  void $ compB `onEvent` Click $ const $ do
+    setProp skEl "value" ""
+    setProp aEl "value" ""
+    writeIORef bin []
+    s <- getProp sEl "value"
+    case parseProgram s of
+      Left err -> setProp skEl "value" $ "error: " ++ show err
+      Right sk -> do
+        let
+          f name = do
+            Just el <- elemById $ name ++ "Radio"
+            bool "" name . ("true" ==) <$> getProp el "checked"
+        lang <- concat <$> mapM f ["nat", "lazyk", "fussyk", "crazyl"]
+        let asm = compile (findLang lang) sk
+        setProp skEl "value" $ show sk
+        setProp aEl "value" $ show asm
+        writeIORef bin asm
+  void $ runB `onEvent` Click $ const $ do
+    setProp oEl "value" ""
+    s <- getProp iEl "value"
+    writeIORef inp s
+    asm <- readIORef bin
+    ffi "runWasmInts" asm :: IO ()
+
+findLang :: String -> Lang
+findLang "nat" = Nat
+findLang "fussyk" = FussyK
+findLang "crazyl" = CrazyL
+findLang "lazyk" = LazyK
+findLang _ = undefined
+#endif
 \end{code}
 
 == Testing ==
-
-During development, it was useful to see combinators expressed in different
-forms:
-
-\begin{code}
-dumpSK t _ = show t
-dumpIota t _ = f t where
-  f (x :@ y)  = '*':f x ++ f y
-  f (Var "k") = "*i*i*ii"
-  f (Var "s") = "*i*i*i*ii"
-dumpJot t _ = f t where
-  f (x :@ y)  = '1':f x ++ f y
-  f (Var "k") = "11100"
-  f (Var "s") = "11111000"
-dumpUnlambda t _ = f t where
-  f (x :@ y)  = '`':f x ++ f y
-  f (Var "k") = "k"
-  f (Var "s") = "s"
-\end{code}
 
 We test our code with QuickCheck on
 https://tromp.github.io/cl/lazy-k.html[known Lazy K examples]:
 
 \begin{code}
+#ifndef __HASTE__
 rev = concat [
   "1111100011111111100000111111111000001111111000111100111111000111111",
   "1000111100111110001111111000111100111001111111000111100111111111000",
@@ -525,22 +1037,25 @@ pri = concat [
   "(S(KK)(SII)))))))))))(K(SI(K(KI))))))))(S(S(KS)K)I)",
   "(SII(S(K(S(K(S(SI(K(KI)))))K))(SII)))))"]
 
-kk256 = "k(k(s(skk)(skk)(s(skk)(skk)(s(s(ks)k)(skk)))))"
+kk256 = "k(k(sii(sii(sbi))))"
 
-prop_rev s = lazyK (mustParse rev)   t == reverse t where t = take 10 s
-prop_id s  = lazyK (mustParse "")    s == s
-prop_emp s = lazyK (mustParse kk256) s == ""
-prop_pri   = "2 3 5 7 11 13" `isPrefixOf` lazyK  (mustParse pri) ""
-prop_pri'  = "2 3 5 7 11 13" `isPrefixOf` fussyK (mustParse pri) ""
+prop_rev s = sim LazyK t (mustParse rev)   == reverse t where t = take 10 s
+prop_id s  = sim LazyK s (mustParse "")    == s
+prop_emp s = sim LazyK s (mustParse kk256) == ""
+prop_pri   = "2 3 5 7 11 13" `isPrefixOf` sim LazyK  "" (mustParse pri)
+prop_pri'  = "2 3 5 7 11 13" `isPrefixOf` sim FussyK "" (mustParse pri)
 
-fac = unlines [
-  "Y=ssk(s(k(ss(s(ssk))))k)",
-  "P=\\nfx.n(\\gh.h(gf))(\\u.x)(\\u.u)",
-  "M=\\mnf.m(nf)",
-  "z=\\n.n(\\x.sk)k",
-  "Y(\\fn.zn(\\fx.fx)(Mn(f(Pn))))"]
+mustParseProgram :: String -> Term
+mustParseProgram = either undefined id . parseProgram
 
-prop_fac   = nat2nat (mustParseProgram fac) "5" == "120"
+prop_fac5 = ("120" ==) $ sim Nat "" $ mustParseProgram $ unlines
+  --"Y=ssk(s(k(ss(s(ssk))))k)",
+  [ "Y=(\\z.zz)(\\z.\\f.f(zzf))"
+  , "P=\\nfx.n(\\gh.h(gf))(\\u.x)(\\u.u)"
+  , "M=\\mnf.m(nf)"
+  , "z=\\n.n(\\x.sk)k"
+  , "Y(\\fn.zn(\\fx.fx)(Mn(f(Pn))))(\\fx.f(f(f(f(fx)))))"
+  ]
 
 return []
 runAllTests = $quickCheckAll
@@ -550,500 +1065,54 @@ runAllTests = $quickCheckAll
 
 A REPL glues the above together. The first two command-line arguments determine
 the language (or dump format) and the input to the program; if omitted, they
-default to Lazy K and ``Hello, World!''.  Lines of the program itself are read
-from standard input using Haskeline.
+default to Crazy L and the empty string.
 
 \begin{code}
-repl lang inp env = do
-  let rec = repl lang inp
-  ms <- getInputLine "> "
-  case ms of
-    Nothing -> outputStrLn ""
-    Just s  -> case parseLine s of
-      Left err  -> do
-        outputStrLn $ "parse: " ++ show err
-        rec env
-      Right (Super s rhs) -> do
-        let t = babs rhs
-        outputStrLn $ s ++ "=" ++ show t
-        rec ((s, t):env)
-      Right (Main term) -> do
-        outputStrLn $ lang (sub env $ babs term) inp
-        rec env
-
+main :: IO ()
 main = do
+  hSetBuffering stdout NoBuffering
   as <- getArgs
   let
-    f lang = g lang $ case tail as of
-      []    -> ""
-      (a:_) -> a
-    g lang inp = do
-      hSetBuffering stdout NoBuffering
-      runInputT defaultSettings $ repl lang inp []
-  if null as then g lazyK "Hello, World!" else case head as of
-    "n"     -> f succ0
-    "n2n"   -> f nat2nat
-    "lazy"  -> f lazyK
-    "fussy" -> f fussyK
-    "crazy" -> f crazyL
-    "sk"    -> f dumpSK
-    "iota"  -> f dumpIota
-    "jot"   -> f dumpJot
-    "unl"   -> f dumpUnlambda
+    f lang = runInputT defaultSettings $ repl lang inArg []
+    inArg = case as of
+      (_:a:_) -> a
+      _       -> ""
+    repl lang inp env = do
+      let rec = repl lang inp
+      getInputLine "> " >>= \case
+        Nothing -> outputStrLn ""
+        Just ln -> case parseLine ln of
+          Left err  -> do
+            outputStrLn $ "parse: " ++ show err
+            rec env
+          Right (s, rhs) -> do
+            let t = babs $ sub env rhs
+            if s == "main" then do
+              outputStrLn $ lang inp t
+              rec env
+            else do
+              outputStrLn $ s ++ "=" ++ show t
+              rec ((s, t):env)
+
+  if null as then f $ sim CrazyL else case head as of
+    "n"     -> f $ sim Nat
+    "lazyk" -> f $ sim LazyK
+    "k"     -> f $ sim FussyK
+    "l"     -> f $ sim CrazyL
+
+    "sk"    -> f $ const show
+    "iota"  -> f $ const dumpIota
+    "jot"   -> f $ const dumpJot
+    "unl"   -> f $ const dumpUnlambda
     "test"  -> void runAllTests
+
+    "rev"   -> putStrLn $ sim LazyK "0123456789abcdef" $ mustParse rev
+    "pri"   -> putStrLn $ take 20 $ sim FussyK "" $ mustParse pri
+    "bm"    -> defaultMain $ pure $ bench "rev" $ whnf (\t -> sim LazyK t (mustParse rev) == reverse t) "0123456789abcdef"
+    "wasm"  -> print $ compile CrazyL $ mustParseProgram $ unlines
+      [ "c=\\htcn.ch(tcn)"  -- cons
+      , "\\l.l(\\htx.t(chx))i(sk)"
+      ]
     bad     -> putStrLn $ "bad command: " ++ bad
-\end{code}
-
-== Compiler ==
-
-For the webpage edition, we compile the intermediate form of the code into
-WebAssembly.
-
-We adopt link:sk.html[our previous strategy]. We encode an SK expression as
-a binary tree, which we store in linear memory and reduce. Each node consists
-of two 4-byte numbers. these numbers represent the left and right children
-respectively. Certain negative values represent combinators, while all
-other values are pointers.
-
-In order to handle the program input, we precompute the SK representations of
-the Church numerals from 0 to 256, along with the successor, pairing, and right
-fold combinators.  These live at the beginning of linear memory.
-
-\begin{code}
-#else
-encodeTree e = gen ++ toArr (length gen) e
-addrSucc = 257 * 8
-codeSucc = toArr addrSucc succBird
-addrVireo = addrSucc + length codeSucc
-codeVireo = toArr addrVireo vireo
-addrRFold = addrVireo + length codeVireo
-codeRFold = toArr addrRFold foldBird
-
-genChurch = enCom "s" ++ enCom "k" ++ concat [toU32 addrSucc ++ toU32 (n * 8) | n <- [0..255]]
-
-gen = genChurch ++ codeSucc ++ codeVireo ++ codeRFold
-\end{code}
-
-Below we pick special values for each combinator, and describe how to
-encode an SK expression as a tree in linear memory. The `(<)` combinator is
-for streaming input: when reduced, it ignores its first argument and returns
-the next byte of input attached to another `(<)` combinator. In Lazy K and
-Fussy K, we use a Church pair to join them. In Crazy L, we use a right fold.
-
-\begin{code}
-enCom "0" = neg32 1
-enCom "+" = neg32 2
-enCom "k" = neg32 3
-enCom "s" = neg32 4
-enCom ">" = neg32 5
-enCom "." = neg32 6
-enCom "<" = neg32 8
-toArr n (Var a :@ Var b) = enCom a ++ enCom b
-toArr n (Var a :@ y)     = enCom a ++ toU32 (n + 8) ++ toArr (n + 8) y
-toArr n (x     :@ Var b) = toU32 (n + 8) ++ enCom b ++ toArr (n + 8) x
-toArr n (x     :@ y)     = toU32 (n + 8) ++ toU32 nl ++ l ++ toArr nl y
-  where l  = toArr (n + 8) x
-        nl = n + 8 + length l
-neg32 n = [256 - n, 255, 255, 255]
-toU32 = take 4 . byteMe
-byteMe n | n < 256   = n : repeat 0
-         | otherwise = n `mod` 256 : byteMe (n `div` 256)
-\end{code}
-
-== Machine Code ==
-
-Again, we define constants and utility functions to help with the wasm binary
-format:
-
-\begin{code}
-br       = 0xc
-br_if    = 0xd
-getlocal = 0x20
-setlocal = 0x21
-teelocal = 0x22
-i32load  = 0x28
-i32store = 0x36
-i32const = 0x41
-i32eq    = 0x46
-i32ne    = 0x47
-i32lt_u  = 0x49
-i32ge_u  = 0x4f
-i32add   = 0x6a
-i32sub   = 0x6b
-i32mul   = 0x6c
-i32shl   = 0x74
-i32shr_s = 0x75
-i32shr_u = 0x76
-
-leb128 n | n < 64   = [n]
-         | n < 128  = [128 + n, 0]
-         | otherwise = 128 + (n `mod` 128) : leb128 (n `div` 128)
-
-varlen xs = leb128 $ length xs
-
-lenc xs = varlen xs ++ xs
-
-sect t xs = t : lenc (varlen xs ++ concat xs)
-
-encStr s = lenc $ ord <$> s
-
-encType "i32" = 0x7f
-encType "f64" = 0x7c
-
-encSig ins outs = 0x60  -- Function type.
-  : lenc (encType <$> ins) ++ lenc (encType <$> outs)
-\end{code}
-
-We have a few more imports this time. Loosely speaking:
-
-  * `f` returns a character.
-  * `g` asks for the next character.
-  * `h` returns an integer.
-
-\begin{code}
-nPages = 8
-compile mode e = concat [
-  [0, 0x61, 0x73, 0x6d, 1, 0, 0, 0],  -- Magic string, version.
-  -- Type section.
-  sect 1 [encSig ["i32"] [], encSig [] [], encSig [] ["i32"]],
-  -- Import section.
-  sect 2 [
-    -- [0, 0] = external_kind Function, type index 0.
-    encStr "i" ++ encStr "f" ++ [0, 0],
-    -- [0, 2] = external_kind Function, type index 2.
-    encStr "i" ++ encStr "g" ++ [0, 2],
-    encStr "i" ++ encStr "h" ++ [0, 0]],
-  -- Function section.
-  -- [1] = Type index.
-  sect 3 [[1]],
-  -- Memory section.
-  -- 0 = no-maximum
-  sect 5 [[0, nPages]],
-  -- Export section.
-  -- [0, 1] = external_kind Function, function index 3.
-  sect 7 [encStr "e" ++ [0, 3]],
-\end{code}
-
-The assembly is only a little more elaborate than our previous version.
-We initialize the instruction pointer to the beginning of the program,
-which is placed just after the precomputed trees.
-
-\begin{code}
-  -- Code section.
-  let
-    ip = 0  -- program counter
-    sp = 1  -- stack pointer
-    hp = 2  -- heap pointer
-    ax = 3  -- accumulator
-    bx = 4
-    ccount = 6  -- Number of non-default cases in main br_table.
-  in sect 10 [lenc $ [1, 5, encType "i32",
-    i32const] ++ varlen gen ++ [setlocal, ip,
-    i32const] ++ leb128 (65536 * nPages) ++ [setlocal, sp,
-    i32const] ++ varlen heap ++ [setlocal, hp] ++ case mode of
-\end{code}
-
-The cost of Lazy K's sloppiness is more apparent in assembly. We need an
-extra outer loop to test the input with K. Recall the other languages can
-be implemented with special-purpose combinators.
-
-\begin{code}
-      "lazyk" -> [
-        3, 0x40,  -- Lazy K loop
-        -- BX = IP
-        getlocal, ip, setlocal, bx,
-        -- [HP] = IP
-        getlocal, hp, getlocal, ip, i32store, 2, 0,
-        -- [HP + 4] = Var "k"
-        getlocal, hp, i32const, 128 - 3, i32store, 2, 4,
-        -- [HP + 8] = HP
-        getlocal, hp, getlocal, hp, i32store, 2, 8,
-        -- [HP + 12] = Var "+"
-        getlocal, hp, i32const, 128 - 2, i32store, 2, 12,
-        -- [HP + 16] = HP + 8
-        getlocal, hp, getlocal, hp, i32const, 8, i32add, i32store, 2, 16,
-        -- [HP + 20] = Var "0"
-        getlocal, hp, i32const, 128 - 1, i32store, 2, 20,
-        -- IP = HP + 16
-        -- HP = HP + 24
-        getlocal, hp, i32const, 16, i32add, setlocal, ip,
-        getlocal, hp, i32const, 24, i32add, setlocal, hp]
-\end{code}
-
-The meaning of our `0` combinator depends on the language. For Nat, it means
-the computation is finished and the AX register contains the integer result.
-For the others, it means AX contains the next byte of the output string, so
-we call the `f` function, reset AX to zero, then continue with the rest
-of the computation. This is especially easy in Crazy L: roughly speaking, the
-right fold representation automatically does this for us.
-
-\begin{code}
-      _ -> []
-
-    ++ [3, 0x40]  -- loop
-    ++ concat (replicate (ccount + 1) [2, 0x40])  -- blocks
-    ++ [i32const, 128 - 1, getlocal, ip, i32sub,  -- -1 - IP
-    0xe] ++ (ccount:[0..ccount])  -- br_table
-    -- end 0
-    ++ [0xb] ++ case mode of
--- Zero.
-      "lazyk" ->
-        [getlocal, ax, i32const, 128, 2, i32ge_u,  -- AX >= 256?
-        br_if, ccount + 2,  -- br_if function
-        getlocal, ax, 0x10, 0,
-        i32const, 0, setlocal, ax,
-        -- [HP] = BX
-        getlocal, hp, getlocal, bx, i32store, 2, 0,
-        -- [HP + 4] = HP + 8
-        getlocal, hp, getlocal, hp, i32const, 8, i32add, i32store, 2, 4,
-        -- [HP + 8] = Var "s"
-        getlocal, hp, i32const, 128 - 4, i32store, 2, 8,
-        -- [HP + 12] = Var "k"
-        getlocal, hp, i32const, 128 - 3, i32store, 2, 12,
-        -- IP = HP
-        -- HP = HP + 16
-        getlocal, hp, setlocal, ip,
-        getlocal, hp, i32const, 16, i32add, setlocal, hp,
-        br, ccount + 1]  -- br Lazy K loop
-      "fussyk" ->
-        [getlocal, ax, i32const, 128, 2, i32ge_u,  -- AX >= 256?
-        br_if, ccount + 1,  -- br_if function
-        getlocal, ax, 0x10, 0,
-        i32const, 0, setlocal, ax,
-        -- [HP] = BX
-        getlocal, hp, getlocal, bx, i32store, 2, 0,
-        -- [HP + 4] = Var ">"
-        getlocal, hp, i32const, 128 - 5, i32store, 2, 4,
-        -- IP = HP
-        -- HP = HP + 8
-        getlocal, hp, setlocal, ip,
-        getlocal, hp, i32const, 8, i32add, setlocal, hp,
-        br, ccount]  -- br loop
-      "crazyl" ->
-        [getlocal, ax, 0x10, 0,
-        i32const, 0, setlocal, ax,
-        -- IP = BX
-        getlocal, bx, setlocal, ip,
-        br, ccount]  -- br loop
-      "nat" ->
-        [getlocal, ax, 0x10, 2,
-        br, ccount + 1]  -- br function
-      _ -> error "unreachable"
-\end{code}
-
-The `(+)`, S, and K combinators have the same effects in all languages.
-
-\begin{code}
-    ++ [0xb,  -- end 1
--- Successor.
-    -- AX = AX + 1
-    getlocal, ax, i32const, 1, i32add, setlocal, ax,
-    -- IP = [[SP] + 4]
-    getlocal, sp, i32load, 2, 0, -- align 2, offset 0.
-    i32load, 2, 4,
-    setlocal, ip,
-    -- SP = SP + 4
-    getlocal, sp, i32const, 4, i32add, setlocal, sp,
-    br, ccount - 1,  -- br loop
-    0xb,  -- end 2
--- K combinator.
-    -- IP = [[SP] + 4]
-    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
-    setlocal, ip,
-    -- SP = SP + 8
-    getlocal, sp, i32const, 8, i32add, setlocal, sp,
-    br, ccount - 2,  -- br loop
-    0xb,  -- end 3
--- S combinator.
-    -- [HP] = [[SP] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
-    i32store, 2, 0,
-    -- [HP + 4] = [[SP + 8] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 8, i32load, 2, 4,
-    i32store, 2, 4,
-    -- [HP + 8] = [[SP + 4] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 4, i32load, 2, 4,
-    i32store, 2, 8,
-    -- [HP + 12] = [HP + 4]
-    getlocal, hp,
-    getlocal, hp, i32load, 2, 4,
-    i32store, 2, 12,
-    -- SP = SP + 8
-    -- [[SP]] = HP
-    getlocal, sp, i32const, 8, i32add, teelocal, sp,
-    i32load, 2, 0,
-    getlocal, hp,
-    i32store, 2, 0,
-    -- [[SP] + 4] = HP + 8
-    getlocal, sp, i32load, 2, 0,
-    getlocal, hp, i32const, 8, i32add,
-    i32store, 2, 4,
-    -- IP = HP
-    -- HP = HP + 16
-    getlocal, hp, teelocal, ip,
-    i32const, 16, i32add, setlocal, hp,
-    br, ccount - 3,  -- br loop
-    0xb,  -- end 4
-\end{code}
-
-Because we use BX differently for Fussy K and Crazy L, it turns out we can
-combine our `(!)` and `(>)` combinators here. In both cases, we prepare to
-reduce `x(+)0` where `x` is the first argument and set BX to the second
-argument. In our implementation for `0` above, BX is handled according to the
-language selected.
-
-\begin{code}
--- ">": Fussy K / Crazy L.
-    -- [HP] = [[SP] + 4]
-    getlocal, hp, getlocal, sp, i32load, 2, 0, i32load, 2, 4, i32store, 2, 0,
-    -- [HP + 4] = Var "+"
-    getlocal, hp, i32const, 128 - 2, i32store, 2, 4,
-    -- [HP + 8] = HP
-    getlocal, hp, getlocal, hp, i32store, 2, 8,
-    -- [HP + 12] = Var "0"
-    getlocal, hp, i32const, 128 - 1, i32store, 2, 12,
-    -- IP = HP + 8
-    getlocal, hp, i32const, 8, i32add, setlocal, ip,
-    -- BX = [[SP + 4] + 4]
-    getlocal, sp, i32load, 2, 4, i32load, 2, 4, setlocal, bx,
-    -- HP = HP + 16
-    getlocal, hp, i32const, 16, i32add, setlocal, hp,
-    -- SP = SP + 8
-    getlocal, sp, i32const, 8, i32add, setlocal, sp,
-    br, ccount - 4,  -- br loop
-    0xb,  -- end 5
--- ".": Crazy L nil function.
-    br, 2,  -- br function
-    0xb,  -- end 6
-\end{code}
-
-Function application is more complex this time, as we must watch out for the
-streaming input `(<)` combinator:
-
-\begin{code}
--- Application.
-    -- SP = SP - 4
-    -- [SP] = IP
-    getlocal, sp, i32const, 4, i32sub,
-    teelocal, sp, getlocal, ip, i32store, 2, 0,
-
-    -- [IP] = Var "<"?
-    2, 0x40,  -- block <
-    getlocal, ip, i32load, 2, 0, i32const, 128 - 8, i32ne,
-    br_if, 0,
-    -- [HP] = vireo or foldBird
-    getlocal, hp, i32const]
-    ++ leb128 (if mode == "crazyl" then addrRFold else addrVireo) ++
-    [i32store, 2, 0,
-    -- [HP + 4] = getChar * 8
-    getlocal, hp, 0x10, 1, i32const, 8, i32mul,
-    i32store, 2, 4] ++ (if mode /= "crazyl" then [] else
-      -- [HP + 4] = 256 * 8?
-      [2, 0x40,  -- block Crazy L nil
-      getlocal, hp, i32load, 2, 4, i32const, 128, 16, i32lt_u,
-      br_if, 0,  -- br Crazy L nil
-      -- [IP] = Var "S"
-      getlocal, ip, i32const, 128 - 4, i32store, 2, 0,
-      -- [IP + 4] = Var "K"
-      getlocal, ip, i32const, 128 - 3, i32store, 2, 4,
-      br, 1,     -- br <
-      0xb])      -- end Crazy L nil
-    -- [HP + 8] = Var "<"
-    ++ [getlocal, hp, i32const, 128 - 8, i32store, 2, 8,
-    -- [IP] = HP
-    getlocal, ip, getlocal, hp, i32store, 2, 0,
-    -- [IP + 4] = HP + 8
-    getlocal, ip, getlocal, hp, i32const, 8, i32add, i32store, 2, 4,
-    -- HP = HP + 16
-    getlocal, hp, i32const, 16, i32add, setlocal, hp,
-    0xb,      -- end <
-
-    -- IP = [IP]
-    getlocal, ip, i32load, 2, 0, setlocal, ip,
-    br, 0,  -- br loop
-    0xb]    -- end loop
-    ++ case mode of
-      "lazyk" -> [0xb]    -- end Lazy K loop
-      _       -> []
-    ++ [0xb]],  -- end function
-
-  -- Data section.
-  sect 11 [[0, i32const, 0, 0xb] ++ lenc heap]]
-  where
-    heap = encodeTree $ case mode of
-      "lazyk"  -> e :@ (Var "<" :@ Var "<")
-      "fussyk" -> e :@ (Var "<" :@ Var "<") :@ Var ">"
-      "crazyl" -> e :@ (Var "<" :@ Var "<") :@ Var ">" :@ Var "."
-      "nat"    -> e :@ Var "+" :@ Var "0"
-\end{code}
-
-== Web UI ==
-
-We conclude by connecting buttons and textboxes with code.
-
-\begin{code}
-main = withElems ["source", "input", "output", "sk", "asm", "compB", "runB"] $
-    \[sEl, iEl, oEl, skEl, aEl, compB, runB] -> do
-  inp <- newMVar ""
-  let
-    putChar :: Int -> IO ()
-    putChar c = do
-      v <- getProp oEl "value"
-      setProp oEl "value" $ v ++ [chr c]
-    putInt :: Int -> IO ()
-    putInt n = setProp oEl "value" $ show n
-    getChar :: IO Int
-    getChar = do
-      s <- takeMVar inp
-      case s of
-        [] -> do
-          putMVar inp []
-          pure 256
-        (h:t) -> do
-          putMVar inp t
-          pure $ ord h
-  export "putChar" putChar
-  export "putInt"  putInt
-  export "getChar" getChar
-  let
-    setupDemo name s = do
-      Just b <- elemById $ name ++ "B"
-      Just d <- elemById $ name ++ "Demo"
-      Just r <- elemById $ name ++ "Radio"
-      b `onEvent` Click $ const $ do
-        setProp sEl "value" =<< getProp d "value"
-        setProp r "checked" "true"
-        setProp iEl "value" s
-        setProp oEl "value" ""
-  setupDemo "nat" ""
-  setupDemo "lazyk" "gateman"
-  setupDemo "fussyk" "(ignored)"
-  setupDemo "crazyl" "length"
-  compB `onEvent` Click $ const $ do
-    setProp skEl "value" ""
-    setProp aEl "value" ""
-    s <- getProp sEl "value"
-    case parseProgram s of
-      Left err -> setProp skEl "value" $ "error: " ++ show err
-      Right sk -> do
-        let
-          f s = do
-            Just el <- elemById $ s ++ "Radio"
-            bool "" s . ("true" ==) <$> getProp el "checked"
-        lang <- concat <$> mapM f ["nat", "lazyk", "fussyk", "crazyl"]
-        let asm = compile lang sk
-        setProp skEl "value" $ show sk
-        setProp aEl "value" $ show asm
-  runB `onEvent` Click $ const $ do
-    setProp oEl "value" ""
-    s <- getProp iEl "value"
-    _ <- takeMVar inp
-    putMVar inp s
-    asmStr <- getProp aEl "value"
-    let asm = read asmStr :: [Int]
-    ffi "runWasmInts" asm :: IO ()
 #endif
 \end{code}
