@@ -145,34 +145,44 @@ presence of a leading 1 bit. All the same, there must be some reason for
 decoding from the end of the string instead of the beginning, and it would be
 nice if leading zeroes could be omitted without changing a program's meaning.
 
-== Input and Output ==
+== Lazy K ==
 
-For lambda calculus, the most natural choice for representing a byte is to
-Church-encode it as a natural number between 0 and 255.
+https://tromp.github.io/cl/lazy-k.html[Lazy K] combines the syntaxes of SKI
+combinator calculus, Unlambda, Iota, and Jot, which amazingly coexist mostly in
+peace. The only exception is the `i` program, which Lazy K interprets as the
+identity combinator rather than the iota combinator.
 
-One choice for representing a string of bytes is to use nested Church-encoded
-pairs. https://tromp.github.io/cl/lazy-k.html[Lazy K] takes this approach.
-
-What about the end of the list? Lazy K demands lazy evaluation, which allows
-it to require the input list be infinite in length, with all values after the
-input string be (the Church encoding of) 256. For example, the string "AB"
-would be represented as:
+Lazy K expects the first and only argument of the given program to be a list,
+in the form of nested Church-encoded pairs. The end of a finite list is
+represented by an infinite list where every element is (the Church encoding of)
+256. For example, the string "AB" would be represented as:
 
 ------------------------------------------------------------------------------
 V 65 (V 66 (V 256 (V 256 (...))))
 ------------------------------------------------------------------------------
 
-where, as before, `Vxyz = zxy`, and the numbers are Church-encoded.
+where, as before, `Vxyz = zxy`, and the numbers are Church-encoded. The
+reference interpreter treats any number above 256 as 256.
+
+This is an unfortunate choice. Lambdas and combinators hail from a beautiful
+mathematical world, which Lazy K has polluted with some constant or other.
+Obviously, the constant 256 was chosen to suit certain real-life situations,
+but why constrain ourselves so early in the design process?
+
+Better to represent the end of the list out-of-band. Then we could operate on
+lists of arbitrary natural numbers, as well as the case when the input is a
+list of 8-bit bytes. When it's time to write interpreters and compilers, we
+may impose limits due to the messiness of the real world, but languages
+themselves ought to be neat.
 
 == Fussy K ==
 
-Unfortunately, the reference implementation of Lazy K is sloppy with respect
-to the output. Ideally, it should look for `V 256 x` in the
-output list for any value of `x`, at which point the program should terminate,
-but instead, the current item of the list is tested by applying it to the K
-combinator, and if this returns 256 then the program halts. Indeed, the
-documentation explicitly mentions that `K 256` is a valid end-of-output
-marker.
+The reference implementation of Lazy K is sloppy with respect to the output.
+Ideally, it should look for `V 256 x` in the output list for any value of `x`,
+at which point the program should terminate, but instead, the current item of
+the list is tested by applying it to the K combinator, and if this returns 256
+then the program halts. Indeed, the documentation explicitly mentions that `K
+256` is a valid end-of-output marker.
 
 However `V 256 x` behaves differently to `K 256`. For example
 `V 256 x (KI) = x` while `K 256 (KI) = 256`. This complicates our
@@ -180,26 +190,34 @@ implementation.
 
 We tie up this loose end by defining Fussy K to be the Lazy K language as it
 is specified, that is, the output list must be terminated with a 256 in the
-first argument of a V combinator: `K 256` will not do.
+first argument of a V combinator; `K 256` will not do.
 
 == Crazy L ==
 
-Lazy K combines the syntaxes of SKI combinator calculus, Unlambda, Iota, and
-Jot, which amazingly coexist mostly in peace. The only exception is the `i`
-program, which Lazy K interprets as the identity combinator rather than the
-iota combinator.
+Let's design a cleaner Lazy K, and add a few features.
 
-To this, we add lambda abstractions and top-level definitions, where all
-variables must be single characters.
-
-We also change the encoding of the input and output strings. Pairs are
-overkill for representing lists of bytes. After all, we can build arbitrary
-binary trees with pairs. Instead, we use
+For the input encoding, instead of pairs, we use
 https://en.wikipedia.org/wiki/Church_encoding#Represent_the_list_using_right_fold[the right fold representation of lists].
-List manipulations become elegant. A minor additional benefit is that lazy
-evaluation is no longer mandatory.
 
-We name the resulting language Crazy L.
+List manipulations become elegant. With types, we could readily prove certain
+programs terminate on finite inputs, and other theorems. Also for finite
+inputs, we could choose any evaluation order when running our program.
+Nonetheless, we'll stick with lazy evaluation so we can also handle infinite
+inputs.
+
+We write our interpreter and compiler to expect right fold encodings, and
+use the following shim to convert a list `x` to Lazy K's input encoding:
+
+------------------------------------------------------------------------------
+\x.xV(Y(\f.V 256 f))
+------------------------------------------------------------------------------
+
+where Y is the Y combinator.
+
+We add support for lambda abstractions and top-level definitions, where all
+variables must be single characters other than `skiSICKB`.
+
+We name our language Crazy L.
 
 == Parsing ==
 
@@ -249,12 +267,13 @@ We define a few combinators. Some of their names are a nod to Smullyan's "To
 Mock a Mockingbird".
 
 \begin{code}
-consBird, succBird, vireo, skk, vsk :: Term
+consBird, succBird, vireo, skk, vsk, forever256 :: Term
 consBird = mustParse "((BS)((B(BB))(CI)))"
 succBird = Var "S" :@ Var "B"
 vireo = Var "B" :@ Var "C" :@ (Var "C" :@ Var "I")
 skk = Var "I"
 vsk = vireo :@ Var "S" :@ Var "K"
+forever256 = mustParse "SII(B(BC(CI)(SII(SII(SBI))))(SII))"
 \end{code}
 
 Our parser closely follows https://tromp.github.io/cl/lazy-k.html[the grammar
@@ -406,9 +425,9 @@ instance Deb Out where
 
 == Sick B ==
 
-The bracket abstraction (i.e. removing lambdas) we use needs B and C
-combinators (`(.)` and `flip` in Haskell) as well as the S and K combinators.
-We also directly implement I combinators, rather than making do with SKK.
+This time, we need the B and C combinators (`(.)` and `flip` in Haskell) as
+well as the S and K combinators. We also directly implement I combinators,
+rather than making do with SKK.
 
 A straightforward recursion computes the De Bruijn indices.
 Because we may be asked to perform bracket abstraction on the output of our
@@ -576,8 +595,13 @@ dump VM{..} = unlines $ take 50 . f <$> ps where
 \end{code}
 
 We place the Church encoded integers from [0..256] in linear memory starting
-from 0.  Each takes one 8-byte cell, so that the Church encoding of 'n' lies at
+from 0. Each takes one 8-byte cell, so that the Church encoding of 'n' lies at
 address '8n' in memory.
+
+Our input handler uses these to quickly map a number up to 256 to its Church
+encoding. Larger input numbers are unsupported. In principle, we could generate
+encodings for them on demand, but if we really wanted big numbers we'd use a
+more efficient encoding, or add a primitive integer type.
 
 Zero is represented by SK, and 'n + 1' is represented by 'm n' where 'm' is
 the combinator that computes the successor of a Church number. We place the
@@ -600,9 +624,12 @@ we explain later.
 encodeTerm :: Lang -> Term -> [Int]
 encodeTerm lang t = (gen ++) $ encAt (wlen gen) $ case lang of
   Nat     -> t :@ Var "+" :@ Var "0"
-  LazyK   -> t :@ (Var "<" :@ vireo) :@ Var ">" :@ Var "+" :@ Var "0"
-  FussyK  -> t :@ (Var "<" :@ vireo) :@ Var ">"
-  CrazyL  -> t :@ (Var "<" :@ consBird) :@ Var ">" :@ Var "."
+  LazyK   -> t :@ ugh :@ Var ">" :@ Var "+" :@ Var "0"
+  FussyK  -> t :@ ugh :@ Var ">"
+  CrazyL  -> t :@ inp :@ Var ">" :@ Var "."
+  where
+  inp = Var "<" :@ consBird
+  ugh = inp :@ vireo :@ forever256
 \end{code}
 
 The IP register points to our term, which is just after the Church-encoded
@@ -694,7 +721,7 @@ should terminate if it gets evaluated.)
     CrazyL  -> chr ax : rec (setIP (arg 0) . setAX 0 . pop 1)
     FussyK  -> if ax == 256 then "" else
       chr ax : rec (upd (arg 0) (enCom ">") . setAX 0)
-    LazyK   -> if ax == 256 then "" else
+    LazyK   -> if ax >= 256 then "" else
       chr ax : rec (upd (hp + 8) (enCom "0") . putHP
         [arg 0, enCom ">", hp, enCom "+"] . setAX 0)
   -- I combinator with side effect.
@@ -703,13 +730,11 @@ should terminate if it gets evaluated.)
     [arg 0, enCom "+", enCom "0", arg 1]
   '.' -> ""
   -- Lazy input. If we reach here, then IP == [[SP]].
-  '<' | CrazyL <- lang -> case input of
-     (h:t) -> exec $ putHP [arg 0, ord h * 8, enCom "<", arg 0] $ upd hp (hp + 8) vm { input = t }
+  '<' -> case input of
+     (h:t) | ord h <= 256 -> exec $ putHP [arg 0, ord h * 8, enCom "<", arg 0] $
+        upd hp (hp + 8) vm { input = t }
+           | otherwise    -> error "no support for integers > 256"
      _     -> rec $ upd (enCom "S") (enCom "K")
-  '<' -> exec
-    $ putHP [arg 0, (case input of { (h:_) -> ord h; _ -> 256 }) * 8, enCom "<", arg 0]
-    $ upd hp (hp + 8)
-    $ vm { input = case input of { (_:t) -> t; _ -> [] }}
   _ -> error $ "bad combinator\n" ++ dump vm
   where
   rec f = exec $ f vm
@@ -736,10 +761,10 @@ checkOverflow vm@VM{..} | hp >= sp  = error "overflow"
 
 We have a three import functions this time:
 
-  * We give output bytes to `f`.
-  * We call `g` to get the next input byte. This function should return 256
-    if there is no more input.
-  * The Nat language calls `h` to return an integer.
+  * The program outputs numbers via `f`.
+  * The program calls `g` to get the next input number. This function should
+    return a negative number if there is no more input.
+  * The Nat language calls `h` to return a 32-bit number.
 
 \begin{code}
 leb128 :: Int -> [Int]
@@ -830,7 +855,7 @@ builds up a spine on the stack as it goes.
   teelocal = 0x22
   i32load  = 0x28
   i32store = 0x36
-  i32lt_u  = 0x49
+  i32ge_s  = 0x4e
   i32ge_u  = 0x4f
   i32add   = 0x6a
   i32sub   = 0x6b
@@ -892,16 +917,15 @@ The following is similar to the `exec` function of our interpreter.
     '>' -> withHeap [asmArg 0, asmCom "+", asmCom "0", asmArg 1] (updatePop 1 (hNew 0) (hNew 1)) ++ loop
     '.' -> [br, exitLabel]  -- br exit
     'I' -> concat [asmIP $ asmArg 0, asmPop 1, loop]
-    '<' | CrazyL <- mode -> concat
+    '<' -> concat
       [ [0x10, 1, teelocal, ip]  -- Get next character in IP.
-      , [i32const, 128, 2, i32lt_u, 4, 0x40]  -- if < 256
+      , [i32const, 0, i32ge_s, 4, 0x40]  -- if >= 0
       , withHeap [asmArg 0, [getlocal, ip, i32const, 8, i32mul], asmCom "<", asmArg 0] (updatePop 0 (hNew 0) (hNew 1))
       , [5]  -- else
       , updatePop 0 (asmCom "S") (asmCom "K")
       , [0xb]  -- end if
       , loop
       ]
-    '<' -> withHeap [asmArg 0, [0x10, 1, i32const, 8, i32mul], asmCom "<", asmArg 0] (updatePop 0 (hNew 0) (hNew 1)) ++ loop
     'B' -> withHeap [asmArg 1, asmArg 2] (updatePop 2 (asmArg 0) (hNew 0)) ++ loop
     'C' -> withHeap [asmArg 0, asmArg 2] (updatePop 2 (hNew 0) (asmArg 1)) ++ loop
     e -> error $ "bad combinator: " ++ [e]
@@ -931,12 +955,8 @@ main = withElems ["source", "input", "output", "sk", "asm", "compB", "runB"] $
     getCh = do
       s <- readIORef inp
       case s of
-        [] -> do
-          writeIORef inp []
-          pure 256
-        (h:t) -> do
-          writeIORef inp t
-          pure $ ord h
+        [] -> pure (-1)
+        (h:t) -> const (ord h) <$> writeIORef inp t
   export "putChar" putCh
   export "putInt"  putInt
   export "getChar" getCh
