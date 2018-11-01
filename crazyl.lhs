@@ -251,10 +251,10 @@ Mock a Mockingbird".
 \begin{code}
 consBird, succBird, vireo, skk, vsk :: Term
 consBird = mustParse "((BS)((B(BB))(CI)))"
-succBird = Var "s" :@ Var "B"
-vireo = Var "B" :@ Var "C" :@ (Var "C" :@ Var "i")
-skk = Var "i"
-vsk = vireo :@ Var "s" :@ Var "k"
+succBird = Var "S" :@ Var "B"
+vireo = Var "B" :@ Var "C" :@ (Var "C" :@ Var "I")
+skk = Var "I"
+vsk = vireo :@ Var "S" :@ Var "K"
 \end{code}
 
 Our parser closely follows https://tromp.github.io/cl/lazy-k.html[the grammar
@@ -262,8 +262,8 @@ specified in the description of Lazy K]. Differences:
 
  * We support lambda abstractions, e.g: `\x.x`
  * With `=`, we can assign terms to any letter except those in `"skiSICKB"`,
- e.g: `c=\htcn.ch(tcn)`.
- * The letters `B` and `C` are reserved for the B and C combinators.
+ e.g: `c=\htcn.ch(tcn)`. The letters `B` and `C` are reserved for the B and C
+ combinators.
 
 Definitions may only use the core language and previously defined letters. In
 particular, recursive functions must be defined via the Y combinator.
@@ -287,7 +287,7 @@ top = (try super <|> (,) "main" <$> ccexpr) <* eof where
   iotaexpr = const vsk <$> char 'i' <|> expr'
   expr' = jotRev . reverse <$> many1 (oneOf "01")
       <|> const skk <$> char 'I'
-      <|> Var . pure . toLower <$> oneOf "KS"
+      <|> Var . pure . toUpper <$> oneOf "ks"
       <|> Var . pure <$> letter
       <|> between (char '(') (char ')') ccexpr
       <|> (char '`' >> (:@) <$> expr <*> expr)
@@ -298,8 +298,8 @@ top = (try super <|> (,) "main" <$> ccexpr) <* eof where
   var = lookAhead (noneOf "skiSICKB") >> pure <$> letter
 
   jotRev []       = skk
-  jotRev ('0':js) = jotRev js :@ Var "s" :@ Var "k"
-  jotRev ('1':js) = Var "s" :@ (Var "k" :@ jotRev js)
+  jotRev ('0':js) = jotRev js :@ Var "S" :@ Var "K"
+  jotRev ('1':js) = Var "S" :@ (Var "K" :@ jotRev js)
   jotRev _        = error "bad Jot term"
 
 parseLine :: String -> Either ParseError (String, Term)
@@ -343,8 +343,8 @@ dumpUnlambda = dumpWith '`' "k"       "s"
 dumpWith :: Char -> String -> String -> Term -> String
 dumpWith apCh kStr sStr = fix $ \f -> \case
   x :@ y  -> apCh:f x ++ f y
-  Var "k" -> kStr
-  Var "s" -> sStr
+  Var "K" -> kStr
+  Var "S" -> sStr
   _       -> error "SK terms only"
 \end{code}
 
@@ -420,11 +420,11 @@ toDeb :: Deb repr => [String] -> Term -> repr
 toDeb env = \case
   Var s -> case elemIndex s env of
     Nothing -> case s of
-      "s" -> lam $ lam $ lam $ su(su ze) # ze # (su ze # ze)
+      "S" -> lam $ lam $ lam $ su(su ze) # ze # (su ze # ze)
       "B" -> lam $ lam $ lam $ su(su ze)      # (su ze # ze)
       "C" -> lam $ lam $ lam $ su(su ze) # ze #  su ze
-      "k" -> lam $ lam $ su ze
-      "i" -> lam ze
+      "K" -> lam $ lam $ su ze
+      "I" -> lam ze
       _ -> error $ s <> " is free"
     Just n -> iterate su ze !! n
   Lam s t -> lam $ toDeb (s:env) t
@@ -454,10 +454,10 @@ adding them to the typeclass since a `Var` holds any string.
 
 \begin{code}
 instance SickB Term where
-  kS = Var "s"
-  kI = Var "i"
+  kS = Var "S"
+  kI = Var "I"
   kC = Var "C"
-  kK = Var "k"
+  kK = Var "K"
   kB = Var "B"
   e1 ## e2 = e1 :@ e2
 \end{code}
@@ -536,7 +536,7 @@ with the real world.
 
 \begin{code}
 combs :: [Char]
-combs = "siCkB0+<>."
+combs = "SICKB0+<>."
 \end{code}
 
 The heap is organized as an array of 8-byte entries, each consisting of two
@@ -586,7 +586,7 @@ definition of 'm' just after the Church numbers, that is, at memory address
 
 \begin{code}
 gen :: [Int]
-gen = enCom "s" : enCom "k" :           -- Zero
+gen = enCom "S" : enCom "K" :           -- Zero
   concat [[m, 8*n] | n <- [0..255]] ++  -- [1..256]
   encAt m succBird                      -- Successor combinator.
   where m = 8*257
@@ -644,11 +644,11 @@ upd a b vm@VM{..} = setIP a $ vm
 
 exec :: VM -> String
 exec vm@VM{..} | ip < 0 = case combs!!(-ip - 1) of
-  's' -> rec $ upd hp (hp + 8) . pop 2 . putHP [arg 0, arg 2, arg 1, arg 2, hp, hp + 8]
-  'i' -> rec $ setIP (arg 0) . pop 1
+  'S' -> rec $ upd hp (hp + 8) . pop 2 . putHP [arg 0, arg 2, arg 1, arg 2, hp, hp + 8]
+  'I' -> rec $ setIP (arg 0) . pop 1
   'C' -> rec $ putHP [arg 0, arg 2] . upd hp (arg 1) . pop 2
-  -- Unmemoized: 'k' -> rec $ setIP (arg 0) . pop 2
-  'k' -> rec $ upd (enCom "i") (arg 0) . pop 1
+  -- Unmemoized: 'K' -> rec $ setIP (arg 0) . pop 2
+  'K' -> rec $ upd (enCom "I") (arg 0) . pop 1
   'B' -> rec $ putHP [arg 1, arg 2] . upd (arg 0) hp . pop 2
 \end{code}
 
@@ -705,7 +705,7 @@ should terminate if it gets evaluated.)
   -- Lazy input. If we reach here, then IP == [[SP]].
   '<' | CrazyL <- lang -> case input of
      (h:t) -> exec $ putHP [arg 0, ord h * 8, enCom "<", arg 0] $ upd hp (hp + 8) vm { input = t }
-     _     -> rec $ upd (enCom "s") (enCom "k")
+     _     -> rec $ upd (enCom "S") (enCom "K")
   '<' -> exec
     $ putHP [arg 0, (case input of { (h:_) -> ord h; _ -> 256 }) * 8, enCom "<", arg 0]
     $ upd hp (hp + 8)
@@ -887,17 +887,17 @@ The following is similar to the `exec` function of our interpreter.
     '+' -> concat
       [ [getlocal, ax, i32const, 1, i32add, setlocal, ax]  -- AX = AX + 1
       , asmIP (asmArg 0) , asmPop 1 , loop ]
-    'k' -> updatePop 1 (asmCom "i") (asmArg 0) ++ loop
-    's' -> withHeap (asmArg <$> [0, 2, 1, 2]) (updatePop 2 (hNew 0) (hNew 1)) ++ loop
+    'K' -> updatePop 1 (asmCom "I") (asmArg 0) ++ loop
+    'S' -> withHeap (asmArg <$> [0, 2, 1, 2]) (updatePop 2 (hNew 0) (hNew 1)) ++ loop
     '>' -> withHeap [asmArg 0, asmCom "+", asmCom "0", asmArg 1] (updatePop 1 (hNew 0) (hNew 1)) ++ loop
     '.' -> [br, exitLabel]  -- br exit
-    'i' -> concat [asmIP $ asmArg 0, asmPop 1, loop]
+    'I' -> concat [asmIP $ asmArg 0, asmPop 1, loop]
     '<' | CrazyL <- mode -> concat
       [ [0x10, 1, teelocal, ip]  -- Get next character in IP.
       , [i32const, 128, 2, i32lt_u, 4, 0x40]  -- if < 256
       , withHeap [asmArg 0, [getlocal, ip, i32const, 8, i32mul], asmCom "<", asmArg 0] (updatePop 0 (hNew 0) (hNew 1))
       , [5]  -- else
-      , updatePop 0 (asmCom "s") (asmCom "k")
+      , updatePop 0 (asmCom "S") (asmCom "K")
       , [0xb]  -- end if
       , loop
       ]
