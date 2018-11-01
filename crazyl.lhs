@@ -27,19 +27,16 @@ function runWasmInts(a) {
 \l.l(\htx.t(\cn.ch(xcn)))i(sk)
 </textarea>
 <textarea id="sortDemo" hidden># Sort a list in Crazy L
-Y=ssk(s(k(ss(s(ssk))))k)
-z=\n.n(\x.sk)k
-V=\xyf.fxy
-A=\p.pk
-B=\p.p(sk)
 N=sk
+z=\n.n(\x.N)k
+V=\xyf.fxy
 c=\htcn.ch(tcn)
 P=\nfx.n(\gh.h(gf))(\u.x)(\u.u)
 L=\mn.(\pq.pqp)(z(nPm))((\pab.pba)(z(mPn)))
 H=\l.l(\ht.h)N
-u=\l.l(\ht.k)(sk)
-f=\xp.u(Ap)(L(H(Ap))x(V(Ap)(cx(Bp)))(VN(cx(c(H(Ap))(Bp)))))(VN(cx(Bp)))
-r=\xl.(\q.(u(Aq)(c(H(Aq))(Bq))(Bq)))(lf(V(cxN)N))
+u=\l.l(\ht.k)N
+f=\xp.u(pk)(L(H(pk))x(V(pk)(cx(pN)))(VN(cx(c(H(pk))(pN)))))(VN(cx(pN)))
+r=\xl.(\q.(u(qk)(c(H(qk))(qN))(qN)))(lf(V(cxN)N))
 \l.lrN
 </textarea>
 <textarea id="source" rows="10" cols="80">
@@ -253,9 +250,9 @@ Mock a Mockingbird".
 
 \begin{code}
 consBird, succBird, vireo, skk, vsk :: Term
-consBird = mustParse "((bs)((b(bb))(ci)))"
-succBird = Var "s" :@ Var "b"
-vireo = Var "b" :@ Var "c" :@ (Var "c" :@ Var "i")
+consBird = mustParse "((BS)((B(BB))(CI)))"
+succBird = Var "s" :@ Var "B"
+vireo = Var "B" :@ Var "C" :@ (Var "C" :@ Var "i")
 skk = Var "i"
 vsk = vireo :@ Var "s" :@ Var "k"
 \end{code}
@@ -264,10 +261,9 @@ Our parser closely follows https://tromp.github.io/cl/lazy-k.html[the grammar
 specified in the description of Lazy K]. Differences:
 
  * We support lambda abstractions, e.g: `\x.x`
- * With `=`, we can assign terms to any letter except those in `"skiSKI"`, e.g:
- `c=\htcn.ch(tcn)`.
- * If left undefined, the letters `b` and `c` are interpreted as the B and C
- combinators.
+ * With `=`, we can assign terms to any letter except those in `"skiSICKB"`,
+ e.g: `c=\htcn.ch(tcn)`.
+ * The letters `B` and `C` are reserved for the B and C combinators.
 
 Definitions may only use the core language and previously defined letters. In
 particular, recursive functions must be defined via the Y combinator.
@@ -299,7 +295,7 @@ top = (try super <|> (,) "main" <$> ccexpr) <* eof where
       <|> flip (foldr Lam) <$> between (char '\\' <|> char '\0955') (char '.')
         (many1 var) <*> ccexpr
 
-  var = lookAhead (noneOf "skiSKI") >> pure <$> letter
+  var = lookAhead (noneOf "skiSICKB") >> pure <$> letter
 
   jotRev []       = skk
   jotRev ('0':js) = jotRev js :@ Var "s" :@ Var "k"
@@ -425,8 +421,8 @@ toDeb env = \case
   Var s -> case elemIndex s env of
     Nothing -> case s of
       "s" -> lam $ lam $ lam $ su(su ze) # ze # (su ze # ze)
-      "b" -> lam $ lam $ lam $ su(su ze)      # (su ze # ze)
-      "c" -> lam $ lam $ lam $ su(su ze) # ze #  su ze
+      "B" -> lam $ lam $ lam $ su(su ze)      # (su ze # ze)
+      "C" -> lam $ lam $ lam $ su(su ze) # ze #  su ze
       "k" -> lam $ lam $ su ze
       "i" -> lam ze
       _ -> error $ s <> " is free"
@@ -460,15 +456,18 @@ adding them to the typeclass since a `Var` holds any string.
 instance SickB Term where
   kS = Var "s"
   kI = Var "i"
-  kC = Var "c"
+  kC = Var "C"
   kK = Var "k"
-  kB = Var "b"
+  kB = Var "B"
   e1 ## e2 = e1 :@ e2
 \end{code}
 
 We introduce another data type because the algorithm needs to distinguish
 between closed terms, and several kinds of unclosed terms. We return a closed
 term, but along the way we manipulate open terms.
+
+Kiselyov's example omits the `(V, V)` case because it refers to a simply
+typed algebra. We're allowing untyped terms.
 
 \begin{code}
 data Oleg repr = C {unC :: repr} | N (Oleg repr) | W (Oleg repr) | V
@@ -537,7 +536,7 @@ with the real world.
 
 \begin{code}
 combs :: [Char]
-combs = "sickb0+<>."
+combs = "siCkB0+<>."
 \end{code}
 
 The heap is organized as an array of 8-byte entries, each consisting of two
@@ -647,10 +646,10 @@ exec :: VM -> String
 exec vm@VM{..} | ip < 0 = case combs!!(-ip - 1) of
   's' -> rec $ upd hp (hp + 8) . pop 2 . putHP [arg 0, arg 2, arg 1, arg 2, hp, hp + 8]
   'i' -> rec $ setIP (arg 0) . pop 1
-  'c' -> rec $ putHP [arg 0, arg 2] . upd hp (arg 1) . pop 2
+  'C' -> rec $ putHP [arg 0, arg 2] . upd hp (arg 1) . pop 2
   -- Unmemoized: 'k' -> rec $ setIP (arg 0) . pop 2
   'k' -> rec $ upd (enCom "i") (arg 0) . pop 1
-  'b' -> rec $ putHP [arg 1, arg 2] . upd (arg 0) hp . pop 2
+  'B' -> rec $ putHP [arg 1, arg 2] . upd (arg 0) hp . pop 2
 \end{code}
 
 The meaning of our special combinators depends on the language.
@@ -903,8 +902,8 @@ The following is similar to the `exec` function of our interpreter.
       , loop
       ]
     '<' -> withHeap [asmArg 0, [0x10, 1, i32const, 8, i32mul], asmCom "<", asmArg 0] (updatePop 0 (hNew 0) (hNew 1)) ++ loop
-    'b' -> withHeap [asmArg 1, asmArg 2] (updatePop 2 (asmArg 0) (hNew 0)) ++ loop
-    'c' -> withHeap [asmArg 0, asmArg 2] (updatePop 2 (hNew 0) (asmArg 1)) ++ loop
+    'B' -> withHeap [asmArg 1, asmArg 2] (updatePop 2 (asmArg 0) (hNew 0)) ++ loop
+    'C' -> withHeap [asmArg 0, asmArg 2] (updatePop 2 (hNew 0) (asmArg 1)) ++ loop
     e -> error $ "bad combinator: " ++ [e]
 \end{code}
 
@@ -1037,7 +1036,7 @@ pri = concat [
   "(S(KK)(SII)))))))))))(K(SI(K(KI))))))))(S(S(KS)K)I)",
   "(SII(S(K(S(K(S(SI(K(KI)))))K))(SII)))))"]
 
-kk256 = "k(k(sii(sii(sbi))))"
+kk256 = "k(k(sii(sii(sBi))))"
 
 prop_rev s = sim LazyK t (mustParse rev)   == reverse t where t = take 10 s
 prop_id s  = sim LazyK s (mustParse "")    == s
@@ -1049,7 +1048,6 @@ mustParseProgram :: String -> Term
 mustParseProgram = either undefined id . parseProgram
 
 prop_fac5 = ("120" ==) $ sim Nat "" $ mustParseProgram $ unlines
-  --"Y=ssk(s(k(ss(s(ssk))))k)",
   [ "Y=(\\z.zz)(\\z.\\f.f(zzf))"
   , "P=\\nfx.n(\\gh.h(gf))(\\u.x)(\\u.u)"
   , "M=\\mnf.m(nf)"
@@ -1107,7 +1105,7 @@ main = do
     "test"  -> void runAllTests
 
     "rev"   -> putStrLn $ sim LazyK "0123456789abcdef" $ mustParse rev
-    "pri"   -> putStrLn $ take 20 $ sim FussyK "" $ mustParse pri
+    "pri"   -> putStrLn $ take 70 $ sim FussyK "" $ mustParse pri
     "bm"    -> defaultMain $ pure $ bench "rev" $ whnf (\t -> sim LazyK t (mustParse rev) == reverse t) "0123456789abcdef"
     "wasm"  -> print $ compile CrazyL $ mustParseProgram $ unlines
       [ "c=\\htcn.ch(tcn)"  -- cons

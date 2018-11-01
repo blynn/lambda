@@ -256,12 +256,11 @@ return 1 plus the result of evaluating its argument, which we access via the
 stack.  For the `k` combinator, we pop off the last two stack elements and
 return the evaluation of its first argument.
 
-Only `s` is tough to evaluate. In this case, we find the first free memory
-address `b`, where we create two new internal nodes representing `xz` and `yz`,
-where `x,y,z` are the arguments of `s`. Then we rewrite the immediate children
-of the parent of the `z` node to point to the 2 newly created nodes. Lastly, we
-pop 2 addresses off the stack and evaluate `b`. [I hope to eventually draw a
-diagram to help explain this.]
+For `s` we create two internal nodes representing `xz` and `yz` at the bottom
+of the heap `hp`, where `x,y,z` are the arguments of `s`. Then we lazily
+evaluate: we rewrite the immediate children of the parent of the `z` node to
+point to the 2 newly created nodes. Lastly, we pop 2 addresses off the stack
+and evaluate `hp`.
 
 We assume the input program is well-formed, that is, every `k` is given exactly
 2 arguments, every `s` is given exactly 3 arguments, and so on.
@@ -274,18 +273,17 @@ run p sp m = let
     0 -> 0
     1 -> 1 + run (get $ head sp + 4) sp m
     2 -> run (get $ head sp + 4) (drop 2 sp) m
-    3 -> run b (drop 2 sp) $ insList m $
-        zip [b..]     (concatMap toU32 [x, z, y, z]) ++
-        zip [sp!!2..] (concatMap toU32 [b, b + 8]) where
-      b = I.size m
+    3 -> run hp (drop 2 sp) $ insList m $
+        zip [hp..]    (concatMap toU32 [x, z, y, z]) ++
+        zip [sp!!2..] (concatMap toU32 [hp, hp + 8]) where
+      hp = I.size m
       [x, y, z] = get . (+4) <$> take 3 sp
     q -> run (get q) (p:sp) m
 \end{code}
 
 == Machine Code ==
 
-Time to convert the above to assembly. We start with a few constants and
-helpers:
+We convert the above to assembly. First, a few constants and helpers:
 
 \begin{code}
 br = 0xc
