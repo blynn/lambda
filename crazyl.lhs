@@ -145,6 +145,20 @@ presence of a leading 1 bit. All the same, there must be some reason for
 decoding from the end of the string instead of the beginning, and it would be
 nice if leading zeroes could be omitted without changing a program's meaning.
 
+In sum, we can express SK terms in various languages as follows:
+
+------------------------------------------------------------------------------
+dumpIota     = dumpWith '*' "*i*i*ii" "*i*i*i*ii"
+dumpJot      = dumpWith '1' "11100"   "11111000"
+dumpUnlambda = dumpWith '`' "k"       "s"
+
+dumpWith apCh kStr sStr = fix $ \f -> \case
+  x :@ y  -> apCh:f x ++ f y
+  Var "K" -> kStr
+  Var "S" -> sStr
+  _       -> error "SK terms only"
+------------------------------------------------------------------------------
+
 == Lazy K ==
 
 https://tromp.github.io/cl/lazy-k.html[Lazy K] combines the syntaxes of SKI
@@ -212,7 +226,7 @@ use the following shim to convert a list `x` to Lazy K's input encoding:
 \x.xV(Y(\f.V 256 f))
 ------------------------------------------------------------------------------
 
-where Y is the Y combinator.
+where Y is the Y combinator and 256 is the Church encoding of 256.
 
 We add support for lambda abstractions and top-level definitions, where all
 variables must be single characters other than `skiSICKB`.
@@ -238,16 +252,15 @@ import Haste.Foreign
 import Data.Bool
 import Data.IORef
 #else
-{-# LANGUAGE TemplateHaskell #-}
+import Data.Function (fix)
 import System.Console.Haskeline
 import System.Environment
 import System.IO
-import Test.QuickCheck.All
+import Test.HUnit
 import Criterion.Main hiding (env)
 #endif
 import Control.Monad
 import Data.Char
-import Data.Function (fix)
 import Data.List
 import qualified Data.Map as M
 import Data.Map (Map, (!))
@@ -346,22 +359,6 @@ parseProgram :: String -> Either String Term
 parseProgram program = case foldM parseEnv [] $ lines program of
   Left err -> Left err
   Right env -> maybe (Left "missing main") Right $ lookup "main" env
-\end{code}
-
-We can express SK terms in various languages as follows:
-
-\begin{code}
-dumpIota, dumpJot, dumpUnlambda :: Term -> String
-dumpIota     = dumpWith '*' "*i*i*ii" "*i*i*i*ii"
-dumpJot      = dumpWith '1' "11100"   "11111000"
-dumpUnlambda = dumpWith '`' "k"       "s"
-
-dumpWith :: Char -> String -> String -> Term -> String
-dumpWith apCh kStr sStr = fix $ \f -> \case
-  x :@ y  -> apCh:f x ++ f y
-  Var "K" -> kStr
-  Var "S" -> sStr
-  _       -> error "SK terms only"
 \end{code}
 
 A program is interpreted according to which language variant we've chosen.
@@ -991,29 +988,55 @@ findLang _ = undefined
 
 == Testing ==
 
-We test our code with QuickCheck on
+We test our code with HUnit on
 https://tromp.github.io/cl/lazy-k.html[known Lazy K examples]:
 
 \begin{code}
 #ifndef __HASTE__
-rev = concat [
-  "1111100011111111100000111111111000001111111000111100111111000111111",
-  "1000111100111110001111111000111100111001111111000111100111111111000",
-  "1111111110000011111111100000111111110001111111110000011111111100000",
-  "1111111000111111100011110011111000111001111111110000011111110001111",
-  "0011111100011111111100000111001110011111110001111001111110001111001",
-  "1111100011111110001111111000111111111000001111001110011110011111110",
-  "0011110011111100011111111100000111001111111000111100111111000111100",
-  "1111110001111001110011111110001111111000111100111110001111111000111",
-  "1001111110001111001111100011111110001111111000111100111110001111111",
-  "0001111001110011111110001111001111100011111110001111001110011111110",
-  "0011111111100000111111111000001111001111111000111100111111000111111",
-  "1000111100111110001111111000111100111111000111111111000001111111100",
-  "0111110001111110001111111110000011110011100111111100011110011100111",
-  "0011110011110011111110001111111110000011110011110011111111100000111",
-  "1001111111100011111111100000111111111000001111111100011111111100000",
-  "1111111110000011111110001111111000111100111110001110011111111100000"]
 
+mustParseProgram :: String -> Term
+mustParseProgram = either (error "bad program") id . parseProgram
+
+tests :: Test
+tests = TestList
+  [ "revK" ~: "diaper" ~?= runSim LazyK "repaid" rev
+  , "revL" ~: "stressed" ~?= runSim CrazyL "desserts" "\\l.l(\\htx.t(\\cn.ch(xcn)))i(sk)"
+  , "empty1" ~: "Hello, World!" ~?= runSim LazyK "Hello, World!" "\n"
+  , "empty2" ~: "" ~?= runSim LazyK "" "\n"
+  , "empty3" ~: "Hello, World!" ~?= runSim CrazyL "Hello, World!" "\n"
+  , "kk256" ~: "" ~?= runSim LazyK "whatever" kk256
+  , "5!" ~: "120" ~?= runSim Nat "" (unlines
+    [ "Y=(\\z.zz)(\\z.\\f.f(zzf))"
+    , "P=\\nfx.n(\\gh.h(gf))(\\u.x)(\\u.u)"
+    , "M=\\mnf.m(nf)"
+    , "z=\\n.n(\\x.sk)k"
+    , "Y(\\fn.zn(\\fx.fx)(Mn(f(Pn))))(\\fx.f(f(f(f(fx)))))"
+    ])
+  , "primes" ~: let s = runSim FussyK "" pri in
+    assertBool s $ "2 3 5 7 11 13" `isPrefixOf` s
+  ]
+  where
+  kk256 = "k(k(sii(sii(sBi))))"
+  runSim lang inp = sim lang inp . mustParseProgram
+  rev = concat [
+    "1111100011111111100000111111111000001111111000111100111111000111111",
+    "1000111100111110001111111000111100111001111111000111100111111111000",
+    "1111111110000011111111100000111111110001111111110000011111111100000",
+    "1111111000111111100011110011111000111001111111110000011111110001111",
+    "0011111100011111111100000111001110011111110001111001111110001111001",
+    "1111100011111110001111111000111111111000001111001110011110011111110",
+    "0011110011111100011111111100000111001111111000111100111111000111100",
+    "1111110001111001110011111110001111111000111100111110001111111000111",
+    "1001111110001111001111100011111110001111111000111100111110001111111",
+    "0001111001110011111110001111001111100011111110001111001110011111110",
+    "0011111111100000111111111000001111001111111000111100111111000111111",
+    "1000111100111110001111111000111100111111000111111111000001111111100",
+    "0111110001111110001111111110000011110011100111111100011110011100111",
+    "0011110011110011111110001111111110000011110011110011111111100000111",
+    "1001111111100011111111100000111111111000001111111100011111111100000",
+    "1111111110000011111110001111111000111100111110001110011111111100000"]
+
+pri :: String
 pri = concat [
   "K",
   "(SII(S(K(S(S(K(SII(S(S(KS)(S(K(S(KS)))(S(K(S(S(KS)(SS(S(S(KS)K))(KK)))))",
@@ -1035,35 +1058,12 @@ pri = concat [
   "(S(S(KS)(S(KK)(SI(K(S(K(S(SI(K(KI)))))K)))))(K(S(K(S(SI(KK))))",
   "(S(KK)(SII)))))))))))(K(SI(K(KI))))))))(S(S(KS)K)I)",
   "(SII(S(K(S(K(S(SI(K(KI)))))K))(SII)))))"]
-
-kk256 = "k(k(sii(sii(sBi))))"
-
-prop_rev s = sim LazyK t (mustParse rev)   == reverse t where t = take 10 s
-prop_id s  = sim LazyK s (mustParse "")    == s
-prop_emp s = sim LazyK s (mustParse kk256) == ""
-prop_pri   = "2 3 5 7 11 13" `isPrefixOf` sim LazyK  "" (mustParse pri)
-prop_pri'  = "2 3 5 7 11 13" `isPrefixOf` sim FussyK "" (mustParse pri)
-
-mustParseProgram :: String -> Term
-mustParseProgram = either undefined id . parseProgram
-
-prop_fac5 = ("120" ==) $ sim Nat "" $ mustParseProgram $ unlines
-  [ "Y=(\\z.zz)(\\z.\\f.f(zzf))"
-  , "P=\\nfx.n(\\gh.h(gf))(\\u.x)(\\u.u)"
-  , "M=\\mnf.m(nf)"
-  , "z=\\n.n(\\x.sk)k"
-  , "Y(\\fn.zn(\\fx.fx)(Mn(f(Pn))))(\\fx.f(f(f(f(fx)))))"
-  ]
-
-return []
-runAllTests = $quickCheckAll
 \end{code}
 
 == Command-line UI ==
 
-A REPL glues the above together. The first two command-line arguments determine
-the language (or dump format) and the input to the program; if omitted, they
-default to Crazy L and the empty string.
+A REPL glues the above together. If no command-line arguments are given, then
+we print bracket abstractions for each line of the program.
 
 \begin{code}
 main :: IO ()
@@ -1075,8 +1075,7 @@ main = do
     inArg = case as of
       (_:a:_) -> a
       _       -> ""
-    repl lang inp env = do
-      let rec = repl lang inp
+    repl lang inp = fix $ \rec env -> do
       getInputLine "> " >>= \case
         Nothing -> outputStrLn ""
         Just ln -> case parseEnv env ln of
@@ -1088,24 +1087,17 @@ main = do
             else do
               outputStrLn $ s ++ "=" ++ showBabs t
               rec env'
-
-  if null as then f $ sim CrazyL else case head as of
+          _ -> error "unreachable"
+  if null as then f $ const showBabs else case head as of
     "n"     -> f $ sim Nat
     "lazyk" -> f $ sim LazyK
     "k"     -> f $ sim FussyK
     "l"     -> f $ sim CrazyL
-
-    "sk"    -> f $ const showBabs
-    "iota"  -> f $ const dumpIota
-    "jot"   -> f $ const dumpJot
-    "unl"   -> f $ const dumpUnlambda
-    "test"  -> void runAllTests
-
-    "rev"   -> putStrLn $ sim LazyK "0123456789abcdef" $ mustParse rev
+    "test"  -> void $ runTestTT tests
     "pri"   -> putStrLn $ take 70 $ sim FussyK "" $ mustParse pri
-    "bm"    -> defaultMain $ pure $ bench "rev" $ whnf (\t -> sim LazyK t (mustParse rev) == reverse t) "0123456789abcdef"
+    "bm"    -> defaultMain $ pure $ bench "pri" $ whnf (\t -> "2 3 5 7 11 13" `isPrefixOf` sim LazyK t (mustParse pri)) ""
     "wasm"  -> print $ compile CrazyL $ mustParseProgram $ unlines
-      [ "c=\\htcn.ch(tcn)"  -- cons
+      [ "c=\\htcn.ch(tcn)"
       , "\\l.l(\\htx.t(chx))i(sk)"
       ]
     bad     -> putStrLn $ "bad command: " ++ bad
