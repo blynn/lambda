@@ -229,6 +229,7 @@ applications.
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances #-}
 #ifdef __HASTE__
 {-# LANGUAGE OverloadedStrings #-}
 import Haste.DOM
@@ -254,13 +255,6 @@ import Text.ParserCombinators.Parsec
 
 infixl 5 :@
 data Term = Var String | Term :@ Term | Lam String Term
-
-instance Show Term where
-  show (Var s)  = s
-  show (l :@ r)  = show l ++ showR r where
-    showR t@(_ :@ _) = "(" ++ show t ++ ")"
-    showR t          = show t
-  show _ = error "lambda present"
 \end{code}
 
 We define a few combinators. Some of their names are a nod to Smullyan's "To
@@ -300,7 +294,6 @@ program to be simply the I combinator.
 top :: Parser (String, Term)
 top = (try super <|> (,) "main" <$> ccexpr) <* eof where
   super = (,) <$> var <*> (char '=' >> ccexpr)
-
   ccexpr   = option skk $ foldl1 (:@) <$> many1 expr
   expr     = const skk <$> char 'i' <|> expr'
   iotaexpr = const vsk <$> char 'i' <|> expr'
@@ -333,22 +326,26 @@ letters for their definitions terms as we parse a program line by line, and
 keep our terms fully expanded and bracket abstracted in `env`.
 
 \begin{code}
-sub :: [(String, Term)] -> Term -> Term
-sub env = \case
-  x :@ y -> sub env x :@ sub env y
-  Var s | Just t <- lookup s env -> t
-        | otherwise              -> Var s
-  Lam s t -> Lam s $ sub (filter ((/= s) . fst) env) t
+sub :: [String] -> [(String, Term)] -> Term -> Either String Term
+sub bvs env = \case
+  x :@ y -> (:@) <$> sub bvs env x <*> sub bvs env y
+  Var s | elem s bvs             -> Right $ Var s
+        | [c] <- s, elem c combs -> Right $ Var s
+        | Just t <- lookup s env -> Right t
+        | otherwise              -> Left $ s <> " is free"
+  Lam s t -> Lam s <$> sub (s:bvs) env t
+
+parseEnv :: [(String, Term)] -> String -> Either String [(String, Term)]
+parseEnv env ln = case parseLine ln of
+  Left e -> Left $ show e
+  Right (s, t) -> case sub [] env t of
+    Right u -> Right $ (s, u):env
+    Left e -> Left e
 
 parseProgram :: String -> Either String Term
-parseProgram program = case go [] $ lines program of
+parseProgram program = case foldM parseEnv [] $ lines program of
   Left err -> Left err
   Right env -> maybe (Left "missing main") Right $ lookup "main" env
-  where
-  go acc [] = Right acc
-  go acc (ln:rest) = case parseLine ln of
-    Left e -> Left $ show e
-    Right (s, t) -> go ((s, babs $ sub acc t):acc) rest
 \end{code}
 
 We can express SK terms in various languages as follows:
@@ -409,6 +406,7 @@ class Deb repr where
   su :: repr -> repr
   lam :: repr -> repr
   (#) :: repr -> repr -> repr
+  prim :: String -> repr
 \end{code}
 
 We declare an instance so we can display De Bruijn terms for debugging and
@@ -421,6 +419,7 @@ instance Deb Out where
   su e = Out $ "S(" <> unOut e <> ")"
   lam e = Out $ "^" <> unOut e
   e1 # e2 = Out $ unOut e1 <> unOut e2
+  prim s = Out s
 \end{code}
 
 == Sick B ==
@@ -444,81 +443,69 @@ toDeb env = \case
       "C" -> lam $ lam $ lam $ su(su ze) # ze #  su ze
       "K" -> lam $ lam $ su ze
       "I" -> lam ze
-      _ -> error $ s <> " is free"
+      _   -> prim s
     Just n -> iterate su ze !! n
   Lam s t -> lam $ toDeb (s:env) t
   x :@ y -> toDeb env x # toDeb env y
 \end{code}
 
 Now we can apply http://okmij.org/ftp/tagless-final/ski.pdf[a powerful bracket
-abstraction algorithm due to Oleg Kiselyov].
-
-Again we use a tagless final representation for the output of the algorithm.
+abstraction algorithm due to Oleg Kiselyov]. Again we use a tagless final
+representation for the output of the algorithm.
 
 \begin{code}
 infixl 5 ##
 class SickB repr where
-  kS :: repr
-  kI :: repr
-  kC :: repr
-  kK :: repr
-  kB :: repr
+  kV :: String -> repr
   (##) :: repr -> repr -> repr
-\end{code}
 
-We declare an instance so we can convert back to our `Term` AST. This allows
-messy shortcuts suitable for prototyping: we can print `Term` values, we can
-reuse code from the previous compiler, and we can add new combinators without
-adding them to the typeclass since a `Var` holds any string.
-
-\begin{code}
-instance SickB Term where
-  kS = Var "S"
-  kI = Var "I"
-  kC = Var "C"
-  kK = Var "K"
-  kB = Var "B"
-  e1 ## e2 = e1 :@ e2
+instance SickB (Bool -> Out) where
+  kV s _ = Out s
+  (e1 ## e2) False = Out $        unOut (e1 False) <> unOut (e2 True)
+  (e1 ## e2) _     = Out $ "(" <> unOut (e1 False) <> unOut (e2 True) <> ")"
 \end{code}
 
 We introduce another data type because the algorithm needs to distinguish
 between closed terms, and several kinds of unclosed terms. We return a closed
 term, but along the way we manipulate open terms.
 
-Kiselyov's example omits the `(V, V)` case because it refers to a simply
-typed algebra. We're allowing untyped terms.
+Kiselyov's code omits the `(V, V)` case because it applies to a simply typed
+algebra. We allow untyped terms.
 
 \begin{code}
 data Oleg repr = C {unC :: repr} | N (Oleg repr) | W (Oleg repr) | V
 instance SickB repr => Deb (Oleg repr) where
+  prim s = C (kV s)
   ze = V
   su = W
   l # r = case (l, r) of
     (W e, V) -> N e
-    (V, W e) -> N $ C (kC ## kI) # e
-    (N e, V) -> N $ C kS # e # C kI
-    (V, N e) -> N $ C (kS ## kI) # e
+    (V, W e) -> N $ C (c ## i) # e
+    (N e, V) -> N $ C s # e # C i
+    (V, N e) -> N $ C (s ## i) # e
     (C d, V) -> N $ C d
-    (V, C d) -> N $ C $ kC ## kI ## d
-    (V, V)   -> N $ C $ kS ## kI ## kI
+    (V, C d) -> N $ C $ c ## i ## d
+    (V, V)   -> N $ C $ s ## i ## i
 
     (W e1, W e2) -> W $ e1 # e2
     (W e, C d)   -> W $ e # C d
     (C d, W e)   -> W $ C d # e
-    (W e1, N e2) -> N $ C kB # e1 # e2
-    (N e1, W e2) -> N $ C kC # e1 # e2
-    (N e1, N e2) -> N $ C kS # e1 # e2
-    (C d, N e)   -> N $ C (kB ## d) # e
-    (N e, C d)   -> N $ C (kC ## kC ## d) # e
+    (W e1, N e2) -> N $ C b # e1 # e2
+    (N e1, W e2) -> N $ C c # e1 # e2
+    (N e1, N e2) -> N $ C s # e1 # e2
+    (C d, N e)   -> N $ C (b ## d) # e
+    (N e, C d)   -> N $ C (c ## c ## d) # e
     (C d1, C d2) -> C $ d1 ## d2
+    where [s,i,c,b] = kV . pure <$> "SICB"
   lam = \case
-    V   -> C kI
-    C d -> C $ kK ## d
+    V   -> C i
+    C d -> C $ k ## d
     N e -> e
-    W e -> C kK # e
+    W e -> C k # e
+    where [i,k] = kV . pure <$> "IK"
 
-babs :: Term -> Term
-babs = unC . toDeb []
+showBabs :: Term -> String
+showBabs t = unOut $ unC (toDeb [] t) False
 \end{code}
 
 == Interpreter ==
@@ -569,6 +556,12 @@ such as K, then we must represent it as IK since at minimum a cell holds two
 combinators.
 
 \begin{code}
+instance SickB (Int -> [Int]) where
+  kV s _ = [enCom s]
+  (e1 ## e2) n = n:h1:h2:t1++t2 where
+    (h1:t1) = e1 (n + 8)
+    (h2:t2) = e2 (n + 8 + wlen t1)
+
 wlen :: [a] -> Int
 wlen = (4*) . length
 
@@ -577,13 +570,7 @@ enCom [c] | Just n <- elemIndex c combs = -n - 1
 enCom s = error $ show s
 
 encAt :: Int -> Term -> [Int]
-encAt _ (Var a :@ Var b) = [enCom a, enCom b]
-encAt n (Var a :@ y)     = enCom a : n + 8 : encAt (n + 8) y
-encAt n (x     :@ Var b) = n + 8 : enCom b : encAt (n + 8) x
-encAt n (x     :@ y)     = n + 8 : nl : l ++ encAt nl y
-  where l  = encAt (n + 8) x
-        nl = n + 8 + wlen l
-encAt _ _                = error "want application"
+encAt n t = tail $ unC (toDeb [] t) n
 
 dump :: VM -> String
 dump VM{..} = unlines $ take 50 . f <$> ps where
@@ -694,16 +681,9 @@ combinators. We cheat similarly with the other languages.
 
 The `(<)` combinator is always applied to some combinator `x`. Then when we
 reach it during evaluation, we know the top entry of the stack is `(<)x`.
-
-For Lazy K and Fussy K, we choose `x` to be the V combinator and
-we replace the entry with `Vn(<V)`, where `n` is the Church encoding of the
-next byte of input, or 256 if there is no more input. Recall we have placed
-[0..256] at the beginning of memory, so this is just the address `8*n`.
-
-For Crazy L, we choose `x` to be the cons combinator for right-fold
-representations of lists, and we replace the entry with `xn(<0)` where `n` is
-the Church encoding of the next byte of input, or `SK` if there is no more
-input.
+We set `x` to be the cons combinator for right-fold representations of lists,
+and we replace the entry with `xn(<0)` where `n` is the Church encoding of the
+next byte of input, or `SK` if there is no more input.
 
 The `(>)` combinator is `\xy.x(+)(0y)`. By tweaking how `0` works for the
 other languages, we cause this term to turn the first argument (which should
@@ -990,7 +970,7 @@ main = withElems ["source", "input", "output", "sk", "asm", "compB", "runB"] $
             bool "" name . ("true" ==) <$> getProp el "checked"
         lang <- concat <$> mapM f ["nat", "lazyk", "fussyk", "crazyl"]
         let asm = compile (findLang lang) sk
-        setProp skEl "value" $ show sk
+        setProp skEl "value" $ showBabs sk
         setProp aEl "value" $ show asm
         writeIORef bin asm
   void $ runB `onEvent` Click $ const $ do
@@ -1099,18 +1079,15 @@ main = do
       let rec = repl lang inp
       getInputLine "> " >>= \case
         Nothing -> outputStrLn ""
-        Just ln -> case parseLine ln of
-          Left err  -> do
-            outputStrLn $ "parse: " ++ show err
-            rec env
-          Right (s, rhs) -> do
-            let t = babs $ sub env rhs
+        Just ln -> case parseEnv env ln of
+          Left err -> outputStrLn err >> rec env
+          Right env'@((s, t):_) -> do
             if s == "main" then do
               outputStrLn $ lang inp t
               rec env
             else do
-              outputStrLn $ s ++ "=" ++ show t
-              rec ((s, t):env)
+              outputStrLn $ s ++ "=" ++ showBabs t
+              rec env'
 
   if null as then f $ sim CrazyL else case head as of
     "n"     -> f $ sim Nat
@@ -1118,7 +1095,7 @@ main = do
     "k"     -> f $ sim FussyK
     "l"     -> f $ sim CrazyL
 
-    "sk"    -> f $ const show
+    "sk"    -> f $ const showBabs
     "iota"  -> f $ const dumpIota
     "jot"   -> f $ const dumpJot
     "unl"   -> f $ const dumpUnlambda
