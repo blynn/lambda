@@ -246,39 +246,38 @@ byteMe n | n < 256   = n : repeat 0
 Because assembly is low-level, it helps to have a reference implementation of
 the graph reduction function.
 
-Our `run` function takes the address of a node to evaluate which we call `IP`,
-a stack of addresses we've been previously asked to evaluate, and the current
-state of linear memory.
+Our `run` function takes the current and a stack of addresses state of linear
+memory.
 
-For internal nodes, we push the current node on the stack then evaluate the
-first child. For the `z` combinator, we return 0. For the `u` combinator we
-return 1 plus the result of evaluating its argument, which we access via the
-stack.  For the `k` combinator, we pop off the last two stack elements and
-return the evaluation of its first argument.
+For internal nodes, we push the first child on the stack then recurse.
+For the `z` combinator, we return 0. For the `u` combinator we return 1 plus
+the result of evaluating its argument.
+For the `k` combinator, we pop off the last two stack elements and push the
+evaluation of its first argument.
 
-For `s` we create two internal nodes representing `xz` and `yz` at the bottom
-of the heap `hp`, where `x,y,z` are the arguments of `s`. Then we lazily
-evaluate: we rewrite the immediate children of the parent of the `z` node to
-point to the 2 newly created nodes. Lastly, we pop 2 addresses off the stack
-and evaluate `hp`.
+For `s` we create two internal nodes representing `xz` and `yz` on the the heap
+`hp`, where `x,y,z` are the arguments of `s`. Then we lazily evaluate: we
+rewrite the immediate children of the parent of the `z` node to apply the first
+of the newly created nodes to the other.
 
 We assume the input program is well-formed, that is, every `k` is given exactly
 2 arguments, every `s` is given exactly 3 arguments, and so on.
 
 \begin{code}
-run p sp m = let
+run m (p:sp) = case p of
+  0 -> 0
+  1 -> 1 + run m (arg 0 : sp)
+  2 -> run m $ arg 0 : drop 2 sp
+  3 -> run m' $ hp:drop 2 sp where
+    m' = insList m $
+      zip [hp..]    (concatMap toU32 [arg 0, arg 2, arg 1, arg 2]) ++
+      zip [sp!!2..] (concatMap toU32 [hp, hp + 8])
+    hp = I.size m
+  _ -> run m $ get p:p:sp
+  where
+  arg k = get (sp!!k + 4)
   get n = sum $ zipWith (*) ((m I.!) <$> [n..n+3]) ((256^) <$> [0..3])
   insList = foldr (\(k, a) m -> I.insert k a m)
-  in case p of
-    0 -> 0
-    1 -> 1 + run (get $ head sp + 4) sp m
-    2 -> run (get $ head sp + 4) (drop 2 sp) m
-    3 -> run hp (drop 2 sp) $ insList m $
-        zip [hp..]    (concatMap toU32 [x, z, y, z]) ++
-        zip [sp!!2..] (concatMap toU32 [hp, hp + 8]) where
-      hp = I.size m
-      [x, y, z] = get . (+4) <$> take 3 sp
-    q -> run (get q) (p:sp) m
 \end{code}
 
 == Machine Code ==
@@ -358,13 +357,14 @@ statements break out a given number of blocks.
   -- Code section.
   -- Locals
   let
-    ip = 0  -- program counter
-    sp = 1  -- stack pointer
-    hp = 2  -- heap pointer
-    ax = 3  -- accumulator
-  in sect 10 [lenc $ [1, 4, encType "i32",
-    i32const, 4, setlocal, ip,
-    i32const] ++ leb128 (65536 * nPages) ++ [setlocal, sp,
+    sp = 0  -- stack pointer
+    hp = 1  -- heap pointer
+    ax = 2  -- accumulator
+  in sect 10 [lenc $ [1, 3, encType "i32",
+    -- SP = 65536 * nPages - 4
+    -- [SP] = 4
+    i32const] ++ leb128 (65536 * nPages - 4) ++ [teelocal, sp,
+    i32const, 4, i32store, 2, 0,
     i32const] ++ varlen heap ++ [setlocal, hp,
     3, 0x40,  -- loop
     2, 0x40,  -- block 4
@@ -372,7 +372,7 @@ statements break out a given number of blocks.
     2, 0x40,  -- block 2
     2, 0x40,  -- block 1
     2, 0x40,  -- block 0
-    getlocal, ip,
+    getlocal, sp, i32load, 2, 0,
     0xe,4,0,1,2,3,4, -- br_table
     0xb,  -- end 0
 -- Zero.
@@ -382,63 +382,55 @@ statements break out a given number of blocks.
     0xb,  -- end 1
 -- Successor.
     getlocal, ax, i32const, 1, i32add, setlocal, ax,
-    -- IP = [[SP] + 4]
-    getlocal, sp, i32load, 2, 0, -- align 2, offset 0.
-    i32load, 2, 4,
-    setlocal, ip,
     -- SP = SP + 4
-    -- In a correct program, the stack should now be empty.
-    getlocal, sp, i32const, 4, i32add, setlocal, sp,
+    -- [SP] = [[SP] + 4]
+    getlocal, sp, i32const, 4, i32add, teelocal, sp,
+    getlocal, sp, i32load, 2, 0, i32load, 2, 4, i32store, 2, 0,
     br, 3,  -- br loop
     0xb,  -- end 2
 -- K combinator.
-    -- IP = [[SP] + 4]
-    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
-    setlocal, ip,
+    -- [SP + 8] = [[SP + 4] + 4]
+    getlocal, sp,
+    getlocal, sp, i32load, 2, 4, i32load, 2, 4,
+    i32store, 2, 8,
     -- SP = SP + 8
     getlocal, sp, i32const, 8, i32add, setlocal, sp,
     br, 2,  -- br loop
     0xb,  -- end 3
 -- S combinator.
-    -- [HP] = [[SP] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 0, i32load, 2, 4,
-    i32store, 2, 0,
-    -- [HP + 4] = [[SP + 8] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 8, i32load, 2, 4,
-    i32store, 2, 4,
-    -- [HP + 8] = [[SP + 4] + 4]
+    -- [HP] = [[SP + 4] + 4]
     getlocal, hp,
     getlocal, sp, i32load, 2, 4, i32load, 2, 4,
+    i32store, 2, 0,
+    -- [HP + 4] = [[SP + 12] + 4]
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 12, i32load, 2, 4,
+    i32store, 2, 4,
+    -- [HP + 8] = [[SP + 8] + 4]
+    getlocal, hp,
+    getlocal, sp, i32load, 2, 8, i32load, 2, 4,
     i32store, 2, 8,
     -- [HP + 12] = [HP + 4]
     getlocal, hp,
     getlocal, hp, i32load, 2, 4,
     i32store, 2, 12,
-    -- SP = SP + 8
+    -- SP = SP + 12
     -- [[SP]] = HP
-    getlocal, sp, i32const, 8, i32add, teelocal, sp,
+    getlocal, sp, i32const, 12, i32add, teelocal, sp,
     i32load, 2, 0,
-    getlocal, hp,
-    i32store, 2, 0,
+    getlocal, hp, i32store, 2, 0,
     -- [[SP] + 4] = HP + 8
     getlocal, sp, i32load, 2, 0,
-    getlocal, hp, i32const, 8, i32add,
-    i32store, 2, 4,
-    -- IP = HP
+    getlocal, hp, i32const, 8, i32add, i32store, 2, 4,
     -- HP = HP + 16
-    getlocal, hp, teelocal, ip,
-    i32const, 16, i32add, setlocal, hp,
+    getlocal, hp, i32const, 16, i32add, setlocal, hp,
     br, 1,  -- br loop
     0xb,  -- end 4
 -- Application.
     -- SP = SP - 4
-    -- [SP] = IP
+    -- [SP] = [[SP + 4]]
     getlocal, sp, i32const, 4, i32sub,
-    teelocal, sp, getlocal, ip, i32store, 2, 0,
-    -- IP = [IP]
-    getlocal, ip, i32load, 2, 0, setlocal, ip,
+    teelocal, sp, getlocal, sp, i32load, 2, 4, i32load, 2, 0, i32store, 2, 0,
     br, 0,
     0xb,    -- end loop
     0xb]],  -- end function
@@ -493,10 +485,11 @@ main = withElems ["input", "output", "sk", "asm", "evalB"] $
 #else
 main = interact $ \s -> case toSK s of
   Left err -> "error: " ++ show err
-  Right sk -> unlines [
-    showSK sk,
-    show $ compile sk,
-    show $ run 4 [] $ I.fromAscList $ zip [0..] $ encodeTree sk]
+  Right sk -> unlines
+    [ showSK sk
+    , show $ compile sk
+    , show $ run (I.fromAscList $ zip [0..] $ encodeTree sk) [4]
+    ]
 #endif
 \end{code}
 
@@ -517,7 +510,7 @@ skRepl = do
       let Right e = parse expr "" s
       outputStrLn $ show $ encodeTree e
       outputStrLn $ show $ compile e
-      outputStrLn $ show $ run 4 [] $ I.fromAscList $ zip [0..] $ encodeTree e
+      outputStrLn $ show $ run (I.fromAscList $ zip [0..] $ encodeTree e) [4]
       skRepl
 #endif
 \end{code}
