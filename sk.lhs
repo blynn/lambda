@@ -235,6 +235,7 @@ toArr n (x         :@ y@(Var _)) = n + 2 : toArr n y ++ toArr (n + 2) x
 toArr n (x         :@ y)         = [n + 2, nl] ++ l ++ toArr nl y
   where l  = toArr (n + 2) x
         nl = n + 2 + length l
+encodeTree :: Expr -> [Int]
 encodeTree e = concatMap f $ 0 : toArr 4 e where
   f n | n < 4     = [n, 0, 0, 0]
       | otherwise = toU32 $ (n - 3) * 4
@@ -285,48 +286,48 @@ run m (p:sp) = case p of
 We convert the above to assembly. First, a few constants and helpers:
 
 \begin{code}
-br = 0xc
-getlocal = 0x20
-setlocal = 0x21
-teelocal = 0x22
-i32load  = 0x28
-i32store = 0x36
-i32const = 0x41
-i32add   = 0x6a
-i32sub   = 0x6b
-i32mul   = 0x6c
-i32shl   = 0x74
-i32shr_s = 0x75
-i32shr_u = 0x76
-nPages = 8
-
-leb128 n | n < 64   = [n]
-         | n < 128  = [128 + n, 0]
-         | otherwise = 128 + (n `mod` 128) : leb128 (n `div` 128)
-
-varlen xs = leb128 $ length xs
-
-lenc xs = varlen xs ++ xs
-
-sect t xs = t : lenc (varlen xs ++ concat xs)
-
-encStr s = lenc $ ord <$> s
-
-encType "i32" = 0x7f
-encType "f64" = 0x7c
-
-encSig ins outs = 0x60  -- Function type.
-  : lenc (encType <$> ins) ++ lenc (encType <$> outs)
+compile :: [Int] -> [Int]
+compile heap = let
+  typeFunc = 0x60
+  typeI32  = 0x7f
+  br       = 0xc
+  getlocal = 0x20
+  setlocal = 0x21
+  teelocal = 0x22
+  i32load  = 0x28
+  i32store = 0x36
+  i32const = 0x41
+  i32add   = 0x6a
+  i32sub   = 0x6b
+  i32mul   = 0x6c
+  i32shl   = 0x74
+  i32shr_s = 0x75
+  i32shr_u = 0x76
+  i64const = 0x42
+  i64store = 0x37
+  i64shl   = 0x86
+  i64add   = 0x7c
+  i64load32u    = 0x35
+  i64extendui32 = 0xac
+  nPages = 8
+  leb128 n | n < 64   = [n]
+           | n < 128  = [128 + n, 0]
+           | otherwise = 128 + (n `mod` 128) : leb128 (n `div` 128)
+  varlen xs = leb128 $ length xs
+  lenc xs = varlen xs ++ xs
+  encStr s = lenc $ ord <$> s
+  encSig ins outs = typeFunc : lenc ins ++ lenc outs
+  sect t xs = t : lenc (varlen xs ++ concat xs)
 \end{code}
 
 Our binary starts the same as link:wasm.html[our first wasm demo], except we
 work with `i32` instead of `f64` and ask for linear memory.
 
 \begin{code}
-compile e = concat [
+  in concat [
   [0, 0x61, 0x73, 0x6d, 1, 0, 0, 0],  -- Magic string, version.
   -- Type section.
-  sect 1 [encSig ["i32"] [], encSig [] []],
+  sect 1 [encSig [typeI32] [], encSig [] []],
   -- Import section.
   -- [0, 0] = external_kind Function, index 0.
   sect 2 [encStr "i" ++ encStr "f" ++ [0, 0]],
@@ -360,7 +361,7 @@ statements break out a given number of blocks.
     sp = 0  -- stack pointer
     hp = 1  -- heap pointer
     ax = 2  -- accumulator
-  in sect 10 [lenc $ [1, 3, encType "i32",
+  in sect 10 [lenc $ [1, 3, typeI32,
     -- SP = 65536 * nPages - 4
     -- [SP] = 4
     i32const] ++ leb128 (65536 * nPages - 4) ++ [teelocal, sp,
@@ -376,8 +377,7 @@ statements break out a given number of blocks.
     0xe,4,0,1,2,3,4, -- br_table
     0xb,  -- end 0
 -- Zero.
-    getlocal, ax,
-    0x10, 0,  -- call function 0
+    getlocal, ax, 0x10, 0,  -- call function 0
     br, 5,  -- br function
     0xb,  -- end 1
 -- Successor.
@@ -399,29 +399,25 @@ statements break out a given number of blocks.
     0xb,  -- end 3
 -- S combinator.
     -- [HP] = [[SP + 4] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 4, i32load, 2, 4,
-    i32store, 2, 0,
     -- [HP + 4] = [[SP + 12] + 4]
     getlocal, hp,
-    getlocal, sp, i32load, 2, 12, i32load, 2, 4,
-    i32store, 2, 4,
+    getlocal, sp, i32load, 2, 4, i64load32u, 2, 4,
+    getlocal, sp, i32load, 2, 12, i64load32u, 2, 4,
+    i64const, 32, i64shl, i64add, i64store, 3, 0,
     -- [HP + 8] = [[SP + 8] + 4]
-    getlocal, hp,
-    getlocal, sp, i32load, 2, 8, i32load, 2, 4,
-    i32store, 2, 8,
     -- [HP + 12] = [HP + 4]
     getlocal, hp,
-    getlocal, hp, i32load, 2, 4,
-    i32store, 2, 12,
+    getlocal, sp, i32load, 2, 8, i64load32u, 2, 4,
+    getlocal, hp, i64load32u, 2, 4,
+    i64const, 32, i64shl, i64add, i64store, 3, 8,
     -- SP = SP + 12
     -- [[SP]] = HP
+    -- [[SP] + 4] = HP + 8
     getlocal, sp, i32const, 12, i32add, teelocal, sp,
     i32load, 2, 0,
-    getlocal, hp, i32store, 2, 0,
-    -- [[SP] + 4] = HP + 8
-    getlocal, sp, i32load, 2, 0,
-    getlocal, hp, i32const, 8, i32add, i32store, 2, 4,
+    getlocal, hp, i64extendui32,
+    getlocal, hp, i32const, 8, i32add,
+    i64extendui32, i64const, 32, i64shl, i64add, i64store, 3, 0,
     -- HP = HP + 16
     getlocal, hp, i32const, 16, i32add, setlocal, hp,
     br, 1,  -- br loop
@@ -442,7 +438,6 @@ at the bottom.
 \begin{code}
   -- Data section.
   sect 11 [[0, i32const, 0, 0xb] ++ lenc heap]]
-  where heap = encodeTree e
 \end{code}
 
 To keep the code simple, we ignore garbage collection. Because we represent
@@ -468,7 +463,7 @@ main = withElems ["input", "output", "sk", "asm", "evalB"] $
     \[iEl, oEl, skEl, aEl, evalB] -> do
   let
     setResult :: Int -> IO ()
-    setResult d = setProp oEl "value" $ show d
+    setResult = setProp oEl "value" . show
   export "setResult" setResult
   evalB `onEvent` Click $ const $ do
     setProp oEl "value" ""
@@ -478,7 +473,7 @@ main = withElems ["input", "output", "sk", "asm", "evalB"] $
     case toSK s of
       Left err -> setProp skEl "value" $ "error: " ++ show err
       Right sk -> do
-        let asm = compile sk
+        let asm = compile $ encodeTree sk
         setProp skEl "value" $ showSK sk
         setProp aEl "value" $ dump asm
         ffi "runWasmInts" asm :: IO ()
@@ -487,7 +482,7 @@ main = interact $ \s -> case toSK s of
   Left err -> "error: " ++ show err
   Right sk -> unlines
     [ showSK sk
-    , show $ compile sk
+    , show $ compile $ encodeTree sk
     , show $ run (I.fromAscList $ zip [0..] $ encodeTree sk) [4]
     ]
 #endif
@@ -509,7 +504,7 @@ skRepl = do
     Just s  -> do
       let Right e = parse expr "" s
       outputStrLn $ show $ encodeTree e
-      outputStrLn $ show $ compile e
+      outputStrLn $ show $ compile $ encodeTree e
       outputStrLn $ show $ run (I.fromAscList $ zip [0..] $ encodeTree e) [4]
       skRepl
 #endif
