@@ -341,10 +341,13 @@ above.
 On the other hand, some strategies may loop forever instead of normalizing a
 term that does in fact possess a normal form. It turns out this never happens
 with normal-order evaluation: it always reduces a term to its normal form if it
-exists, hence its name. This is intuitively evident, as at each step we're
-doing the bare minimum. Reducing `m` before `n` means we ignore arguments to a
-function until they are needed, which explains another name for this strategy:
-'lazy evaluation'.
+exists, hence its name.
+
+This is intuitively evident, as at each step we're doing the bare minimum.
+Reducing `m` before `n` means we ignore arguments to a function until they are
+needed, which explains another name for this strategy: 'lazy evaluation'.
+In practice, this phrase also means we are memoizing to avoid repeating
+computations, but this only matters when we're studying efficiency.
 
 == User interface ==
 
@@ -524,8 +527,7 @@ lambda calculus term.
 Instead, we need something like the
 https://en.wikipedia.org/wiki/Fixed-point_combinator['Y combinator']. The inner
 workings are described in many other places, so we'll content ourselves
-with listing their definitions, and observing they are indeed lambda calculus
-terms.
+with definitions, and observing they are indeed lambda calculus terms.
 
 ------------------------------------------------------------------------------
 Y = \f -> (\x -> f(x x))(\x -> f(x x))
@@ -717,8 +719,8 @@ Lam=\f.\i x.f x i
 E=\q.q(\x.x)  -- A self-interpreter.
 ------------------------------------------------------------------------------
 
-This encoding is 'shallow' in the sense that only a self-interpreter can
-do anything useful with it.
+This encoding is shallow in the sense that only a self-interpreter can do
+anything useful with it.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -734,20 +736,3 @@ q0 = Lam(\f.Lam(\x.Var x))
 E(App qsucc (App qsucc q0))  -- Compute `succ (succ 0)`.
 </textarea>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-== DIY ==
-
-To build everything yourself, install http://haste-lang.org/[Haste] and
-http://asciidoc.org[AsciiDoc], and then type:
-
-------------------------------------------------------------------------------
-$ haste-cabal install parsec
-$ wget https://crypto.stanford.edu/~blynn/lambda/index.lhs
-$ hastec index.lhs
-$ sed 's/^\\.*{code}$/-----/' index.lhs | asciidoc -o - - > index.html
-$ cabal install parsec readline
-$ ghc index.lhs
-------------------------------------------------------------------------------
-
-Then run the command-line interpreter `./index` or browse to `index.html`.
-Other binaries on this website can be similarly built.

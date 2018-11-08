@@ -63,9 +63,9 @@ with the constant `0` and extended with:
 For convenience, we parse all natural numbers as constants of type `Nat`.
 We also provide an `undefined` keyword that throws an error.
 
-Avoiding the fixpoint operator guarantees normalization, that is, we get
-programs that must terminate. Even with this restriction, the language is
-surprisingly expressive: we can sort lists without `fix`!
+Avoiding the fixpoint operator guarantees normalization, that is, programs must
+terminate. Even with this restriction, the language is surprisingly expressive:
+we can sort lists without `fix`!
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

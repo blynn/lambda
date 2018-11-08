@@ -396,7 +396,7 @@ This is impressive, and more elegant than universal Turing machines. But if
 surprise is inversely proportional to self-interpreter simplicity and size,
 then prepare to be amazed by
 http://repository.readscheme.org/ftp/papers/topps/D-128.pdf[Mogensen's one-line
-self-interpreter in plain unadulterated lambda calculus]:
+self-interpreter in lambda calculus]:
 
 ------------------------------------------------------------------------------
 (λf.(λx.f(xx))(λx.f(xx)))(λem.m(λx.x)(λmn.em(en))(λmv.e(mv)))

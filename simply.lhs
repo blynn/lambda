@@ -237,8 +237,8 @@ typeOf gamma t = case t of
 Evaluation works the same as it does for untyped lambda calculus. In fact,
 we could perform 'type erasure' and drop the type of every bound variable
 before evaluation: types are only needed during type checking. However,
-keeping types around can be useful for sanity checks. (The GHC compiler has
-a typed intermediate language for this reason.)
+keeping types around can be useful for sanity checks. GHC has a typed
+intermediate language for this reason.
 
 Otherwise, apart from handling predefined functions, our `eval` function
 is the same as our corresponding function of untyped lambda calculus.
