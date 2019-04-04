@@ -46,7 +46,7 @@ feature requires importing the Parsec library's Error module.
 import Haste.DOM
 import Haste.Events
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 import Text.ParserCombinators.Parsec.Error
 #endif
 \end{code}
@@ -287,21 +287,21 @@ expectParen (Expect "\")\"") = True
 expectParen _                = False
 
 repl pre env = do
-  ms <- readline $ if null pre then "> " else ""
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
-    Just s  -> addHistory s >> case parse oneExpr "" $ pre ++ s of
+    Nothing -> outputStrLn ""
+    Just s  -> case parse oneExpr "" $ pre ++ s of
       Left err  -> case find expectParen $ errorMessages err of
         Nothing -> do
-          putStrLn $ "parse error: " ++ show err
+          outputStrLn $ "parse error: " ++ show err
           repl "" env
         _ -> repl (pre ++ s ++ "\n") env
       Right expr -> do
         let r = eval env expr
-        print r
+        outputStrLn $ show r
         repl "" $ addEnv r env
 
-main = repl "" preload
+main = runInputT defaultSettings $ repl "" preload
 #endif
 \end{code}
 

@@ -168,8 +168,8 @@ identity combinator rather than the iota combinator.
 
 Lazy K expects the first and only argument of the given program to be a list,
 in the form of nested Church-encoded pairs. The end of a finite list is
-represented by an infinite list where every element is (the Church encoding of)
-256. For example, the string "AB" would be represented as:
+represented by an infinite list where every element is (the Church encoding
+of) 256. For example, the string "AB" would be represented as:
 
 ------------------------------------------------------------------------------
 V 65 (V 66 (V 256 (V 256 (...))))
@@ -374,9 +374,8 @@ data Lang = LazyK | FussyK | CrazyL | Nat
 
 We shall need
 https://en.wikipedia.org/wiki/De_Bruijn_index['De Bruijn indices]', that is,
-we replace each variable with an integer representing the number of `Lam` nodes
-we encounter as we travel up the parse tree before reaching the binding
-abstraction. (This is similar to wasm branch labels!)
+we replace each variable with an integer representing the number of `Lam`
+nodes we encounter as we travel up the parse tree before reaching the `Lam` that introduced it. (This is similar to wasm branch labels.)
 
 For example,
 
@@ -390,8 +389,7 @@ becomes:
 \lambda(\lambda 0 0)(\lambda 1(0 0))
 \]
 
-For example, in De Bruijn notation, $S = \lambda\lambda\lambda 2 0(1 0)$
-and $K = \lambda\lambda 1$.
+Also, $S = \lambda\lambda\lambda 2 0(1 0)$ and $K = \lambda\lambda 1$.
 
 We employ http://okmij.org/ftp/tagless-final/[a tagless final representation]
 for De Bruijn terms:
@@ -426,9 +424,6 @@ well as the S and K combinators. We also directly implement I combinators,
 rather than making do with SKK.
 
 A straightforward recursion computes the De Bruijn indices.
-Because we may be asked to perform bracket abstraction on the output of our
-bracket abstraction routine, we must support B and C when converting to De
-Bruijn indices.
 
 \begin{code}
 toDeb :: Deb repr => [String] -> Term -> repr
@@ -446,9 +441,16 @@ toDeb env = \case
   x :@ y -> toDeb env x # toDeb env y
 \end{code}
 
-Now we can apply http://okmij.org/ftp/tagless-final/ski.pdf[a powerful bracket
+Now we apply http://okmij.org/ftp/tagless-final/ski.pdf[an elegant bracket
 abstraction algorithm due to Oleg Kiselyov]. Again we use a tagless final
 representation for the output of the algorithm.
+
+The same paper also describes a linear-time algorithm for bracket abstraction
+(link:logski.html[which is O(N log N) without memoization]), but it fares worse
+on small programs. Roughly speaking, it has a coarse-grained view of the
+variables, forgetting whether they are used or not, which precludes some
+optimizations. (We could refine it a little and, say, keep more information on
+variables with a low De Bruijn index; maybe another time.)
 
 \begin{code}
 infixl 5 ##
@@ -462,16 +464,16 @@ instance SickB (Bool -> Out) where
   (e1 ## e2) _     = Out $ "(" <> unOut (e1 False) <> unOut (e2 True) <> ")"
 \end{code}
 
-We introduce another data type because the algorithm needs to distinguish
-between closed terms, and several kinds of unclosed terms. We return a closed
-term, but along the way we manipulate open terms.
+We introduce the `Babs` data type because the algorithm distinguishes between
+closed terms and 3 kinds of unclosed terms. We return a closed term,
+but along the way we manipulate open terms.
 
 Kiselyov's code omits the `(V, V)` case because it applies to a simply typed
 algebra. We allow untyped terms.
 
 \begin{code}
-data Oleg repr = C {unC :: repr} | N (Oleg repr) | W (Oleg repr) | V
-instance SickB repr => Deb (Oleg repr) where
+data Babs repr = C {unC :: repr} | N (Babs repr) | W (Babs repr) | V
+instance SickB repr => Deb (Babs repr) where
   prim s = C (kV s)
   ze = V
   su = W
@@ -491,6 +493,8 @@ instance SickB repr => Deb (Oleg repr) where
     (N e1, W e2) -> N $ C c # e1 # e2
     (N e1, N e2) -> N $ C s # e1 # e2
     (C d, N e)   -> N $ C (b ## d) # e
+    -- Reasonable alternative:
+    -- (N e, C d)   -> N $ C c # e # C d
     (N e, C d)   -> N $ C (c ## c ## d) # e
     (C d1, C d2) -> C $ d1 ## d2
     where [s,i,c,b] = kV . pure <$> "SICB"
@@ -511,9 +515,9 @@ We build an interpreter to guide our compiler design.
 
 We envision a machine with 4 registers (you can tell I grew up on x86 assembly):
 
- * IP: instruction pointer that also holds instructions
- * SP: stack pointer, growing downwards from the top of memory.
- * HP: heap pointer, growing upwards from the bottom of memory.
+ * IP: holds top-most stack item; dedicating a register to this reduces memory reads and writes.
+ * SP: stack pointer; grows downwards from the top of memory.
+ * HP: heap pointer; grows upwards from the bottom of memory.
  * AX: accumulator
 
 We arbitrarily decide our wasm instances will request 64 pages of memory.
@@ -534,8 +538,8 @@ data VM = VM
   }
 \end{code}
 
-The SICKB combinators are standard. We introduce special combinators to deal
-with the real world.
+In addition to the standard SICKB combinators, we add special combinators for
+practical reasons.
 
 \begin{code}
 combs :: [Char]
@@ -600,9 +604,9 @@ gen = enCom "S" : enCom "K" :           -- Zero
   where m = 8*257
 \end{code}
 
-We encode a program immediately after the above. We add our special combinators
-differently for each language so that the term will behave accordingly, which
-we explain later.
+We encode a program immediately after the above. We add our special
+combinators differently for each language so that the term will behave
+accordingly, which we explain later.
 
 \begin{code}
 encodeTerm :: Lang -> Term -> [Int]
@@ -635,15 +639,14 @@ sim mode inp e = exec VM
   bs = encodeTerm mode e
 \end{code}
 
-Executing a combinator involves a few subtleties. Lazy evaluation is
-important for the S, B, and C combinators, that is, we must memoize so future
-evaluations avoid recomputing the same reduction. Without this, even simple
-programs may be too slow.
+Lazy evaluation is important for the S, B, and C combinators, that is, we
+must memoize so future evaluations avoid recomputing the same reduction.
+Without this, even simple programs may be too slow.
 
 We also memoize the result of the K combinator, but this is less vital.
 
-There may be some memoization possible with the I combinator, but it seems
-similar to a tag to me, so this may be unimportant.
+There may be some memoization possible with the I combinator, but it's
+practically a tag.
 
 The `upd` function updates the heap entry that the top of the stack refers to,
 as well as the IP register. It powers memoization and lazy input.
@@ -663,34 +666,29 @@ exec vm@VM{..} | ip < 0 = case combs!!(-ip - 1) of
   'B' -> rec $ putHP [arg 1, arg 2] . upd (arg 0) hp . pop 2
 \end{code}
 
-The meaning of our special combinators depends on the language.
+The `(+)` combinator acts like I except it also increments AX.
 
-For Nat, the `(+)` combinator acts like I except it also increments AX and the
-`0` combinator outputs AX and terminates. Then given a Nat program `t`, we
-recover its output by reducing `t(+)0`, since its output is Church-encoded.
+The `(<)` combinator is always applied to the combinator equivalent to
+$x =\lambda h t c n . c h (t c n)$, the cons combinator for
+right-fold-encoded lists. When we reduce it, we know the top entry of the
+stack is `(<)x`. We replace the entry with `xn(<x)` where `n` is the
+Church encoding of the next byte of input, or `SK` if there is no more input.
 
-In theory, `exec` should return values, the `0` combinator should return the
-integer 0, and `(+)` should increment its first argument and return it.
-(Ultimately some outer function would print the result of `exec`.)
-But since we assume `t` evaluates to a Church number, and since we control the
-evaluation order, we optimize by giving certain side effects to these two
-combinators. We cheat similarly with the other languages.
+The meaning of the `0` combinator depends on the language. For Nat, it
+outputs AX and terminates. Thus given a Nat program `t`, we recover its
+output by reducing `t(+)0`, since its output is Church-encoded. As we control
+where `(+)` and `0` are injected, we get away with giving side effects to
+these two combinators.
 
-The `(<)` combinator is always applied to some combinator `x`. Then when we
-reach it during evaluation, we know the top entry of the stack is `(<)x`.
-We set `x` to be the cons combinator for right-fold representations of lists,
-and we replace the entry with `xn(<0)` where `n` is the Church encoding of the
-next byte of input, or `SK` if there is no more input.
-
-The `(>)` combinator is `\xy.x(+)(0y)`. By tweaking how `0` works for the
-other languages, we cause this term to turn the first argument (which should
-be a Church number) into a byte which we emit, then recurse on `y`.
+The `(>)` combinator is `\xy.x(+)(0y)`. We tweak how `0` works for the other
+languages, so that it turns the first argument (which should be a Church
+number) into a byte to emit before recursing on `y`.
 
 Lazy K is fiddly because we must handle the case when it skips over our `(>)`
 combinator, such as for the program `K(K(256))`. (Normally we supply an
 argument to `0` for non-Nat programs to ensure IP == [[SP]] when we evaluate
-`0`, but we can skip it for the special-case Lazy K `0` because we know it
-should terminate if it gets evaluated.)
+`0`, but we can skip it for Lazy K because we only reach it when the program
+terminates.)
 
 \begin{code}
   '0' -> case lang of
@@ -738,10 +736,10 @@ checkOverflow vm@VM{..} | hp >= sp  = error "overflow"
 
 We have a three import functions this time:
 
-  * The program outputs numbers via `f`.
-  * The program calls `g` to get the next input number. This function should
+  * We ouptut bytes via `f`.
+  * We call `g` to get the next input byte. This function should
     return a negative number if there is no more input.
-  * The Nat language calls `h` to return a 32-bit number.
+  * We call `h` to output a 32-bit number.
 
 \begin{code}
 leb128 :: Int -> [Int]
@@ -778,7 +776,7 @@ compile mode e = concat
   , sect 10 [lenc $ codeSection mode $ length heap]
   -- Data section.
   , sect 11 [[0, i32const, 0, 0xb] ++ lenc heap]] where
-  heap = concatMap quad $ encodeTerm mode e
+  heap = encodeTerm mode e >>= quad
   sect t xs = t : lenc (leb128 (length xs) ++ concat xs)
   -- 0x60 = Function type.
   encSig ins outs = 0x60 : lenc ins ++ lenc outs

@@ -563,7 +563,7 @@ fact (succ (succ (succ 1)))  -- Compute 4!
 
 == Lambda calculus with lambda calculus ==
 
-http://repository.readscheme.org/ftp/papers/topps/D-128.pdf[Mogensen
+https://s3.amazonaws.com/academia.edu.documents/40167102/Efficient_Self-Interpretation_in_Lambda_20151119-799-nnautr.pdf?AWSAccessKeyId=AKIAIWOWYYGZ2Y53UL3A&Expires=1546497456&Signature=B2adabbmM5atkfcZIja2Tj24Y%2BU%3D&response-content-disposition=inline%3B%20filename%3DEfficient_self-interpretation_in_lambda.pdf[Mogensen
 describes a delightful encoding of lambda terms with lambda terms]. If
 we denote the encoding of a term $T$ by $\lceil T\rceil$,
 then we can recursively encode any term with the following three rules for

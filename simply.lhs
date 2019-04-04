@@ -103,7 +103,7 @@ types. Let's get started:
 import Haste.DOM
 import Haste.Events
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Control.Monad
 import Data.Char
@@ -351,30 +351,28 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
 #else
 repl env@(gamma, lets) = do
   let redo = repl env
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
-    Just s  -> do
-      addHistory s
-      case parse line "" s of
-        Left err  -> do
-          putStrLn $ "parse error: " ++ show err
-          redo
-        Right Empty -> redo
-        Right (Run term) -> do
-          case typeOf gamma term of
-            Nothing -> putStrLn "type error"
-            Just t -> do
-              putStrLn $ "[type = " ++ show t ++ "]"
-              print $ norm lets term
-          redo
-        Right (Let s term) -> case typeOf gamma term of
-          Nothing -> putStrLn "type error" >> redo
+    Nothing -> outputStrLn ""
+    Just s  -> case parse line "" s of
+      Left err  -> do
+        outputStrLn $ "parse error: " ++ show err
+        redo
+      Right Empty -> redo
+      Right (Run term) -> do
+        case typeOf gamma term of
+          Nothing -> outputStrLn "type error"
           Just t -> do
-            putStrLn $ "[type = " ++ show t ++ "]"
-            repl ((s, t):gamma, (s, term):lets)
+            outputStrLn $ "[type = " ++ show t ++ "]"
+            outputStrLn $ show $ norm lets term
+        redo
+      Right (Let s term) -> case typeOf gamma term of
+        Nothing -> outputStrLn "type error" >> redo
+        Just t -> do
+          outputStrLn $ "[type = " ++ show t ++ "]"
+          repl ((s, t):gamma, (s, term):lets)
 
-main = repl ([], [])
+main = runInputT defaultSettings $ repl ([], [])
 #endif
 \end{code}
 

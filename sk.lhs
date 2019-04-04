@@ -79,27 +79,20 @@ source = catMaybes <$> many maybeLet where
   ws = many (oneOf " \t") >> optional (try $ string "--" >> many (noneOf "\n"))
 \end{code}
 
-We won't directly translate a list of let expressions into assembly. Instead,
-to make our job easier, we first translate to an intermediate language.
+== Bracket abstraction ==
 
-== What's in a name? ==
+Lambda expressions are great for humans, but how do we get a computer to
+evaluate them? We take a classic route, and eliminate all lambdas by rewriting
+them in terms of certain functions.
 
-The names of variables in lambda abstractions only serve to record where a
-variable is bound. The choice of a name is irrelevant, so long as we avoid
-clashes.
-
-Names make bookkeeping more complex. For example, we may need to rename
-variables (&alpha;-conversion) to determine if two lambda terms are equal, or
-to avoid names clobbering each other when building expressions.
-
-== SKI Combinator calculus ==
-
-We define $S = \lambda x y z . x z (y z)$ and $K = \lambda x y . x$.
-Then it turns out we can rewrite any closed lambda term with $S$ and $K$ alone.
+Define $S = \lambda x y z . x z (y z)$ and $K = \lambda x y . x$, which in
+Haskell are known as `(<*>)` (specialized to Reader) and `const`.
+It turns out we can rewrite any closed lambda term with $S$ and $K$ alone. We
+need only implement two functions to attain Turing completeness!
 
 First, we notice $S K K x = x$ for all $x$; a handy convention is to write $I$
-for $S K K$. Then, we find all variables can be removed by recursively applying
-the following:
+for $S K K$. Then, we find all variables can be removed by recursively
+  applying the following:
 
 \[
 \begin{align}
@@ -114,22 +107,10 @@ lambda abstractions. This conversion is known as
 http://www.cantab.net/users/antoni.diller/brackets/intro.html['bracket
 abstraction']. (In the third equation, $M, N$ denote lambda terms.)
 
-Other choices of combinators are possible, for example, it turns out every
-closed lambda term can be written using the
-https://en.wikipedia.org/wiki/B,_C,_K,_W_system[B, C, K, W combinators] only.
-We choose $S$ and $K$ so bracket abstraction is easy, and also so that we only
-have to implement two functions to attain Turing completeness.
-
 https://en.wikipedia.org/wiki/Iota_and_Jot[It's possible to combine $S$ and $K$
 into one mega-combinator] (basically a Church-encoded pair) so the entire
 program only uses a single combinator. We gain no advantage from doing this, at
 least when it comes to writing a compiler.
-
-Writing programs without variables is known as
-https://en.wikipedia.org/wiki/Tacit_programming[tacit programming, or
-point-free style].
-
-== Better bracket abstraction ==
 
 We refine the above rules to obtain leaner combinator calculus expressions.
 One easy optimization is to generalize the second rule:
@@ -188,11 +169,11 @@ noLamEq (a :@ b) (c :@ d) = a `noLamEq` c && b `noLamEq` d
 noLamEq _ _ = False
 \end{code}
 
-There's an even better algorithm, but that will have to wait until
-link:crazyl.html[our next compiler].
+Oleg Kiselyov found better bracket abstraction algorithms, but these will
+have to wait until link:crazyl.html[our next compiler].
 
-Stricter checks such as avoiding recursive let definitions and prohibiting `s`
-and `k` to be used as symbols are left as exercises.
+The above assumes we have no recursive let definitions and that `s` and `k`
+are reserved keywords. Enforcing this is left as an exercise.
 
 A few lines in the Either monad glues together our parser and our bracket
 abstraction routine:
@@ -207,22 +188,24 @@ toSK s = do
 
 We've introduced two more combinators: `u` and `z`, which we think of as the
 successor function and zero respectively. Given a Church encoding `M` of an
-integer `n`, the expression `Muz` evaluates to `u(u(...u(z)...))`, where there
-are `n` occurrences of `u`, thus if `u` increments a counter (that is initially
-zero) and `z` returns it, we have a routine that returns `n`.
+integer `n`, the expression `Muz` evaluates to `u(u(...u(z)...))`, where
+there are `n` occurrences of `u`. We make `u` increment a counter, and we
+make `z` return it, so when evaluated in normal order it returns `n`.
 
 == Graph Reduction ==
 
-We encode the tree representing our program into an array, then
-write WebAssembly to manipulate this tree. In other words, we model computation
+We encode the tree representing our program into an array, then write
+WebAssembly to manipulate this tree. In other words, we model computation
 as https://en.wikipedia.org/wiki/Graph_reduction['graph reduction'].
 
-We view linear memory as an array of 32-bit integers. The values 0-3 represent
-leaf nodes `z,u,k,s` in that order, while any other value `n` represents an
-internal node with children represented by the 32-bit integers stored in linear
-memory at `n` and `n + 4`.  We encode the tree so that address 4 holds the root
-of the tree. Since 0 represents a leaf node, the first 4 bytes of linear memory
-cannot be addressed, so their contents are initialized to zero and ignored.
+We view linear memory as an array of 32-bit integers. The values 0-3
+represent leaf nodes `z,u,k,s` in that order, while any other value `n`
+represents an internal node with children represented by the 32-bit integers
+stored in linear memory at `n` and `n + 4`.
+
+We encode the tree so that address 4 holds the root of the tree. Since 0
+represents a leaf node, the first 4 bytes of linear memory cannot be
+addressed, so their contents are initialized to zero and ignored.
 
 \begin{code}
 toArr n (Var "z") = [0]
@@ -244,25 +227,23 @@ byteMe n | n < 256   = n : repeat 0
          | otherwise = n `mod` 256 : byteMe (n `div` 256)
 \end{code}
 
-Because assembly is low-level, it helps to have a reference implementation of
-the graph reduction function.
-
 Our `run` function takes the current and a stack of addresses state of linear
-memory.
+memory, and simulates what our assembly code will do.
 
-For internal nodes, we push the first child on the stack then recurse.
 For the `z` combinator, we return 0. For the `u` combinator we return 1 plus
 the result of evaluating its argument.
 For the `k` combinator, we pop off the last two stack elements and push the
 evaluation of its first argument.
 
-For `s` we create two internal nodes representing `xz` and `yz` on the the heap
-`hp`, where `x,y,z` are the arguments of `s`. Then we lazily evaluate: we
-rewrite the immediate children of the parent of the `z` node to apply the first
-of the newly created nodes to the other.
+For `s` we create two internal nodes representing `xz` and `yz` on the the
+heap `hp`, where `x,y,z` are the arguments of `s`. Then we lazily evaluate:
+we rewrite the immediate children of the parent of the `z` node to apply the
+first of the newly created nodes to the other.
 
-We assume the input program is well-formed, that is, every `k` is given exactly
-2 arguments, every `s` is given exactly 3 arguments, and so on.
+For internal nodes, we push the first child on the stack then recurse.
+
+We assume the input program is well-formed, that is, every `k` is given
+exactly 2 arguments, every `s` is given exactly 3 arguments, and so on.
 
 \begin{code}
 run m (p:sp) = case p of
@@ -488,7 +469,7 @@ main = interact $ \s -> case toSK s of
 #endif
 \end{code}
 
-During development, I was helped by a REPL for the intermediate language:
+During development, a REPL for the intermediate language was helpful:
 
 \begin{code}
 #ifndef __HASTE__

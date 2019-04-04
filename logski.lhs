@@ -16,9 +16,9 @@
 </script>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-Oleg Kiselyov describes
-http://okmij.org/ftp/tagless-final/ski.pdf[a linear-time and linear-space
-algorithm for converting lambda terms to combinators]:
+http://okmij.org/ftp/tagless-final/ski.pdf[Oleg Kiselyov describes a
+linear-time and linear-space algorithm for converting lambda terms to
+combinators]:
 
 \begin{code}
 {-# LANGUAGE CPP #-}
@@ -54,16 +54,16 @@ ski deb = case deb of
 
 It relies on memoizing the bulk variants of the B, C, and S combinators:
 
-------------------------------------------------------------------------------
-Bn n f g xn ... x1 =  f            (g xn ... x1)
-Cn n f g xn ... x1 = (f xn ... x1)  g
-Sn n f g xn ... x1 = (f xn ... x1) (g xn ... x1)
-------------------------------------------------------------------------------
+\[
+\begin{align}
+B_n f g x_n ... x_1&=  f             &(g x_n ... x_1)  \\
+C_n f g x_n ... x_1&= (f x_n ... x_1)& g  \\
+S_n f g x_n ... x_1&= (f x_n ... x_1)&(g x_n ... x_1)  \\
+\end{align}
+\]
 
-In particular, `B 1`, `C 1`, and `S 1` are the standard `B`, `C`, and `S`
-combinators.
-
-Linear complexity is implied by:
+In particular, $B_1, C_1, S_1$ are the standard $B, C, S$ combinators. Linear
+complexity is implied by:
 
 \begin{code}
 linBulk :: Com -> Com
@@ -75,47 +75,68 @@ linBulk b = case b of
   _      -> b
 \end{code}
 
-But what if we wish to avoid memoziation?
-
 == Bulk discount ==
 
-At the cost of a logarithmic factor, we can build up the bulk combinators using
-a technique analogous to repeated squaring when exponentiating.
+How about without memoization? Observe:
 
-Define the b0 and b1 combinators:
+\[
+\begin{align}
+B_{m+n} f &= B_m (B_n f)  \\
+C'_{m+n} f &= C'_m (C'_n f)  \\
+S'_{m+n} f &= S'_m (S'_n f)  \\
+\end{align}
+\]
+where
 
-------------------------------------------------------------------------------
-b0 c x y = c x       (B y y)
-b1 c x y = c (B x y) (B y y)
-X x y = x I
-------------------------------------------------------------------------------
+\[
+\begin{align}
+C'_n c f g x_n ... x_1 &= c (f x_n ... x_1)&g  \\
+S'_n c f g x_n ... x_1 &= c (f x_n ... x_1)&(g x_n ... x_1) \\
+\end{align}
+\]
 
-To compute $S_{50}$ for example, we write 50 in binary: 11010. Then we chain
-together `b0` or `b1` depending on each bit as follows:
+Hence we can build up the bulk combinators in a manner analogous to repeated
+squaring when exponentiating, resulting in a logarithmic factor in lieu of a
+linear one. In short: binary, not unary.
 
-------------------------------------------------------------------------------
-S_50 = b1(b1(b0(b1(b0( X ))))) I (B(BS)B)
-------------------------------------------------------------------------------
+Define the following combinators:
 
-We handle other bulk combinators similarly.
+\[
+\begin{align}
+b_0 c x y &= c (B x x) y  \\
+b_1 c x y &= c (B x x) (B x y)  \\
+X x y &= y I  \\
+\end{align}
+\]
+
+To compute $S_{50}$ for example, write 50 in binary: 11010. Then chain
+together $b_0$ or $b_1$ depending on the bits:
+
+\[
+S_{50} = b_1(b_1(b_0(b_1(b_0 X)))) S'_1 I
+\]
+
+Similarly for the other bulk combinators.
 
 \begin{code}
 logBulk :: Com -> Com
 logBulk b = case b of
-  -- B(BC)B = \cxyz.c(x(yz))
-  -- B(BS)B = \cxyz.c(xz(yz))
-  Bn n   -> go n K                 :# I :# B
-  Cn n   -> go n (B:#K:#(C:#I:#I)) :# I :# B:#(B:#C):#B
-  Sn n   -> go n (B:#K:#(C:#I:#I)) :# I :# B:#(B:#S):#B
+  -- C' = \cfgx.c(fx) g   = B(BC)B
+  -- S' = \cfgx.c fx (gx) = B(BS)B
+  Bn n   -> go n (K:#I)         :# B              :# I
+  Cn n   -> go n (K:#(C:#I:#I)) :# (B:#(B:#C):#B) :# I
+  Sn n   -> go n (K:#(C:#I:#I)) :# (B:#(B:#S):#B) :# I
   x :# y -> logBulk x :# logBulk y
   _      -> b
   where
   go n base = foldr (:#) base $ ([b0, b1]!!) <$> bits [] n
-  bits acc 0 = acc
+  bits acc 0 = reverse acc
   bits acc n | (q, r) <- divMod n 2 = bits (r:acc) q
-  b0 = B:#(C:#C:#(S:#B:#I)):#(B:#B)
-  b1 = B:#(C:#C:#(S:#B:#I)):#(B:#(B:#S):#(C:#C:#B:#(B:#B:#B)))
+  b0 = C:#B:#(S:#B:#I)
+  b1 = C:#(B:#S:#(B:#(B:#B):#(C:#B:#(S:#B:#I)))):#B
 \end{code}
+
+Therefore, if memoization is forbidden, we can easily transform a lambda term of length N to a combinatory logic term of length O(N log N).
 
 == Show Me ==
 
@@ -136,11 +157,10 @@ instance Show Com where
 
 For example:
 ------------------------------------------------------------------------------
-logBulk (Sn 1234) =
-B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(B(CC(SBI))(BB)(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(B(CC(SBI))(BB)(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(BK(CII))))))))))))I(B(BS)B)
-
-logBulk (Bn 1234) =
-B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(B(CC(SBI))(BB)(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)(B(CC(SBI))(BB)(B(CC(SBI))(B(BS)(CCB(BBB)))(B(CC(SBI))(BB)K))))))))))IB
+λ> print $ logBulk $ Sn 1234
+CB(SBI)(C(BS(B(BB)(CB(SBI))))B(CB(SBI)(CB(SBI)(C(BS(B(BB)(CB(SBI))))B(CB(SBI)(C(BS(B(BB)(CB(SBI))))B(C(BS(B(BB)(CB(SBI))))B(CB(SBI)(CB(SBI)(C(BS(B(BB)(CB(SBI))))B(K(CII))))))))))))(B(BS)B)I
+λ> print $ logBulk $ Bn 1234
+CB(SBI)(C(BS(B(BB)(CB(SBI))))B(CB(SBI)(CB(SBI)(C(BS(B(BB)(CB(SBI))))B(CB(SBI)(C(BS(B(BB)(CB(SBI))))B(C(BS(B(BB)(CB(SBI))))B(CB(SBI)(CB(SBI)(C(BS(B(BB)(CB(SBI))))B(KI)))))))))))BI
 ------------------------------------------------------------------------------
 
 == Demo ==
@@ -175,6 +195,11 @@ main = withElems ["input", "lin", "log", "skiB"] $
     setProp linEl "value" $ either (("error" ++) . show) show v
     setProp logEl "value" $ either (("error" ++) . show) show $ logBulk <$> v
 #else
-main = print $ logBulk $ Sn 1234
+amain = print $ logBulk $ Sn 1234
+main = do
+  let
+    s = "\\l.l(\\h t x.t(\\c n.c h(x c n)))(\\a.a)(\\a b.b)"
+    Right out = logBulk <$> snd . ski <$> runParser source [] "" s
+  print out
 #endif
 \end{code}
