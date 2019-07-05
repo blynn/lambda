@@ -264,7 +264,7 @@ import Data.Char
 import Data.List
 import qualified Data.Map as M
 import Data.Map (Map, (!))
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 infixl 5 :@
 data Term = Var String | Term :@ Term | Lam String Term
@@ -304,7 +304,7 @@ any trailing newlines (possibly with comments) are significant and change the
 program to be simply the I combinator.
 
 \begin{code}
-top :: Parser (String, Term)
+top :: Parsec String () (String, Term)
 top = (try super <|> (,) "main" <$> ccexpr) <* eof where
   super = (,) <$> var <*> (char '=' >> ccexpr)
   ccexpr   = option skk $ foldl1 (:@) <$> many1 expr

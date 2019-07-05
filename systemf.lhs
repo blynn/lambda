@@ -166,7 +166,7 @@ import Control.Monad
 import Data.Char
 import Data.List
 import Data.Tuple
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 data Type = TV String | Forall String Type | Type :-> Type
 data Term = Var String | App Term Term | Lam (String, Type) Term
@@ -237,10 +237,10 @@ quantifier in a sequence of universal quantified type variables, an
 abbreviation similar to the one we've been using in sequences of abstractions.
 
 \begin{code}
-data FLine = Empty | TopLet String Term | Run Term deriving Show
+data FLine = None | TopLet String Term | Run Term deriving Show
 
-line :: Parser FLine
-line = (<* eof) . (ws >>) $ option Empty $
+line :: Parsec String () FLine
+line = (<* eof) . (ws >>) $ option None $
     (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = letx <|> lam <|> app
   letx = Let <$> (str "let" >> v) <*> (str "=" >> term)
@@ -417,7 +417,7 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
     run (out, env) (Left err) =
       (out ++ "parse error: " ++ show err ++ "\n", env)
     run (out, env@(gamma, lets)) (Right m) = case m of
-      Empty      -> (out, env)
+      None       -> (out, env)
       Run term   -> case typeOf gamma term of
         Left msg -> (out ++ "type error: " ++ msg ++ "\n", env)
         Right t  -> (out ++ show (norm env term) ++ "\n", env)
@@ -446,7 +446,7 @@ repl env@(gamma, lets) = do
         Left err  -> do
           putStrLn $ "parse error: " ++ show err
           redo
-        Right Empty -> redo
+        Right None -> redo
         Right (Run term) ->
           case typeOf gamma term of
             Left msg -> putStrLn ("type error: " ++ msg) >> redo

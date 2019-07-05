@@ -60,12 +60,12 @@ import Data.Char
 import qualified Data.IntMap as I
 import Data.List
 import Data.Maybe
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 infixl 5 :@
 data Expr = Expr :@ Expr | Var String | Lam String Expr
 
-source :: Parser [(String, Expr)]
+source :: Parsec String () [(String, Expr)]
 source = catMaybes <$> many maybeLet where
   maybeLet = between ws newline $ optionMaybe $ (,) <$> v <*> (str "=" >> term)
   term = lam <|> app

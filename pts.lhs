@@ -159,7 +159,7 @@ import Data.Char
 import Data.List
 import Data.Maybe
 import Data.Tuple
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 data Term = S String | V String | Lam String Term Term | Pi String Term Term
   | App Term Term
@@ -248,10 +248,10 @@ instance Show Term where
 and to parse them (the `axiom` keyword will be explained later):
 
 \begin{code}
-data PTSLine = Empty | TopLet String Term | Axiom String Term | Run Term
+data PTSLine = None | TopLet String Term | Axiom String Term | Run Term
 
-line :: ([String], [String]) -> Parser PTSLine
-line (ss, syn) = between ws eof $ option Empty $
+line :: ([String], [String]) -> Parsec String () PTSLine
+line (ss, syn) = between ws eof $ option None $
     axiom <|> (try $ TopLet <$> v <*> (str "=" >> term))
     <|> (Run <$> term) where
   axiom = str "axiom" >> Axiom <$> v <*> (str "=" >> term)
@@ -750,7 +750,7 @@ main = withElems ["input", "output", "spec", "starbox", "boxbox", "boxstar",
     run sar (out, env) (Left err) =
       (out ++ "parse error: " ++ show err ++ "\n", env)
     run sar (out, env@(types, lets)) (Right m) = case m of
-      Empty      -> (out, env)
+      None       -> (out, env)
       Run term   -> case judge sar env term of
         Left msg -> (out ++ "judge: " ++ msg ++ "\n", env)
         Right t  -> (out ++ show (norm lets term) ++ "\n", env)
@@ -887,7 +887,7 @@ repl env@(types, lets) = do
         Left err  -> do
           putStrLn $ "parse error: " ++ show err
           redo
-        Right Empty -> redo
+        Right None -> redo
         Right (TopLet s term) -> case judge sar env term of
           Left msg -> putStrLn ("judge: " ++ msg) >> redo
           Right ty -> do

@@ -29,10 +29,6 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-The above interprets lambda calculus terms in a Haskell program that has been
-compiled to JavaScript. Elsewhere, we'll write link:sk.html[a compiler for
-lambda calculus].
-
 Also see
 http://projectultimatum.org/cgi-bin/lambda[Hai (Paul) Liu's step-by-step Lambda Viewer].
 
@@ -346,8 +342,9 @@ exists, hence its name.
 This is intuitively evident, as at each step we're doing the bare minimum.
 Reducing `m` before `n` means we ignore arguments to a function until they are
 needed, which explains another name for this strategy: 'lazy evaluation'.
-In practice, this phrase also means we are memoizing to avoid repeating
-computations, but this only matters when we're studying efficiency.
+Technically, this is a slightly different strategy because it also means we are
+memoizing to avoid repeating computations, but this only matters when we're
+considering efficiency.
 
 == User interface ==
 
@@ -693,9 +690,16 @@ App (Lam (\y.Var y)) (Var x)
 
 == A shallow encoding ==
 
+In 'Linear-Time Self-Interpretation of the Pure Lambda Calculus', Mogensen
+describes a shorter self-interpreter: `E=\q.q(\x.x)(\x.x)`.
+
+To encode, we pick two unused variables, say `a` and `b`, and prepend `\a b.`
+to the term. Then we replace each application `m n` with `a m n` and
+each lambda `\x.m` with `b(\x.m)`.
+
 In http://compilers.cs.ucla.edu/popl16/popl16-full.pdf['Breaking Through the
-Normalization Barrier: A Self-Interpreter for F-omega'] by Matt Brown and Jens
-Palsberg, we find perhaps the shortest possible self-interpreter:
+Normalization Barrier: A Self-Interpreter for F-omega'], Matt Brown and Jens
+Palsberg describe perhaps the shortest possible self-interpreter:
 `E=\q.q(\x.x)`.
 
 To encode a term for this self-interpreter, we pick a new variable, say `i`,

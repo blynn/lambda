@@ -47,7 +47,7 @@ import Haste.DOM
 import Haste.Events
 #else
 import System.Console.Haskeline
-import Text.ParserCombinators.Parsec.Error
+import Text.Parsec.Error
 #endif
 \end{code}
 
@@ -56,7 +56,7 @@ The interpreter itself only needs a few imports:
 \begin{code}
 import Control.Monad
 import Data.List
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 \end{code}
 
 == Tree Processor ==
@@ -221,7 +221,7 @@ instead of  `mapL`, and `fromTree` would be unneeded.
 A simple parser suits Lisp's simple grammar:
 
 \begin{code}
-expr :: Parser Expr
+expr :: Parsec String () Expr
 expr = between ws ws $ atom <|> list <|> quot where
   ws   = many $ void space <|> comm
   comm = void $ char ';' >> manyTill anyChar (void (char '\n') <|> eof)

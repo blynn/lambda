@@ -95,7 +95,7 @@ Before presenting the questions, let's get some paperwork out of the way:
 import Haste.DOM
 import Haste.Events
 #endif
-import Text.ParserCombinators.Parsec hiding (State)
+import Text.Parsec hiding (State)
 import Text.Read hiding (get)
 import Control.Arrow
 import Control.Monad
@@ -307,6 +307,7 @@ The given example ought to be enough enough to understand the input format,
 which is parsed by the following:
 
 \begin{code}
+type Parser = Parsec String ()
 treePair :: Parser (Tree Int, Tree Int)
 treePair = do
   spaces
@@ -466,8 +467,9 @@ solve gamma x = foldr sub ty <$> evalState (unify cs) [] where
   (ty, (cs, _)) = runState (gather gamma x) ([], 0)
 \end{code}
 
-This algorithm is known as Algorithm W, and is the heart of the
+This algorithm is the heart of the
 link:pcf.html['Hindley-Milner type system'], or HM for short.
+See https://web.cecs.pdx.edu/~mpj/thih/thih.pdf[Mark P. Jones, 'Typing Haskell in Haskell'].
 
 == Example ==
 

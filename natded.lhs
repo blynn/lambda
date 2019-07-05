@@ -132,7 +132,7 @@ import Data.Maybe
 import qualified Data.Map.Strict as M
 import Data.Tree
 import Control.Arrow
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 \end{code}
 
 == Tree drawing ==
@@ -225,6 +225,8 @@ instance Show Expr where
   show (x :+ y) = showOr x ++ "\x2228" ++ showOr y where
     showOr t@(_ :-> _) = "(" ++ show t ++ ")"
     showOr t           = show t
+
+type Parser = Parsec String ()
 
 proposition :: Parser Expr
 proposition = spaces >> expr <* eof where

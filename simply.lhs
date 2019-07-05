@@ -108,7 +108,7 @@ import System.Console.Haskeline
 import Control.Monad
 import Data.Char
 import Data.List
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 \end{code}
 
 First we need a new data structure to represent types. To avoid clashing
@@ -167,10 +167,10 @@ The strings ``if'', ``then'', and ``else'' are reserved keywords and hence
 invalid variable names.
 
 \begin{code}
-data SimplyLambda = Empty | Let String Term | Run Term
+data SimplyLambda = None | Let String Term | Run Term
 
-line :: Parser SimplyLambda
-line = (<* eof) . (ws >>) $ option Empty $
+line :: Parsec String () SimplyLambda
+line = (<* eof) . (ws >>) $ option None $
     (try $ Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = ifthenelse <|> lam <|> app
   ifthenelse = If <$> (str "if" >> term)
@@ -333,7 +333,7 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
     run (out, env) (Left err) =
       (out ++ "parse error: " ++ show err ++ "\n", env)
     run (out, env@(gamma, lets)) (Right m) = case m of
-      Empty      -> (out, env)
+      None       -> (out, env)
       Run term   -> case typeOf gamma term of
         Nothing -> (out ++ "type error: " ++ show term ++ "\n", env)
         Just t  -> (out ++ show (norm lets term) ++ "\n", env)
@@ -358,7 +358,7 @@ repl env@(gamma, lets) = do
       Left err  -> do
         outputStrLn $ "parse error: " ++ show err
         redo
-      Right Empty -> redo
+      Right None -> redo
       Right (Run term) -> do
         case typeOf gamma term of
           Nothing -> outputStrLn "type error"

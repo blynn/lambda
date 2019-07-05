@@ -256,7 +256,7 @@ import Control.Monad
 import Data.Char
 import Data.List
 import Data.Maybe
-import Text.ParserCombinators.Parsec
+import Text.Parsec
 
 data Type = Nat | TV String | GV String | Type :-> Type deriving Eq
 data Term = Var String | App Term Term | Lam (String, Type) Term
@@ -300,7 +300,7 @@ clashing with our above `Let` constructor.
 \begin{code}
 data PCFLine = Blank | TopLet String Term | Run Term
 
-line :: Parser PCFLine
+line :: Parsec String () PCFLine
 line = between ws eof $ option Blank $
     (try $ TopLet <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = ifz <|> letx <|> lam <|> app
