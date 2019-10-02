@@ -53,7 +53,7 @@ we find lambda calculus is sometimes superior:
 
  * *one-line universal program*: Here's a lambda calculus self-interpreter:
  $(\lambda f.(\lambda x.f(xx))(\lambda x.f(xx)))(\lambda em.m(\lambda x.x)(\lambda mn.em(en))(\lambda mv.e(mv)))$.
- In contrast, universal Turing machines are so tedious that textbooks often
+ In contrast, universal Turing machines are so tedious that classes often
  skip the details and just explain why they exist.
 
  * *representing data with functions* leads to rich algebras where a
@@ -175,17 +175,18 @@ further and accept `->` in lieu of periods, and support line comments.
 
 Any alphanumeric string is a valid variable name.
 
-Typing a long term is tedious, so we support a sort of 'let' statement. The line
+Typing a long term is laborious, so we support a sort of 'let' statement. The
+line
 
 ------------------------------------------------------------------------------
 true = \x y -> x
 ------------------------------------------------------------------------------
 
-means that for all following terms, the variable `true` is no longer a
-variable, but shorthand for the term on the right side, namely `\x y -> x`.
-There is one exception: if the variable `true` is the left child of a lambda
-abstraction, then it shadows the original definition. It is a good practice
-to pick a different name to avoid confusion.
+means that for all following terms, the variable `true` is shorthand for the
+term on the right side, namely `\x y -> x`.
+There is an exception: if the left child of a lambda abstraction is the
+variable `true`, then this variable 'shadows' the original let definition in
+its right child. It is good style to avoid such name collisions.
 
 Our parser accepts empty lines, let definitions, or terms that should be
 evaluated immediately.
@@ -269,6 +270,11 @@ fv env vs (Lam s f)                        = fv env (s:vs) f
 
 To pick a new name, we increment the number at the end of the name (or append
 "1" if there is no number) until we've avoided all the given names.
+
+Our simplistic scheme relies on the user to avoid, say, using the name "x1"
+within a lambda abstraction that binds the variable "x". We could solve this
+problem by also prepending some character that our parser rejects as part of
+a variable name, but it makes our interactive demo uglier.
 
 \begin{code}
 newName :: String -> [String] -> String

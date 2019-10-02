@@ -82,11 +82,13 @@ but some browsers lack the fonts to display these. -->
 
  * https://en.wikipedia.org/wiki/Implicational_propositional_calculus[Implicational propositional calculus]. Along with a false proposition, the three rules &rArr;I , &rArr;E, and LEM suffice for classical propositional logic. LEM is equivalent to https://en.wikipedia.org/wiki/Peirce%27s_law[Peirce's law], which means we can remove false from the axioms completely.
 
- * http://math.andrej.com/2016/10/10/five-stages-of-accepting-constructive-mathematics/[Abandoning LEM makes sense for computer scientists].
+ * http://math.andrej.com/2016/10/10/five-stages-of-accepting-constructive-mathematics/[Abandoning LEM] makes sense for programming languages based on lambda
+ calculus.
  Roughly speaking, LEM means two wrongs make a right. For instance, if `f` is
  a function that takes an integer but is buggy then LEM is sort of claiming we
  can feed `f` to another buggy function to somehow cancel out the bugs and
- magically produce an integer!
+ magically produce an integer! On the other hand, LEM makes sense in
+ https://en.wikipedia.org/wiki/Lambda-mu_calculus[lambda-mu calculus].
 
 == Ideas ==
 
@@ -102,7 +104,7 @@ can select subtrees to create hypotheses.
  * We could add &forall; and &exist; for first-order logic. Or add
  &Pi; and &Sigma; types and move towards homotopy type theory. Or both!
 
- * Proof relevance: show the Haskell equivalent of a proof.
+ * Show the Haskell equivalent of a proof.
 
 == A Haste Bug ==
 

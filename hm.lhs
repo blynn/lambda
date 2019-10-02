@@ -11,7 +11,7 @@ forcing programmers to duplicate code or subvert static typing with casts.
 A purist might escape this dilemma by writing code to generate code, but
 this leads to another set of problems.
 
-Type theory shows how to avoid these pitfalls, but mainstream programmers seem
+Type theory shows how to avoid these pitfalls, but many programmers seem
 unaware:
 
  * Popular authors Bruce Eckel and Robert C. Martin mistakenly believe
@@ -23,9 +23,8 @@ unaware:
  even argue a test-heavy approach helps attackers find exploits: the test
  cases you choose may hint at the bugs you overlooked.
 
- * https://golang.org/doc/faq#generics[The designers of the Go language,
- including famed former Bell Labs researchers, have been stumped by
- polymorphism for years].
+ * The designers of the Go language, including famed former Bell Labs
+ researchers, have been stumped by polymorphism for years.
 
 Why is this so? Perhaps people think the theory is arcane, dry, and
 impractical?
@@ -102,12 +101,10 @@ import Control.Monad
 import "mtl" Control.Monad.State  -- Haste has 2 versions of the State Monad.
 \end{code}
 
-Lastly, to be fair to Go: for full-blown generics, we need algebraic data types
-and link:typo.html[type operators] to define, say, a binary tree containing
-values of any given type. Even then, parametric polymorphism is only half the
-problem. The other half is ad hoc polymorphism, which Haskell researchers only
-neatly solved in the late 1980s with type classes. Practical Haskell compilers
-also need more type trickery for unboxing.
+Lastly, to be fair to Go: parametric polymorphism is only half the story. The
+other half is ad hoc polymorphism, which Haskell researchers only neatly solved
+in the late 1980s with type classes. Practical Haskell compilers also need more
+type trickery for unboxing.
 
 == 1. Identifying twins ==
 
@@ -277,11 +274,11 @@ treeSolve t1 t2 = (`evalState` []) . unify =<< gather t1 t2 where
   unify ((Branch a b, Branch a' b'):rest)  = unify $ (a, a'):(b, b'):rest
   unify ((Leaf a, Leaf a'):rest) | a == a' = unify rest
   unify ((Var x, Var x'):rest)   | x == x' = unify rest
-  unify ((Var x, t):rest)                  = if twoSided t then pure Nothing
+  unify ((Var x, t):rest)                  = if occurs t then pure Nothing
     else modify ((x, t):) >> unify (join (***) (sub x t) <$> rest) where
-      twoSided (Branch l r)     = twoSided l || twoSided r
-      twoSided (Var y) | x == y = True
-      twoSided _                = False
+      occurs (Branch l r)     = occurs l || occurs r
+      occurs (Var y) | x == y = True
+      occurs _                = False
   unify ((t, v@(Var _)):rest)              = unify $ (v, t):rest
   unify _                                  = pure Nothing
 
@@ -303,34 +300,21 @@ Here's a demo of the above code:
 <p><label for="treeOut">Solution</label><textarea id="treeOut" rows="8" cols="80" readonly></textarea></p>
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-The given example ought to be enough enough to understand the input format,
-which is parsed by the following:
+The example ought to be enough to describe the input format:
 
 \begin{code}
 type Parser = Parsec String ()
 treePair :: Parser (Tree Int, Tree Int)
-treePair = do
-  spaces
-  t <- tree
-  spaces
-  u <- tree
-  spaces
-  eof
-  pure (t, u)
+treePair = (,) <$> (spaces *> tree) <*> (tree <* eof)
 
 tree :: Read a => Parser (Tree a)
 tree = tr where
   tr = leaf <|> branch
-  branch = between (char '(') (char ')') $ do
-    spaces
-    l <- tr
-    spaces
-    r <- tr
-    spaces
-    pure $ Branch l r
   leaf = do
-    s <- many1 alphaNum
+    s <- many1 alphaNum <* spaces
     pure $ maybe (Var s) Leaf $ readMaybe s
+  branch = between (char '(' <* spaces) (char ')' <* spaces)
+    $ Branch <$> tr <*> tr
 \end{code}
 
 == 5. Type inference! ==
@@ -435,7 +419,7 @@ We employ the same unification strategy:
 
  3. If both sides of a constraint are the same, then we simply move on.
 
- 4. If one side is a type variable `t`, and `t` also appears somewhere on the
+ 4. If one side is a type variable `t`, and `t` also occurs somewhere on the
  other side, then we are attempting to create an infinite type, which is
  forbidden. Otherwise the constraint is something like `t = u -> (Int -> u)`,
  and we substitute all occurences of `t` in the constraint set with the type
@@ -449,12 +433,12 @@ unify []                            = Just <$> get
 unify ((tx :-> ty, ux :-> uy):rest) = unify $ (tx, ux):(ty, uy):rest
 unify ((T t,  T u) :rest) | t == u  = unify rest
 unify ((TV v, TV w):rest) | v == w  = unify rest
-unify ((TV x, t)   :rest)           = if twoSided t then pure Nothing
+unify ((TV x, t)   :rest)           = if occurs t then pure Nothing
   else modify ((x, t):) >> unify (join (***) (sub (x, t)) <$> rest)
   where
-    twoSided (t :-> u)       = twoSided t || twoSided u
-    twoSided (TV y) | x == y = True
-    twoSided _               = False
+    occurs (t :-> u)       = occurs t || occurs u
+    occurs (TV y) | x == y = True
+    occurs _               = False
 unify ((t, v@(TV _)):rest) = unify ((v, t):rest)
 unify _ = pure Nothing
 

@@ -51,8 +51,18 @@ varuint for the section ID, followed by a varuint for the length of the
 section.
 
 Section 1 declares the types of function signatures.
+
+------------------------------------------------------------------------------
+01  ; Section 1
+08  ; ...is 8-bytes long
+------------------------------------------------------------------------------
+
 We'll export a function `e` for JavaScript to call, and import a function `f`
 from the import object `i` through which it returns a 32-bit integer.
+
+------------------------------------------------------------------------------
+02  ; We'll declare 2 function types.
+------------------------------------------------------------------------------
 
 The type signature of the imported function is:
 

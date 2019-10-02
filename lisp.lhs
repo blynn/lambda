@@ -497,55 +497,42 @@ lambda calculus.
 
 == Core changes ==
 
-Nonetheless, there are profound differences between Haskell and Lisp. Although
-almost invisible to the untrained eye, they have enormous implications.
-
+Nonetheless, there are profound differences between Haskell and Lisp.
 Haskell has benefited from the experience of functional programmers, as well as
 advances in theory involving the foundations of mathematics and computer
 science.
 
- - Lisp programmers pioneered programming with pure functions. Haskell has
+ - Lisp pioneered programming with pure functions. Haskell has
    taken purity to heart: its type system means the compiler knows which
    functions are pure and which are not, and steers programmers to isolate
-   impure code in tiny functions, leaving the rest of the code pure.
+   impure code in tiny functions.
+   https://en.wikipedia.org/wiki/Monad_(category_theory)[Monads] help make
+   purity practical.
 
- - The discovery that the
-   https://en.wikipedia.org/wiki/Monad_(category_theory)[monads of category
-   theory] applied to programming meant Haskell could stay pure yet handle I/O
-   beautifully.
-
- - Lazy evaluation largely obviates the need for macros. Good language support
-   for pure functions is a prerequisite for effective lazy evaluation. Programs
-   that may never terminate with eager evaluation might terminate with lazy
-   evaluation: in fact, if some evaluation strategy causes a program to
-   terminate, then it will terminate with lazy evaluation.
+ - Lazy evaluation largely obviates the need for macros.
 
  - The link:hm.html[Hindley-Milner
    type system] underpinning Haskell 98 lets us write code without a single
-   type annotation, so it still feels like Lisp, yet an efficient type
-   inference algorithm means the compiler rejects badly typed programs. Haskell
-   has since gone beyond Hindley-Milner, but even so, type annotation is
-   inconspicuous.
+   type annotation. It feels like Lisp, yet an efficient type inference
+   algorithm means the compiler rejects badly typed programs. Haskell has since
+   gone beyond Hindley-Milner, but even so, type annotation is inconspicuous.
 
- - The Core language is built on https://en.wikipedia.org/wiki/System_F[System
-   F], which is formalizes parametric polymorphism and also guarantees programs
-   terminate. This guarantee is voided by Haskell's support for recursion, but
-   we can regain it by restricting recursion, as
-   http://www.idris-lang.org/[Idris] does.
+ - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/FC[The Core
+   language is built on System F], which is formalizes parametric polymorphism
+   and also guarantees programs terminate.
 
- - https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/FC[Core pushes
-   beyond System F to enrich types], but not so much more that we need
-   full-blown https://en.wikipedia.org/wiki/Dependent_type[dependent types].
-   (This explains the weirder parts of the Core grammar.)
-
- - The https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[Curry-Howard correspondence] and Haskell's expressive type system means more of the program can be shown to be correct at compile-time.
+ - Haskell is better connected with mathematics.
+https://www.cs.kent.ac.uk/people/staff/dat/miranda/wadler87.pdf[Proofs are
+easier]. See also the
+https://en.wikipedia.org/wiki/Curry%E2%80%93Howard_correspondence[Curry-Howard
+correspondence].
 
  - Roughly speaking, Lisp reads `(min 1 x)` as `(min (1 x))`, while Haskell
    reads it as `((min 1) x)`. For function evaluation, Haskell's parse tree is
    more troublesome because we must repeatedly traverse left from the root
-   until we find the function to evaluate, rather than simply take the left
-   child of the root. However, it's a net win because a curried function is
-   a subtree. We have
+   to find the next node to reduce, rather than simply take the left child of
+   the root. However, it's a net win because a curried function is a subtree.
+   We have
    https://en.wikipedia.org/wiki/Combinatory_logic[combinatory logic] to thank
    for left-associative function application.
 
