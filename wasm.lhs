@@ -1,7 +1,7 @@
 = WebAssembly =
 
 Click below to compile an expression to
-http://webassembly.org/[WebAssembly] and run it.
+https://webassembly.org/[WebAssembly] and run it.
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -61,7 +61,7 @@ We'll export a function `e` for JavaScript to call, and import a function `f`
 from the import object `i` through which it returns a 32-bit integer.
 
 ------------------------------------------------------------------------------
-02  ; We'll declare 2 function types.
+02  ; Declare 2 function types.
 ------------------------------------------------------------------------------
 
 The type signature of the imported function is:
@@ -273,7 +273,7 @@ Normally, we can take care of this in Haskell with, say,
 https://hackage.haskell.org/package/reinterpret-cast/docs/Data-ReinterpretCast.html[the `Data.ReinterpretCast` package] but Haste lacks support for the
 relevant Haskell primitives. For the Haste version,
 we use
-http://stackoverflow.com/questions/24564460/how-to-apply-bitwise-operations-to-the-actual-ieee-754-representation-of-js-numb[JavaScript
+https://stackoverflow.com/questions/24564460/how-to-apply-bitwise-operations-to-the-actual-ieee-754-representation-of-js-numb[JavaScript
 to get at the bytes representing a double]:
 
 [source,html]

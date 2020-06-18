@@ -160,7 +160,7 @@ type annotation.
 import Haste.DOM
 import Haste.Events
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Control.Monad
 import Data.Char
@@ -437,27 +437,26 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
 #else
 repl env@(gamma, lets) = do
   let redo = repl env
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
+    Nothing -> outputStrLn ""
     Just s  -> do
-      addHistory s
       case parse line "" s of
         Left err  -> do
-          putStrLn $ "parse error: " ++ show err
+          outputStrLn $ "parse error: " ++ show err
           redo
         Right None -> redo
         Right (Run term) ->
           case typeOf gamma term of
-            Left msg -> putStrLn ("type error: " ++ msg) >> redo
+            Left msg -> outputStrLn ("type error: " ++ msg) >> redo
             Right t -> do
-              putStrLn $ "[type = " ++ show t ++ "]"
-              print $ norm env term
+              outputStrLn $ "[type = " ++ show t ++ "]"
+              outputStrLn $ show $ norm env term
               redo
         Right (TopLet s term) -> case typeOf gamma term of
-          Left msg -> putStrLn ("type error: " ++ msg) >> redo
+          Left msg -> outputStrLn ("type error: " ++ msg) >> redo
           Right t -> do
-            putStrLn $ "[type = " ++ show t ++ "]"
+            outputStrLn $ "[type = " ++ show t ++ "]"
             repl ((s, t):gamma, (s, term):lets)
 
 main = repl ([], [])

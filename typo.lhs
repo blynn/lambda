@@ -74,7 +74,7 @@ The kinding `::*` is common, so we elide it.
 import Haste.DOM
 import Haste.Events
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Control.Arrow
 import Control.Monad
@@ -456,36 +456,35 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
 #else
 repl env@(lets, types, kinds) = do
   let redo = repl env
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
+    Nothing -> outputStrLn ""
     Just s  -> do
-      addHistory s
       case parse line "" s of
         Left err  -> do
-          putStrLn $ "parse error: " ++ show err
+          outputStrLn $ "parse error: " ++ show err
           redo
         Right Blank -> redo
         Right (Run term) -> case typeOf (types, kinds) term of
-          Left msg -> putStrLn ("type error: " ++ msg) >> redo
+          Left msg -> outputStrLn ("type error: " ++ msg) >> redo
           Right ty -> do
-            putStrLn $ "[type = " ++ show ty ++ "]"
-            print $ norm (lets, types) term
+            outputStrLn $ "[type = " ++ show ty ++ "]"
+            outputStrLn $ show $ norm (lets, types) term
             redo
         Right (Typo s typo) -> case kindOf (types, kinds) typo of
           Right k -> do
-            putStrLn $ "[" ++ show (tNorm (types, kinds) typo) ++
+            outputStrLn $ "[" ++ show (tNorm (types, kinds) typo) ++
               " : " ++ show k ++ "]"
             repl (lets, (s, typo):types, (s, k):kinds)
           Left m -> do
-            putStrLn m
+            outputStrLn m
             redo
         Right (TopLet s term) -> case typeOf (types, kinds) term of
-          Left msg -> putStrLn ("type error: " ++ msg) >> redo
+          Left msg -> outputStrLn ("type error: " ++ msg) >> redo
           Right t -> do
-            putStrLn $ "[type = " ++ show t ++ "]"
+            outputStrLn $ "[type = " ++ show t ++ "]"
             repl ((s, term):lets, (s, t):types, kinds)
-main = repl ([], [], [])
+main = runInputT defaultSettings $ repl ([], [], [])
 #endif
 \end{code}
 

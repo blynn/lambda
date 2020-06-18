@@ -30,7 +30,7 @@ computation known as https://en.wikipedia.org/wiki/Lambda_calculus['lambda calcu
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Also see
-http://projectultimatum.org/cgi-bin/lambda[Hai (Paul) Liu's step-by-step Lambda Viewer].
+https://projectultimatum.org/cgi-bin/lambda[Hai (Paul) Liu's step-by-step Lambda Viewer].
 
 == Why Lambda Calculus? ==
 
@@ -43,7 +43,7 @@ we find lambda calculus is sometimes superior:
 
  * *simple*: Here's how to multiply two numbers in lambda calculus:
  $\lambda m.\lambda n.\lambda f.m(n f)$. Spare a thought for
- http://stackoverflow.com/questions/tagged/turing-machines[students struggling
+ https://stackoverflow.com/questions/tagged/turing-machines[students struggling
  to make Turing machines do simple tasks].
 
  * *practical*: With a little syntax sugar, lambda calculus becomes
@@ -58,7 +58,7 @@ we find lambda calculus is sometimes superior:
 
  * *representing data with functions* leads to rich algebras where a
  little notation goes a long way. For example, we can
- http://projects.haskell.org/diagrams/gallery.html[draw intricate diagrams
+ https://diagrams.github.io/gallery.html[draw intricate diagrams
  with a few lines].
 
  * link:simply.html[*solves the halting problem*]: By adding types, we can
@@ -84,9 +84,9 @@ other.
 == Why Lambda? ==
 
 See
-http://www-users.mat.umk.pl/\~adwid/materialy/doc/church.pdf['The impact of lambda calculus
+https://www-users.mat.umk.pl/\~adwid/materialy/doc/church.pdf['The impact of lambda calculus
 in logic and computer science'] by Henk Barendregt, and
-http://www.users.waitrose.com/~hindley/SomePapers_PDFs/2006CarHin,HistlamRp.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
+https://pdfs.semanticscholar.org/959d/32cfa6df9299312ba51e2102045e1f25bc18.pdf['History of Lambda-calculus and Combinatory Logic'] by Felice Cardone and
 J. Roger Hindley. It seems its true name should be ``hat calculus''.
 We'll find that lambdas are redundant, but I suppose we need a symbol of some sort
 to avoid calling it just ``calculus''.
@@ -441,7 +441,7 @@ See:
  * https://www.reddit.com/r/haskell/comments/5vbvul/keynote_why_functional_programming_matters_john/[``Why
 functional programming matters'', a keynote address by John Hughes and Mary
 Sheeran].
- * http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf['A Brief and Informal
+ * https://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf['A Brief and Informal
 Introduction to the Lambda Calculus'] by Paul Hudak.
  * https://en.wikipedia.org/wiki/Church_encoding[Wikipedia's entry on Church
 encoding].
@@ -566,7 +566,7 @@ fact (succ (succ (succ 1)))  -- Compute 4!
 
 == Lambda calculus with lambda calculus ==
 
-https://s3.amazonaws.com/academia.edu.documents/40167102/Efficient_Self-Interpretation_in_Lambda_20151119-799-nnautr.pdf?AWSAccessKeyId=AKIAIWOWYYGZ2Y53UL3A&Expires=1546497456&Signature=B2adabbmM5atkfcZIja2Tj24Y%2BU%3D&response-content-disposition=inline%3B%20filename%3DEfficient_self-interpretation_in_lambda.pdf[Mogensen
+https://www.researchgate.net/publication/2673832_Efficient_Self-Interpretation_in_Lambda_Calculus[Mogensen
 describes a delightful encoding of lambda terms with lambda terms]. If
 we denote the encoding of a term $T$ by $\lceil T\rceil$,
 then we can recursively encode any term with the following three rules for

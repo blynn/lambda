@@ -249,7 +249,7 @@ would only be printed if we, say, added a logging statement for debugging.
 import Haste.DOM
 import Haste.Events
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Control.Arrow
 import Control.Monad
@@ -541,30 +541,29 @@ main = withElems ["input", "output", "evalB", "resetB", "resetP",
 #else
 repl env@(gamma, lets) = do
   let redo = repl env
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
+    Nothing -> outputStrLn ""
     Just s  -> do
-      addHistory s
       case parse line "" s of
         Left err  -> do
-          putStrLn $ "parse error: " ++ show err
+          outputStrLn $ "parse error: " ++ show err
           redo
         Right Blank -> redo
         Right (Run term) -> do
           case typeOf gamma term of
-            Left msg -> putStrLn $ "bad type: " ++ msg
+            Left msg -> outputStrLn $ "bad type: " ++ msg
             Right t  -> do
-              putStrLn $ "[" ++ show t ++ "]"
-              print $ norm lets term
+              outputStrLn $ "[" ++ show t ++ "]"
+              outputStrLn $ show $ norm lets term
           redo
         Right (TopLet s term) -> case typeOf gamma term of
-          Left msg -> putStrLn ("bad type: " ++ msg) >> redo
+          Left msg -> outputStrLn ("bad type: " ++ msg) >> redo
           Right t  -> do
-            putStrLn $ "[" ++ s ++ " : " ++ show t ++ "]"
+            outputStrLn $ "[" ++ s ++ " : " ++ show t ++ "]"
             repl ((s, generalize [] t):gamma, (s, term):lets)
 
-main = repl ([], [])
+main = runInputT defaultSettings $ repl ([], [])
 #endif
 \end{code}
 

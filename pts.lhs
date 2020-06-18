@@ -151,7 +151,7 @@ import Haste.DOM
 import Haste.Events
 import System.Random
 #else
-import System.Console.Readline
+import System.Console.Haskeline
 #endif
 import Control.Monad
 import Data.Bool
@@ -163,7 +163,7 @@ import Text.Parsec
 
 data Term = S String | V String | Lam String Term Term | Pi String Term Term
   | App Term Term
-  | Prim String [Term]   -- For optional language primitives.
+  | Prim String [Term]
 \end{code}
 
 In our code, we call the data type `Term`, but it really is a 'pseudo-term'
@@ -348,8 +348,7 @@ With a few tweaks, not only can our code be reused to interpret any vertex of
 the https://en.wikipedia.org/wiki/Lambda_cube['lambda cube'], but also an
 infinite number of exotic typed lambda calculi beyond those we've seen so far.
 
-We start by defining a set of valid `S` values, known as 'sorts'.
-For the calculus of combinations, there are two:
+We start by defining a set of valid `S` values, known as 'sorts':
 
   1. `S "*"`
   2. `S "□"`
@@ -504,10 +503,10 @@ rename x x1 term = case term of
       | otherwise   -> term
   Lam s t b
         | s == x    -> term
-        | otherwise -> Lam s t (rec b)
+        | otherwise -> Lam s (rec t) (rec b)
   Pi s t b
         | s == x    -> term
-        | otherwise -> Pi s t (rec b)
+        | otherwise -> Pi s (rec t) (rec b)
   App a b           -> App (rec a) (rec b)
   where rec = rename x x1
 \end{code}
@@ -878,29 +877,28 @@ repl env@(types, lets) = do
   let
     redo = repl env
     sar = parseSpec $ unlines ["A * ?", "R * *", "R ? *", "R ? ?", "R * ?"]
-  ms <- readline "> "
+  ms <- getInputLine "> "
   case ms of
-    Nothing -> putStrLn ""
+    Nothing -> outputStrLn ""
     Just s  -> do
-      addHistory s
       case parse (line (sOf sar, syn0)) "" s of
         Left err  -> do
-          putStrLn $ "parse error: " ++ show err
+          outputStrLn $ "parse error: " ++ show err
           redo
         Right None -> redo
         Right (TopLet s term) -> case judge sar env term of
-          Left msg -> putStrLn ("judge: " ++ msg) >> redo
+          Left msg -> outputStrLn ("judge: " ++ msg) >> redo
           Right ty -> do
-            putStrLn $ "[type = " ++ show (norm lets ty) ++ "]"
+            outputStrLn $ "[type = " ++ show (norm lets ty) ++ "]"
             repl ((s, ty):types, (s, term):lets)
         Right (Axiom s term) -> case judge sar env term of
-          Left msg -> putStrLn ("judge: " ++ msg) >> redo
+          Left msg -> outputStrLn ("judge: " ++ msg) >> redo
           Right _ -> repl ((s, term):types, lets)
         Right (Run term) -> case judge sar env term of
-          Left msg -> putStrLn ("judge: " ++ msg) >> redo
-          Right ty -> print (norm lets term) >> redo
+          Left msg -> outputStrLn ("judge: " ++ msg) >> redo
+          Right ty -> outputStrLn (show $ norm lets term) >> redo
 
-main = repl (gamma0, lets0)
+main = runInputT defaultSettings $ repl (gamma0, lets0)
 #endif
 \end{code}
 

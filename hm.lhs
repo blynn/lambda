@@ -15,7 +15,7 @@ Type theory shows how to avoid these pitfalls, but many programmers seem
 unaware:
 
  * Popular authors Bruce Eckel and Robert C. Martin mistakenly believe
- https://docs.google.com/document/d/1aXs1tpwzPjW9MdsG5dI7clNFyYayFBkcXwRDo-qvbIk/preview[strong typing implies verbosity], and worse still, http://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[testing conquers all].
+ https://docs.google.com/document/d/1aXs1tpwzPjW9MdsG5dI7clNFyYayFBkcXwRDo-qvbIk/preview[strong typing implies verbosity], and worse still, https://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[testing conquers all].
  Tests are undoubtedly invaluable, but at best they
  https://en.wikipedia.org/wiki/Proof_by_example[``prove'' by example]. As in
  mathematics, the one true path lies in rigorous proofs of correctness. That

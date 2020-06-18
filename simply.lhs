@@ -6,12 +6,12 @@ Have we just learned we can never trust software? How can we rely on a program
 to control spacecraft or medical equipment if it can unpredictably loop
 forever?
 
-http://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[One might
+https://blog.cleancoder.com/uncle-bob/2017/01/11/TheDarkPath.html[One might
 claim extensive testing is the answer]. We check a variety of cases work as
 intended, then hope for the best. But though helpful, testing alone rarely
-suffices. An untested case might occur naturally and behave badly. Worse
-still, a malicious user could scour the untested cases for ways to
-deliberately sabotage our program.
+suffices. Dijkstra said: “Program testing can be used to show the presence of bugs, but never to show their absence!”
+In the worst case, a malicious user can examine our tests, learn what is
+untested, then quickly find ways to deliberately sabotage our program.
 
 The only true fix is to rein in those unruly Turing machines. Constraining our
 code, might make it behave. We might try banning GOTO statements for example.
