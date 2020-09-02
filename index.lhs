@@ -254,7 +254,7 @@ beta env (v, a) t = case t of
   Lam s m | s == v       -> Lam s m
           | s `elem` fvs -> Lam s1 $ rec $ rename s s1 m
           | otherwise    -> Lam s (rec m)
-          where s1 = newName s $ fvs `union` fv env [] m
+          where s1 = newName s $ v : fvs `union` fv env [] m
   App m n                -> App (rec m) (rec n)
   where rec = beta env (v, a)
         fvs = fv env [] a
@@ -270,11 +270,6 @@ fv env vs (Lam s f)                        = fv env (s:vs) f
 
 To pick a new name, we increment the number at the end of the name (or append
 "1" if there is no number) until we've avoided all the given names.
-
-Our simplistic scheme relies on the user to avoid, say, using the name "x1"
-within a lambda abstraction that binds the variable "x". We could solve this
-problem by also prepending some character that our parser rejects as part of
-a variable name, but it makes our interactive demo uglier.
 
 \begin{code}
 newName :: String -> [String] -> String
