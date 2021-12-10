@@ -14,5 +14,6 @@ pts,Pure Type Systems
 \
 \''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 \
+\- link:../compiler[Compilers]
 \- link:../haskell[Haskell Notes]
 \- link:../[Ben Lynn]

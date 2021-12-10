@@ -46,8 +46,8 @@ we find lambda calculus is sometimes superior:
  https://stackoverflow.com/questions/tagged/turing-machines[students struggling
  to make Turing machines do simple tasks].
 
- * *practical*: With a little syntax sugar, lambda calculus becomes
- a practical programming language. Already, our factorial example above is
+ * *practical*: With a little syntax sugar, link:../compiler/[lambda calculus becomes
+ a practical programming language]. Already, our factorial example above is
  shorter than equivalent code in many high-level languages!
  In contrast, sweetened Turing machines would probably still be unpalatable.
 
@@ -217,18 +217,18 @@ If the left child evaluates to anything but a lambda, then we stop, as a free
 variable got in the way somewhere.
 
 Otherwise, we perform beta reduction as follows. Let the left child be $\lambda
-v . M$. We traverse the right subtree of the root node, and replace every
-occurrence of $v$ with the term $M$.
+v . M$. We traverse $M$ and replace every occurrence of $v$ with the right
+subtree of the root node.
 
 While doing so, we must handle a potential complication. A reduction such as
 `(\y -> \x -> y)x` to `\x -> x` is incorrect. To prevent this, we rename the
 first `x` and find `(\y -> \x1 -> y)x` reduces to `\x1 -> x`.
 
-More precisely, a variable `v` is 'bound' if it appears in the right subtree of
-a lambda abstraction node whose left child is `v`. Otherwise `v` is 'free'. If a
-substitution would cause a free variable to become bound, then we rename all
-free occurrences of that variable before proceeding. The new name must differ
-from all other free variables.
+More precisely, we say a variable `v` is 'bound' if it appears in the right
+subtree of a lambda abstraction node whose left child is `v`. Otherwise `v` is
+'free'. If a substitution would cause a free variable `x` to become bound, then
+we rename bound occurrences of `x` to before proceeding. The new name must
+differ from all other free variables.
 
 We store the let definitions in an associative list named `env`, and perform
 lookups on demand to see if a given string is a variable or shorthand for
