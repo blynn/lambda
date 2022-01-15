@@ -4,6 +4,7 @@ sk,Combinators
 logski,Bracket Abstraction
 natded,Natural Deduction
 crazyl,Crazy L
+bohm,Böhm's Theorem
 lisp,Lisp
 simply,Simply typed
 hm,Type inference
