@@ -8,11 +8,8 @@ http://www.paulgraham.com/rootsoflisp.html['The Roots of Lisp']
 [http://languagelog.ldc.upenn.edu/myl/ldc/llog/jmc.pdf[PDF]] to
 the original paper is more accessible, and corrects bugs.
 
-http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[Functional programming languages began with John McCarthy's invention of Lisp],
-which showed computer scientists the importance of lambda calculus. Without
-Lisp, would we still be stuck with Turing machines for the theory of
-computation?  Would we still be ignorant of the connections between programming
-and logic and category theory?
+http://research.microsoft.com/en-us/um/people/simonpj/papers/history-of-haskell/[Lisp features prominently in the history of functional programming languages],
+though any language with garbage collection owes at least a small debt to Lisp.
 
 We'll build a Lisp interpreter based on Graham's paper:
 
@@ -489,25 +486,38 @@ data Bind b = NonRec b (Expr b)
             | Rec [(b, (Expr b))]
 ------------------------------------------------------------------------------
 
-Parallels with the Lisp are obvious, for example, `Lam` is `lambda`, `Case` is
+Parallels with Lisp are obvious, for example, `Lam` is `lambda`, `Case` is
 `cond`, and `App` is the first cons cell in a Lisp list, There's bookkeeping
 for types, and source annotation (`Tick`) for profilers and similar tools, but
-otherwise Core and Lisp share the same minmalist design. Both are extensions of
-lambda calculus.
+otherwise Core and Lisp share the same minmalist design.
 
-== Core changes ==
+== History versus myth ==
 
-Nonetheless, there are profound differences between Haskell and Lisp.
-Haskell has benefited from the experience of functional programmers, as well as
-advances in theory involving the foundations of mathematics and computer
-science.
+Time has given Lisp a legendary status which is perhaps only partly deserved.
+https://www.cs.kent.ac.uk/people/staff/dat/tfp12/tfp12.pdf[David Turner's brief
+history of functional programming languages] dispels some Lisp myths:
 
- - Lisp pioneered programming with pure functions. Haskell has
-   taken purity to heart: its type system means the compiler knows which
-   functions are pure and which are not, and steers programmers to isolate
-   impure code in tiny functions.
-   https://en.wikipedia.org/wiki/Monad_(category_theory)[Monads] help make
-   purity practical.
+ - Lisp had assignments and goto before it had recursion, and started as a
+ dialect of Fortran! It was only later that Lisp programmers investigated the
+ benefits of pure functions.
+
+ - Lisp was not based on lambda calculus, but rather Kleene's work on
+ https://en.wikipedia.org/wiki/General_recursive_function[recursive functions].
+ At the time, McCarthy had heard of lambda calculus but had not yet studied it!
+
+ - Lisp's M-language was first-order, that is, functions could not be passed
+ around. However, you could pass around something like a string representation
+ of a function (an S-expression). Though useful, free variables behave so oddly
+ that McCarthy thought it was a bug: we get dynamic binding instead of lexical.
+ (This reminds us meta-programming and higher-order programming are different.)
+
+ - It was only in 1975 that Scheme saw the light and gave us a Lisp based on
+ lambda calculus.
+
+Thanks to standing on Lisp's shoulders, as well as theoretical advances,
+Haskell is built on a more solid foundation:
+
+ - Purity and lambda calculus were baked into the language from the start.
 
  - Lazy evaluation largely obviates the need for macros.
 
@@ -532,13 +542,14 @@ correspondence].
    more troublesome because we must repeatedly traverse left from the root
    to find the next node to reduce, rather than simply take the left child of
    the root. However, it's a net win because a curried function is a subtree.
-   We have
+   We have lambda calculus and
    https://en.wikipedia.org/wiki/Combinatory_logic[combinatory logic] to thank
    for left-associative function application.
 
  - Lisp is perhaps the best language for appreciating the equivalence of code
-   and data, since a program is its own representation. However, although
-   artistically and intellectually engaging, this blurring of the
+   and data, since a program is its own representation, which is known as
+   homoiconicity. However, although artistically and intellectually engaging,
+   this blurring of the
    https://en.wikipedia.org/wiki/Use%E2%80%93mention_distinction[use-mention
    distinction] trips up everyone from students
    (https://www.cs.kent.ac.uk/people/staff/dat/miranda/wadler87.pdf[who have
