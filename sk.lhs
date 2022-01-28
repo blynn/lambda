@@ -301,8 +301,7 @@ compile heap = let
   sect t xs = t : lenc (varlen xs ++ concat xs)
 \end{code}
 
-Our binary starts the same as link:wasm.html[our first wasm demo], except we
-work with `i32` instead of `f64` and ask for linear memory.
+We link:../asm/wasm.html[follow the wasm format]:
 
 \begin{code}
   in concat [

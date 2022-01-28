@@ -1,5 +1,4 @@
 index,Lambda calculus
-wasm,WebAssembly
 sk,Combinators
 logski,Bracket Abstraction
 natded,Natural Deduction
@@ -16,5 +15,6 @@ pts,Pure Type Systems
 \''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 \
 \- link:../compiler[Compilers]
-\- link:../haskell[Haskell Notes]
+\- link:../haskell[Haskell]
+\- link:../asm[Assembly]
 \- link:../[Ben Lynn]

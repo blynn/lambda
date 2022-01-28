@@ -7,7 +7,7 @@ menu.html: menu ; cobble menu menu
 %.js: %.lhs ; $(HS2JS) $^
 %.html: %.lhs menu.html ; cobble mathbook menu $<
 
-LHSNAMES=index simply hm lisp systemf typo pts wasm sk crazyl pcf natded logski
+LHSNAMES=index simply hm lisp systemf typo pts sk crazyl pcf natded logski
 LHSFILES=$(addsuffix .lhs, $(LHSNAMES)) $(addsuffix .html, $(LHSNAMES)) $(addsuffix .js, $(LHSNAMES))
 
 HDIR=../boot
