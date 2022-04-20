@@ -91,6 +91,16 @@ J. Roger Hindley. It seems its true name should be ``hat calculus''.
 We'll find that lambdas are redundant, but I suppose we need a symbol of some sort
 to avoid calling it just ``calculus''.
 
+https://www.youtube.com/watch?v=mBjhDyHFqJY[A talk by Dana Scott] contains a
+conflicting anecdote: Church's son-in-law wrote a postcard inquiring why lambda
+was chosen, and the written response was "eeny meeny miney moe", that is,
+Church chose this Greek letter for no reason in particular!
+
+In the same talk, Scott suggests Kleene, despite being a lambda calculus
+expert, was perhaps responsible for the dominance of Turing machines. Kleene
+worried that audiences were mystified by lambda calculus in his lectures, so
+he switched to Turing machines.
+
 == Beta reduction ==
 
 Unlike Turing machines, everyone already knows the basics of lambda calculus.
@@ -342,9 +352,9 @@ exists, hence its name.
 
 This is intuitively evident, as at each step we're doing the bare minimum.
 Reducing `m` before `n` means we ignore arguments to a function until they are
-needed, which explains another name for this strategy: 'lazy evaluation'.
-Technically, this is a slightly different strategy because it also means we are
-memoizing to avoid repeating computations, but this only matters when we're
+needed, which explains other names for this strategy: 'call by need', or 'lazy
+evaluation'. Technically, we should also memoize to avoid repeating
+computations, otherwise it's just 'call by name', but this only matters when
 considering efficiency.
 
 == User interface ==
@@ -493,9 +503,8 @@ From such tuples, we can construct lists, trees, and so on.
 
 Admittedly, the predecessor function is complicated, probably more so than the
 a typical Turing machine implementation. However, this is an artifact of the
-Church encoding. With
-https://ifl2014.github.io/submissions/ifl2014_submission_13.pdf[the Scott
-encoding], we have a fast and simple predecessor function:
+Church encoding. With link:../compiler/scott.html[the Scott encoding], we have
+a fast and simple predecessor function:
 
 ------------------------------------------------------------------------------
 0 = \f x -> x

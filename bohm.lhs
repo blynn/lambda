@@ -6,10 +6,10 @@ to running one after the other.
 How about composing two lambda calculus terms? This time, the answers boil down
 to applying one to the other.
 
-These observations sound similar, but there is a difference. The only
-information Turing machines can learn from each other is via symbols on the
-tape. There is no way for the second machine to learn any internal details of
-the first machine.
+These observations sound similar, but there is a difference. A Turing machine
+can only learn about another Turing machine via symbols on the tape. There is
+no way for the second machine to learn any internal details of the first
+machine.
 
 In contrast, to apply a lambda term to another is to supply an entire program
 as the input to another. This raises a question we cannot ask about Turing
@@ -95,6 +95,7 @@ const exs =
   [ "\\x y z -> x z (y z)", "\\x y -> x"
   , "\\x y z -> x z x", "\\x y -> y"
   , "\\x -> x", "\\x y z w -> x y"
+  , "\\x y -> x (y (x (y x)))", "\\x y -> x (y (x (y y)))"
   , "\\a b c d -> a (b (a a (b c b) a))", "\\a b c d -> a (b (a a (b d b) a))"
   , "\\x -> x (x x x) x", "\\x -> x (x x x x x x x) x"
   , "\\x -> x x (x (x x x) x)", "\\x -> x x (x (x x x x x x x) x)"
@@ -334,7 +335,7 @@ bohmTree = smooshLa 0 where
       smooshAp kids = \case
         Va n   -> Bohm k n $ bohmTree <$> kids
         Ap x y -> smooshAp (y:kids) x
-        _      -> error "want closed normal form"
+        _      -> error "want normal form"
 \end{code}
 
 Let $A$ and $B$ be normal lambda terms. We recursively descend the Böhm trees
@@ -427,16 +428,30 @@ cases, we store the variable, number of children, and a choice of $U$ or $V$.
 data Delta = Func [(Int, (LC, Int))] | Arity Int [(Int, LC)]
 \end{code}
 
-If two given trees have the same head variable $v$ and same number of children
-$n$, we recurse to find a child, say the $k$th, that differs. If there is no
-such $k$ then $A$ and $B$ are equivalent. Otherwise, substituting the
-$k$-out-of-$n$ projection function for $v$:
+The remaining case is that $A$ and $B$ have the same head variable $v$ and same
+number of children $n$.
+
+If their children are identical, then $A = B$, otherwise we recurse to find $k$
+such that the bodies of $A$ and $B$ are:
+
+\[
+v T_1 ... T_n
+\]
+
+versus:
+
+\[
+v S_1 ... S_n
+\]
+
+with $T_k \ne S_k$. Substituting the $k$-out-of-$n$ projection function for
+$v$:
 
 \[
 v \mapsto λ^n (n - k)
 \]
 
-causes the body of either lambda term to evaluate to the $k$th child.
+reduces the first to $T_k$ and the second to $S_k$.
 
 The `diff` function recursively traverses 2 given Bohm trees to find a
 difference, eta-converting along the way to equalize the number of lambdas.
@@ -470,9 +485,9 @@ diff nest0 a@(tru, Bohm al ah akids) b@(fal, Bohm bl bh bkids)
   go ak bk = diff nest (tru, ak) (fal, bk)
 \end{code}
 
-We construct $X = λ 0 T_1 ... T_n$ such that $XA = U$ and $XB = V$ by building
-the $T_i$ so that the desired substitutions arise. For some values of $i$, we
-may find any $T_i$ will do, in which case we pick `λ0`. [It turns out our code
+We construct $X = λ 0 X_1 ... X_n$ such that $XA = U$ and $XB = V$ by building
+the $X_i$ so that the desired substitutions arise. For some values of $i$, we
+may find any $X_i$ will do, in which case we pick `λ0`. [It turns out our code
 relies on our choice being normalizing; if we cared, we could instead introduce
 a special normal node, and only after `norm` has been called do we replace such
 nodes with any terms we like, normalizing or not.]
@@ -487,7 +502,7 @@ lcPath ((_, n), sub) = case sub of
   Tuple -> laPow (n + 1) $ foldl Ap (Va 0) $ Va <$> reverse [1..n]
 
 easy (tru, a) (fal, b) = case diff 0 (tru, bohmTree a) (fal, bohmTree b) of
-  Nothing -> Left "equal lambda terms"
+  Nothing -> Left "equivalent lambda terms"
   Just ((vcount, delta), path) -> Right $ (maybe whatever id . (`lookup` subs) <$> [0..vcount-1]) ++ arityArgs
     where
     whatever = La $ Va 0
@@ -678,17 +693,18 @@ normalizing temporary terms in intermediate steps.
 
 \begin{code}
 hard (tru, a) (fal, b) = case diff 0 (tru, bohmTree a) (fal, bohmTree b) of
-  Nothing -> Left "equal lambda terms"
+  Nothing -> Left "equivalent lambda terms"
   Just ((_, delta), path) -> Right $ mkArgs 0 0 $ sortOn fst $ dedup Nothing delta path
     where
     mkArgs freeCnt k [] = (freeCnt, [])
     mkArgs freeCnt k ((v, rhs):rest) = second (((Va <$> [freeCnt..freeCnt+v-k-1]) ++) . (lcPath rhs:)) $ mkArgs (freeCnt + v - k) (v + 1) rest
 
-distinguish a b = norm $ La $ foldl Ap (laPow freeCnt $ foldl Ap (Va freeCnt) uniqArgs) easyArgs
-  where
-  Right easyArgs = easy (churchTrue, uniq a) (churchFalse, uniq b)
-  Right (freeCnt, uniqArgs) = hard (churchTrue, a) (churchFalse, b)
-  uniq f = norm $ laPow freeCnt $ foldl Ap f uniqArgs
+distinguish a b = do
+  (freeCnt, uniqArgs) <- hard (churchTrue, a) (churchFalse, b)
+  let
+    uniq f = norm $ laPow freeCnt $ foldl Ap f uniqArgs
+  easyArgs <- easy (churchTrue, uniq a) (churchFalse, uniq b)
+  pure $ norm $ La $ foldl Ap (laPow freeCnt $ foldl Ap (Va freeCnt) uniqArgs) easyArgs
 
 churchTrue = La $ La $ Va 1
 churchFalse = La $ La $ Va 0
@@ -713,7 +729,7 @@ main = do
     eab = do
       a <- debruijn [] =<< parse "A" aVal
       b <- debruijn [] =<< parse "B" bVal
-      x <- pure $ distinguish a b
+      x <- distinguish a b
       pure $ foldr (.) id $ (. ("<br>\n"++)) <$>
         [ ("A = "++) . shows a
         , ("B = "++) . shows b
@@ -722,7 +738,7 @@ main = do
         , ("XB = "++) . shows (norm $ Ap x b)
         ]
 
-  putStr $ either id ($ "") eab
+  putStr $ either ("error: "++) ($ "") eab
 \end{code}
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -731,18 +747,52 @@ main = do
 
 == See Also ==
 
-Guerrini,
-Piperno, and Dezani-Ciancaglini explain
-https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.621.8250&rep=rep1&type=pdf[why Böhm's Theorem matters], and
-outline its proof without mentioning lambda calculus! Rather, they talk about
-tree manipulations instead.
+I first encountered Böhm's Theorem in
+https://www.youtube.com/watch?v=QVwm9jlBTik[a talk by David Turner on the
+history of functional programming]. On one slide, he states "three really
+important theorems about the lambda calculus". I had heard of the two
+Church-Rosser theorems he cited, so I was surprised by my ignorance of the
+third key result.
 
-Barendregt presents the https://arxiv.org/abs/1812.02243[gems of Corrado Böhm].
-If you liked this algorithm, then you'll love his other ideas!
+I was surprised again when I had trouble finding explanations online. Perhaps
+computer scientists in general are less aware of Böhm's Theorem than they ought
+to be. I came across Guerrini, Piperno, and Dezani-Ciancaglini,
+https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.621.8250&rep=rep1&type=pdf['Why
+Böhm's Theorem matters'], who make the theorem sound easy to implement. They
+outline its proof without mentioning lambda calculus(!) and draw pretty
+pictures with trees.
 
-Gérard Huet describes
-https://hal.inria.fr/inria-00074664/document[an implementation
-of Böhm's Theorem in ML].
+It inspired me to try coding Böhm's Theorem, but I soon found they had swept
+some tricky problems under the rug. Luckily, their paper cited Gérard Huet's
+https://hal.inria.fr/inria-00074664/document[implementation of Böhm's Theorem
+in ML], and I also found other, more detailed proofs.
 
-Strangely, what we call the "hard hard case" seems absent in the literature. Or
-maybe it is in fact mentioned and I missed it. Or maybe I'm doing it wrong.
+I eventually made it out alive and completed the above implementation. I
+studied Huet's code to see how he had dealt with the corner cases that had
+almost defeated me. I was shocked to find they weren't handled at all!
+I thought there must be a bug. With Huet's help, I was able to clone:
+
+ * https://gitlab.inria.fr/huet/cct/
+
+(it needs the now-obsolete camlp4, so I built it with ocaml-3.12.1), and
+verify that it handles the "hard hard case" just fine.
+
+I realized Huet's code has no need to handle special cases because it deals
+with one variable at a time, rather than add a bunch of them in one go, as we
+do. His approach is simple and elegant.
+
+Cleverer still, in each Bohm tree node, variables are numbered starting from 0
+but in reverse order to De Bruijn indices. (They are also tagged with a second
+number indicating the level of the tree they belong.) Thus eta expansion is
+free, while our code must jump through some hoops to renumber variables when
+eta-expanding.
+
+I also learned from Huet that Böhm himself never published his theorem, except
+in a techincal report; Barendregt later presented a proof in a book.
+Furthermore, the theorem is crucial because it means there are only two
+interesting models of lambda-calculus, the extensional model $D_\infty$ and
+the intensional model $P(\omega)$ ("the graph model").
+
+By the way, Barendregt also wrote about https://arxiv.org/abs/1812.02243[gems
+of Corrado Böhm]. If you liked this algorithm, then you'll love his other
+ideas!

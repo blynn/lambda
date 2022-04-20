@@ -16,7 +16,7 @@ bohm.o: bohm.c; $(WCC) $^
 bohm.wasm: bohm.o; $(WLD) $^ -o $@
 
 WCC=clang -O3 -c --target=wasm32 -Wall
-WASMLINK=wasm-ld-11
+WASMLINK=wasm-ld
 WLD=$(WASMLINK) --initial-memory=41943040 --export-dynamic --allow-undefined --no-entry
 
 SITE=$(LHSFILES) menu.html bohm.wasm bohm.lhs bohm.html

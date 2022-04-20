@@ -82,13 +82,24 @@ source = catMaybes <$> many maybeLet where
 == Bracket abstraction ==
 
 Lambda expressions are great for humans, but how do we get a computer to
-evaluate them? We take a classic route, and eliminate all lambdas by rewriting
-them in terms of certain functions.
+evaluate them? We'll take a classic route.
 
-Define $S = \lambda x y z . x z (y z)$ and $K = \lambda x y . x$, which in
-Haskell are known as `(<*>)` (specialized to Reader) and `const`.
-It turns out we can rewrite any closed lambda term with $S$ and $K$ alone. We
-need only implement two functions to attain Turing completeness!
+A 'combinator' is another term for a closed lambda term, but when we use this
+word, we usually mean we'll define a fixed set of combinators/closed lambda
+terms and see what we can do just by applying members of this set to one
+another. Thus if we choose a sufficiently powerful set, we no longer need to
+deal with lambda abstractions and variables, making this approach attractive
+for compilers.
+
+Define the combinators:
+
+  * $S = \lambda x y z . x z (y z)$
+
+  * $K = \lambda x y .  x$
+
+which in Haskell are known as `(<*>)` (specialized to Reader) and `const`. It
+turns out we can rewrite any closed lambda term with $S$ and $K$ alone. We need
+only implement two functions to attain Turing completeness!
 
 First, we notice $S K K x = x$ for all $x$; a handy convention is to write $I$
 for $S K K$. Then, we find all variables can be removed by recursively
