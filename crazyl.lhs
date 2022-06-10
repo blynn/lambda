@@ -372,10 +372,10 @@ data Lang = LazyK | FussyK | CrazyL | Nat
 
 == De Bruijn indices ==
 
-We shall need
-https://en.wikipedia.org/wiki/De_Bruijn_index['De Bruijn indices]', that is,
-we replace each variable with an integer representing the number of `Lam`
-nodes we encounter as we travel up the parse tree before reaching the `Lam` that introduced it. (This is similar to wasm branch labels.)
+Recall link:cl.html['De Bruijn indices]' arise when we replace each variable
+with an integer representing the number of `Lam` nodes we encounter as we
+travel up the parse tree before reaching the `Lam` that introduced it. (Wasm
+branch labels are similar.)
 
 For example,
 
@@ -391,8 +391,8 @@ becomes:
 
 Also, $S = \lambda\lambda\lambda 2 0(1 0)$ and $K = \lambda\lambda 1$.
 
-We employ http://okmij.org/ftp/tagless-final/[a tagless final representation]
-for De Bruijn terms:
+This time, we employ http://okmij.org/ftp/tagless-final/[a tagless final
+representation] for De Bruijn terms:
 
 \begin{code}
 infixl 5 #

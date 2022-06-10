@@ -291,11 +291,13 @@ illegal while `id ()` is fine. But in untyped lambda calculus, anything goes.)
 
 Accordingly, for Böhm's Theorem we must view $λ0$ and $λλ10$ as equal, and more
 generally, there's no way to tell apart $λx.Fx$ and $F$ from their external
-properties. Replacing the former term with the latter is called
-'eta-conversion', so treating such terms as equals is known as
-'eta-equivalence'. While we're throwing around buzzwords, if two terms are
-indistiguishable from their external properties, then we say they are
-'extensionally equal'.
+properties. Replacing one with the other is called a 'eta-conversion', so
+treating such terms as equals is known as 'eta-equivalence'. Replacing the the
+smaller one with the bigger one is more specifically called 'eta-expansion' or
+'eta-abstraction', while the reverse is 'eta-reduction'.
+
+While we're throwing around buzzwords, if two terms are indistiguishable from
+their external properties, then we say they are 'extensionally equal'.
 
 Do we need to beware of other strange equivalences? No! It turns out beta- and
 eta-equivalence is all we need for the theorem to work.
@@ -321,8 +323,8 @@ abstraction, we could beta-reduce further: a contradiction for normal terms.
 This observation inspires the definition of a
 https://en.wikipedia.org/wiki/B%C3%B6hm_tree['Böhm tree']. In our version, a
 Böhm tree node contains the number of preceding lambdas, the head variable $v$
-in the body, and $n$ child Böhm trees representing the normal terms to which
-$v$ is applied.
+which starts its body, and $n$ child Böhm trees representing the normal terms
+to which $v$ is applied, and form the remainder of its body.
 
 \begin{code}
 data Bohm = Bohm Int Int [Bohm] deriving Show
@@ -343,7 +345,10 @@ representing $A$ and $B$ starting from their roots, looking for a difference.
 
 We have no concerns about beta-equivalence because the terms are normal.
 However, we must be mindful of eta-equivalence. When comparing Bohm trees, if
-one has fewer lambdas than the other, then we compensate by performing eta-conversions to make up the difference: we add lambdas, renumber variables in the existing children, and add new children corresponding to the new lambdas.
+one has fewer lambdas than the other, then we compensate by performing
+eta-conversions to make up the difference: we add lambdas, renumber variables
+in the existing children, and add new children corresponding to the new
+lambdas.
 
 For example, adding 3 lambdas to:
 
@@ -375,13 +380,13 @@ count $l$.
 One possibility is that the head variables of our trees differ, say:
 
 \[
-λ^l v T_1 ... T_m
+A = λ^l v T_1 ... T_m
 \]
 
 versus:
 
 \[
-λ^l w S_1 ... S_n
+B = λ^l w S_1 ... S_n
 \]
 
 where $v \ne w$. Then for any terms $U, V$, substituting
@@ -390,18 +395,18 @@ where $v \ne w$. Then for any terms $U, V$, substituting
 
   * $w \mapsto λ^n V$
 
-reduces the body of the first tree to $U$ and the second to $V$.
+reduces the body of $A$ to $U$ and the body of $B$ to $V$.
 
 Otherwise the trees have the same head variable $v$. Suppose they have a different number of children:
 
 \[
-λ^l v T_1 ... T_m
+A = λ^l v T_1 ... T_m
 \]
 
 versus:
 
 \[
-λ^l v S_1 ... S_n
+B = λ^l v S_1 ... S_n
 \]
 
 with $m < n$. Consider the terms:
@@ -418,7 +423,7 @@ Then substituting:
 
   * $a_{n-m} \mapsto U$
 
-reduces the first term to $U$ and the second to $V$.
+reduces the body of $A$ to $U$ and the body of $B$ to $V$.
 
 Our code calls these two kinds of differences `Func` deltas and `Arity` deltas
 respectively. We use lists of length 2 to record the parts that differ. In both

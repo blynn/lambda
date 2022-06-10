@@ -1,5 +1,6 @@
 index,Lambda calculus
-sk,Combinators
+cl,Combinators
+sk,SK Compiler
 logski,Bracket Abstraction
 natded,Natural Deduction
 crazyl,Crazy L

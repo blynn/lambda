@@ -63,7 +63,7 @@ import Data.Maybe
 import Text.Parsec
 
 infixl 5 :@
-data Expr = Expr :@ Expr | Var String | Lam String Expr
+data Expr = Expr :@ Expr | Var String | Lam String Expr deriving Eq
 
 source :: Parsec String () [(String, Expr)]
 source = catMaybes <$> many maybeLet where
@@ -79,69 +79,40 @@ source = catMaybes <$> many maybeLet where
   ws = many (oneOf " \t") >> optional (try $ string "--" >> many (noneOf "\n"))
 \end{code}
 
-== Bracket abstraction ==
+== Combinators ==
 
-Lambda expressions are great for humans, but how do we get a computer to
-evaluate them? We'll take a classic route.
-
-A 'combinator' is another term for a closed lambda term, but when we use this
-word, we usually mean we'll define a fixed set of combinators/closed lambda
-terms and see what we can do just by applying members of this set to one
-another. Thus if we choose a sufficiently powerful set, we no longer need to
-deal with lambda abstractions and variables, making this approach attractive
-for compilers.
-
-Define the combinators:
+We recap part of link:cl.html[our notes on combinatory logic]. Define the
+combinators:
 
   * $S = \lambda x y z . x z (y z)$
 
   * $K = \lambda x y .  x$
 
-which in Haskell are known as `(<*>)` (specialized to Reader) and `const`. It
-turns out we can rewrite any closed lambda term with $S$ and $K$ alone. We need
-only implement two functions to attain Turing completeness!
-
-First, we notice $S K K x = x$ for all $x$; a handy convention is to write $I$
-for $S K K$. Then, we find all variables can be removed by recursively
-  applying the following:
+The classic bracket abstraction algorithm with the K-optimization is:
 
 \[
 \begin{align}
+\lceil \lambda x . M \rceil &= K M \quad (x \notin M) \\
 \lceil \lambda x . x \rceil &= S K K \\
-\lceil \lambda x . y \rceil &= K y \\
 \lceil \lambda x . M N \rceil &= S \lceil \lambda x . M \rceil \lceil \lambda x . N \rceil
 \end{align}
 \]
 
-where $\lceil T \rceil$ denotes the lambda term $T$ written without
-lambda abstractions. This conversion is known as
-http://www.cantab.net/users/antoni.diller/brackets/intro.html['bracket
-abstraction']. (In the third equation, $M, N$ denote lambda terms.)
-
-https://en.wikipedia.org/wiki/Iota_and_Jot[It's possible to combine $S$ and $K$
-into one mega-combinator] (basically a Church-encoded pair) so the entire
-program only uses a single combinator. We gain no advantage from doing this, at
-least when it comes to writing a compiler.
-
-We refine the above rules to obtain leaner combinator calculus expressions.
-One easy optimization is to generalize the second rule:
-\[
-\lceil \lambda x . M \rceil = K M \quad (x \notin M)
-\]
-which leads to the following code, where the `fv` function returns the free
-variables of a given lambda term.
+Any closed lambda term can be rewritten in terms of $S$ and $K$ by applying the
+above rules starting from the innermost lambda abstraction and working
+outwards:
 
 \begin{code}
-fv vs (Var s) | s `elem` vs = []
-              | otherwise   = [s]
-fv vs (x :@ y)              = fv vs x `union` fv vs y
-fv vs (Lam s f)             = fv (s:vs) f
+lacks x t = case t of
+  Var s | s == x -> False
+  u :@ v -> lacks x u && lacks x v
+  _ -> True
 
 babs0 env (Lam x e)
-  | Var y <- t, x == y  = Var "s" :@ Var "k" :@ Var "k"
-  | x `notElem` fv [] t = Var "k" :@ t
-  | m :@ n <- t         = Var "s" :@
-    babs0 env (Lam x m) :@ babs0 env (Lam x n)
+  | lacks x t   = Var "k" :@ t
+  | otherwise   = case t of
+    Var y  -> Var "s" :@ Var "k" :@ Var "k"
+    m :@ n -> Var "s" :@ babs0 env (Lam x m) :@ babs0 env (Lam x n)
   where t = babs0 env e
 babs0 env (Var s)
   | Just t <- lookup s env = babs0 env t
@@ -149,39 +120,38 @@ babs0 env (Var s)
 babs0 env (m :@ n) = babs0 env m :@ babs0 env n
 \end{code}
 
-https://tromp.github.io/cl/LC.pdf[The rules
-described by John Tromp] produce shorter output:
+We also mentioned David Turner found more optimizations, enough to make bracket
+abstraction practical. However, he used more combinators than just $S$ and $K$.
+Luckily, https://tromp.github.io/cl/LC.pdf[John Tromp ported the rules to $S$
+and $K$]:
 
 \begin{code}
-babs env (Lam x e)
-  | Var "s" :@ Var"k" :@ _ <- t = Var "s" :@ Var "k"
-  | x `notElem` fv [] t = Var "k" :@ t
-  | Var y <- t, x == y  = Var "s" :@  Var "k" :@ Var "k"
-  | m :@ Var y <- t, x == y, x `notElem` fv [] m = m
-  | Var y :@ m :@ Var z <- t, x == y, x == z =
-    babs env $ Lam x $ Var "s" :@ Var "s" :@ Var "k" :@ Var x :@ m
-  | m :@ (n :@ l) <- t, isComb m, isComb n =
-    babs env $ Lam x $ Var "s" :@ Lam x m :@ n :@ l
-  | (m :@ n) :@ l <- t, isComb m, isComb l =
-    babs env $ Lam x $ Var "s" :@ m :@ Lam x l :@ n
-  | (m :@ l) :@ (n :@ l') <- t, l `noLamEq` l', isComb m, isComb n
-    = babs env $ Lam x $ Var "s" :@ m :@ n :@ l
-  | m :@ n <- t        = Var "s" :@ babs env (Lam x m) :@ babs env (Lam x n)
-  where t = babs env e
+babs env (Lam x e) = go $ babs env e where
+  go t
+    | Var "s" :@ Var "k" :@ _ <- t = Var "s" :@ Var "k"
+    | lacks x t = Var "k" :@ t
+    | Var y <- t, x == y  = Var "s" :@  Var "k" :@ Var "k"
+    | m :@ Var y <- t, x == y, lacks x m = m
+    | Var y :@ m :@ Var z <- t, x == y, x == z =
+      go $ Var "s" :@ Var "s" :@ Var "k" :@ Var x :@ m
+    | m :@ (n :@ l) <- t, isComb m, isComb n =
+      go $ Var "s" :@ go m :@ n :@ l
+    | (m :@ n) :@ l <- t, isComb m, isComb l =
+      go $ Var "s" :@ m :@ go l :@ n
+    | (m :@ l) :@ (n :@ l') <- t, l == l', isComb m, isComb n =
+      go $ Var "s" :@ m :@ n :@ l
+    | m :@ n <- t = Var "s" :@ go m :@ go n
 babs env (Var s)
   | Just t <- lookup s env = babs env t
   | otherwise              = Var s
 babs env (m :@ n) = babs env m :@ babs env n
 
-isComb e = null $ fv [] e \\ ["s", "k"]
-
-noLamEq (Var x) (Var y) = x == y
-noLamEq (a :@ b) (c :@ d) = a `noLamEq` c && b `noLamEq` d
-noLamEq _ _ = False
+isComb t = case t of
+  Var "s" -> True
+  Var "k" -> True
+  Var _ -> False
+  u :@ v -> isComb u && isComb v
 \end{code}
-
-Oleg Kiselyov found better bracket abstraction algorithms, but these will
-have to wait until link:crazyl.html[our next compiler].
 
 The above assumes we have no recursive let definitions and that `s` and `k`
 are reserved keywords. Enforcing this is left as an exercise.

@@ -168,7 +168,7 @@ application.
 
 \begin{code}
 instance Show Term where
-  show (Lam s t)  = "\0955" ++ s ++ showB t where
+  show (Lam s t)  = "\955" ++ s ++ showB t where
     showB (Lam x y) = " " ++ x ++ showB y
     showB expr      = "." ++ show expr
   show (Var s)    = s
@@ -209,7 +209,7 @@ line = between ws eof $ option Blank $
     try (Let <$> v <*> (str "=" >> term)) <|> (Run <$> term) where
   term = lam <|> app
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term
-  lam0 = str "\\" <|> str "\0955"
+  lam0 = str "\\" <|> str "\955"
   lam1 = str "->" <|> str "."
   app = foldl1' App <$> many1 ((Var <$> v) <|> between (str "(") (str ")") term)
   v   = many1 alphaNum <* ws
@@ -302,10 +302,11 @@ rename x x1 term = case term of
 \end{code}
 
 Our `eval` function terminates once no more top-level function applications
-(beta reductions) are possible. We recursively call `eval` on child nodes to
-reduce other function applications throughout the tree, resulting in the
-'normal form' of the lambda term. The normal form is unique up to variable
-renaming (which is called 'alpha-conversion').
+(beta reductions) are possible, reaching 'weak head normal form'.
+We recursively call `eval` on child nodes to reduce other function applications
+throughout the tree, resulting in the 'normal form' of the lambda term. The
+normal form is unique up to variable renaming (which is called
+'alpha-conversion').
 
 \begin{code}
 norm :: [(String, Term)] -> Term -> Term
