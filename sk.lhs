@@ -70,7 +70,7 @@ source = catMaybes <$> many maybeLet where
   maybeLet = between ws newline $ optionMaybe $ (,) <$> v <*> (str "=" >> term)
   term = lam <|> app
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 v) <*> term where
-    lam0 = str "\\" <|> str "\0955"
+    lam0 = str "\\" <|> str "\955"
     lam1 = str "->" <|> str "."
   app = foldl1' (:@) <$> many1
     ((Var <$> v) <|> between (str "(") (str ")") term)

@@ -142,7 +142,7 @@ instance Show Type where
     showL _         = show t
 
 instance Show Term where
-  show (Lam (x, t) y)    = "\0955" ++ x ++ ":" ++ show t ++ showB y where
+  show (Lam (x, t) y)    = "\955" ++ x ++ ":" ++ show t ++ showB y where
     showB (Lam (x, t) y) = " " ++ x ++ ":" ++ show t ++ showB y
     showB expr           = "." ++ show expr
   show (Var s)    = s
@@ -176,7 +176,7 @@ line = (<* eof) . (ws >>) $ option None $
   ifthenelse = If <$> (str "if" >> term)
     <*> (str "then" >> term) <*> (str "else" >> term)
   lam = flip (foldr Lam) <$> between lam0 lam1 (many1 vt) <*> term where
-    lam0 = str "\\" <|> str "\0955"
+    lam0 = str "\\" <|> str "\955"
     lam1 = str "."
     vt   = (,) <$> v <*> (str ":" >> typ)
   typ = ((str "B" >> pure B) <|> (str "I" >> pure I)

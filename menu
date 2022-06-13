@@ -1,10 +1,10 @@
 index,Lambda calculus
 cl,Combinators
 sk,SK Compiler
-logski,Bracket Abstraction
-natded,Natural Deduction
+kiselyov,Kiselyov's Pearl
 crazyl,Crazy L
 bohm,Böhm's Theorem
+natded,Natural Deduction
 lisp,Lisp
 simply,Simply typed
 hm,Type inference

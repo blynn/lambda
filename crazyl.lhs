@@ -317,7 +317,7 @@ top = (try super <|> (,) "main" <$> ccexpr) <* eof where
       <|> between (char '(') (char ')') ccexpr
       <|> (char '`' >> (:@) <$> expr <*> expr)
       <|> (char '*' >> (:@) <$> iotaexpr <*> iotaexpr)
-      <|> flip (foldr Lam) <$> between (char '\\' <|> char '\0955') (char '.')
+      <|> flip (foldr Lam) <$> between (char '\\' <|> char '\955') (char '.')
         (many1 var) <*> ccexpr
 
   var = lookAhead (noneOf "skiSICKB") >> pure <$> letter
@@ -441,16 +441,8 @@ toDeb env = \case
   x :@ y -> toDeb env x # toDeb env y
 \end{code}
 
-Now we apply http://okmij.org/ftp/tagless-final/ski.pdf[an elegant bracket
-abstraction algorithm due to Oleg Kiselyov]. Again we use a tagless final
-representation for the output of the algorithm.
-
-The same paper also describes a linear-time algorithm for bracket abstraction
-(link:logski.html[which is O(N log N) without memoization]), but it fares worse
-on small programs. Roughly speaking, it has a coarse-grained view of the
-variables, forgetting whether they are used or not, which precludes some
-optimizations. (We could refine it a little and, say, keep more information on
-variables with a low De Bruijn index; maybe another time.)
+We link:kiselyov.html[translate to combinators with an algorithm due to
+Kiselyov]. Again we use a tagless final representation for the output.
 
 \begin{code}
 infixl 5 ##

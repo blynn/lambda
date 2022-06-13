@@ -9,7 +9,7 @@ menu.html: menu ; cobble menu menu
 
 LHSNAMES=index simply hm lisp systemf typo pts sk crazyl pcf natded logski
 LHSFILES=$(addsuffix .lhs, $(LHSNAMES)) $(addsuffix .html, $(LHSNAMES)) $(addsuffix .js, $(LHSNAMES))
-LHSWNAMES=bohm cl
+LHSWNAMES=bohm cl kiselyov
 LHSWFILES=$(addsuffix .lhs, $(LHSWNAMES)) $(addsuffix .html, $(LHSWNAMES)) $(addsuffix .wasm, $(LHSWNAMES))
 
 %.o: %.c; $(WCC) $^
@@ -19,6 +19,8 @@ HDIR=../boot
 bohm.c: bohm.lhs; ($(HDIR)/unlit < $^ ; cat $(HDIR)/inn/BasePrecisely.hs) | $(HDIR)/precisely wasm > $@
 
 cl.c: cl.lhs; ($(HDIR)/unlit < $^ ; cat $(HDIR)/inn/BasePrecisely.hs $(HDIR)/inn/SystemWasm.hs) | $(HDIR)/precisely wasm > $@
+
+kiselyov.c: kiselyov.lhs; ($(HDIR)/unlit < $^ ; cat $(HDIR)/inn/BasePrecisely.hs $(HDIR)/inn/SystemWasm.hs) | $(HDIR)/precisely wasm > $@
 
 WCC=clang -O3 -c --target=wasm32 -Wall
 WASMLINK=wasm-ld

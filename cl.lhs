@@ -129,7 +129,7 @@ lcTerm = lam <|> app where
 
 clTerm = app where
   app = foldl1 (:@) <$> some (com <|> var <|> str "(" *> clTerm <* str ")")
-  com = Com <$> (str "S" <|> str "K")
+  com = Com . (:[]) <$> sat (`elem` "SKBCRIT") <* whitespace
   var = Tmp <$> some (sat isAlphaNum) <* whitespace
 
 str = (<* whitespace) . string
@@ -165,9 +165,9 @@ the part that renames variables to perform capture-avoiding substitutions.
 Also, the lambda term $\lambda x \lambda y . y x$ is really the same as
 $\lambda y \lambda z . z y$, but we must rename variables in order to see this.
 
-Names seem artificial; tedious tags solely to aid human comprehension. Can we
-get rid of them? There ought to be a way to study computation without naming
-names.
+Names are artificial tedious tags whose sole purpose is to aid human
+comprehension. Can we get rid of them? There ought to be a way to study
+computation without naming names.
 
 (We will shortly mention many names, but they will be the names of researchers
 and not variables!)
@@ -182,7 +182,7 @@ https://en.wikipedia.org/wiki/De_Bruijn_index['De Bruijn index'].
 The innermost lambda is 0 (though some heretics prefer to start from 1), and
 we increment as we go outwards.
 http://www.cs.ox.ac.uk/richard.bird/online/BirdMeertens98Nested.pdf[Numbering
-the other way is possible], but then common subexpressions appear different.
+the other way is possible], but then common subexpressions appear distinct.
 
 Instead of a sequence of bound variables like $\lambda x y z$, we now write a
 string of repeated lambdas like $\lambda \lambda \lambda$. This means we no
@@ -296,13 +296,13 @@ for an excruciatingly detailed proof of $1 + 1 = 2$, lacked an explicit
 definition of substitution.
 
 In fact, around 1928 Alonzo Church devised lambda calculus so he could
-explicitly state and analyze substitution, so it's not that Schönfinkel and
+explicitly define and analyze substitution, so it's not that Schönfinkel and
 Curry traveled in time, but that everyone was studying the same hot topic.
 Due to its origin story, the study of combinators is called 'combinatory
 logic'.
 
-Schönfinkel wrote definitions like $Ix = x$ instead of $I = \lambda x.x$ which
-Church would later invent. We will too, to set the mood.
+Schönfinkel wrote definitions like $Ix = x$ instead of $I = \lambda x.x$,
+notation which Church would later invent. We will, too, to set the mood.
 (Decades later, https://www.cs.cmu.edu/~crary/819-f09/Landin66.pdf[Landin
 reverted to Schönfinkel's style to avoid frightening readers with lambdas]!)
 
@@ -319,8 +319,8 @@ be built exclusively from the $S$ and $K$ combinators, which are given by:
 except he wrote "C" instead of "K" (which is strange because the paper calls it
 the 'Konstanzfunktion' so you'd think "K" would be preferred;
 https://blog.plover.com/math/combinator-s.html[Curry likely changed the letters
-to what we write today]). By the way, in Haskell $S$ is `(<*>)` (specialized
-to Reader) and $K$ is `const`.
+to what we write today]). By the way, in Haskell $S$ is the Reader instance of
+`ap` or `(<*>)` and $K$ is `const`.
 
 We define a data structure to hold expressions built from combinators. It's
 little more than a binary tree, because we no longer have lambda abstractions.
@@ -342,11 +342,12 @@ String` to hold combinator terms and `BinaryTree (Either String String)` to
 hold combinator terms that may contain variables. But that's more code than
 I want for simple demo.
 
-Schönfinkel went further and combined $S$ and $K$ into a single
-mega-combinator; the https://en.wikipedia.org/wiki/Iota_and_Jot[Iota and Jot
+Schönfinkel went further and combined $S$ and $K$ into one combinator to rule
+them all. The https://en.wikipedia.org/wiki/Iota_and_Jot[Iota and Jot
 languages] do something similar. We seem to gain no advantage from these
 contrived curiosities, other than being able to brag that one combinator
-suffices for any computation.
+suffices for any computation. See also Fokker, 1992, 'The systematic
+construction of a one-combinator basis for Lambda-Terms'.
 
 == Rosenbloom ==
 
@@ -429,11 +430,19 @@ K = \x y.x
 ------------------------------------------------------------------------
 
 However, we wish to flaunt the simplicity of $SK$ interpreters. Here are
-functions for head reduction, weak head normalization, and normaliation:
+functions for head reduction, weak head normalization, and normalization. We
+even throw in bonus standard combinators because it's easy, and they make the
+web widget more useful.
 
 \begin{code}
 reduce (Com "S" :@ x :@ y :@ z) = Just $ x :@ z :@ (y :@ z)
-reduce (Com "K" :@ x :@ y) = Just x
+reduce (Com "K" :@ x :@ y)      = Just x
+-- Bonus combinators.
+reduce (Com "B" :@ x :@ y :@ z) = Just $ x :@ (y :@ z)
+reduce (Com "C" :@ x :@ y :@ z) = Just $ x :@ z :@ y
+reduce (Com "R" :@ x :@ y :@ z) = Just $ y :@ z :@ x
+reduce (Com "I" :@ x)           = Just x
+reduce (Com "T" :@ x :@ y)      = Just $ y :@ x
 reduce _ = Nothing
 
 step (f :@ z) = maybe (step f :@ z) id $ reduce (f :@ z)
@@ -451,7 +460,7 @@ Clearly, evaluating $S$ and $K$ combinators is far simpler than dealing with
 beta-reduction in lambda calculus even if we employ De Bruijn indices.
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<p>SK program:
+<p>Combinatory logic  term:
 <textarea id="iosk" rows="3" cols="80">S K K (K (S K K K))</textarea></p>
 <p>
 <button id="stepsk">Step</button>

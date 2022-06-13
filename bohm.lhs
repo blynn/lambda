@@ -166,7 +166,6 @@ getContents = isEOF >>= \b -> if b then pure [] else getChar >>= \c -> (c:) <$> 
 isLower c = 'a' <= c && c <= 'z'
 isUpper c = 'A' <= c && c <= 'Z'
 isAlphaNum c = isLower c || isUpper c || '0' <= c && c <= '9'
-max a b = if a <= b then b else a
 maximum = foldr1 max
 sortOn _ [] = []
 sortOn f (x:xt) = sortOn f (filter ((<= fx) . f) xt)

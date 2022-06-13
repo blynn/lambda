@@ -1,5 +1,8 @@
 = λ to SKI, logarithmically =
 
+*link:kiselyov.html[Please see my newer notes instead]*.
+This page is kept for historical reasons.
+
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <script src="logski.js"></script>
