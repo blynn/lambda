@@ -257,10 +257,10 @@ K = \lambda x y . x = \lambda \lambda 1
 Then we find for any $a, b$:
 
 \[
-KI = (\lambda \lambda x y.x) (\lambda x.x) a b = (\lambda x.x) b = b
+KIab = (\lambda \lambda x y.x) (\lambda x.x) a b = (\lambda x.x) b = b
 \]
 
-Thus $KI = \lambda x y . y = \lambda \lambda 0$. In other words, we have
+Thus $KI = \lambda a b . b = \lambda \lambda 0$. In other words, we have
 combined $K$ and $I$ to produce a closed lambda term distinct to either one.
 (Thanks to De Bruijn indices, we can see at a glance they differ.)
 Moreover, no variables were needed: we merely applied $K$ to $I$.
@@ -324,8 +324,8 @@ to what we write today]). By the way, in Haskell $S$ is the Reader instance of
 
 We define a data structure to hold expressions built from combinators. It's
 little more than a binary tree, because we no longer have lambda abstractions.
-A wrinkle is that we support storing a variable in a leaf. It turns out we
-temporarily need to do this sometimes, hence the name `Tmp`.
+There's one wrinkle: it turns out we need to temporarily store a variable in a
+leaf at times so we add a `Tmp` data constructor.
 
 \begin{code}
 data CL = Com String | Tmp String | CL :@ CL
@@ -376,9 +376,9 @@ his puzzle book 'To Mock a Mockingbird'. Some authors write:
 
 \[ f = [x] e \]
 
-I believe this problem is so named because some authors use brackets to denote
-substitution. For example, the notation $[P/x] x = P$ means "substituting $P$
-for $x$ in the term $x$ results in $P$".
+These authors may also use brackets to denote substitution. For example, the
+notation $[P/x] x = P$ means "substituting $P$ for $x$ in the term $x$ results
+in $P$".
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <p>[x] <textarea id="inputnox" rows="1" cols="40">S K (S x)(y K z)</textarea></p>
@@ -429,10 +429,20 @@ S = \x y z.x z(y z)
 K = \x y.x
 ------------------------------------------------------------------------
 
-However, we wish to flaunt the simplicity of $SK$ interpreters. Here are
-functions for head reduction, weak head normalization, and normalization. We
-even throw in bonus standard combinators because it's easy, and they make the
-web widget more useful.
+However, we wish to flaunt the simplicity of $SK$ interpreters. We even throw
+in bonus standard combinators because it's easy, and they make the web widget
+more useful.
+
+Here are functions for:
+
+  * head reduction: reduce a standard combinator at the beginning of the expression
+  * weak head normalization: perform head reductions until no longer possible
+  * normalization: reduce combinators anywhere in the expression until no
+  longer possible, taking care to search for reducible expressions
+  ('redexes') starting from the left.
+
+Like lambda calculus, preferring the leftmost redex at each step guarantees
+we'll reach the normal form if it exists.
 
 \begin{code}
 reduce (Com "S" :@ x :@ y :@ z) = Just $ x :@ z :@ (y :@ z)

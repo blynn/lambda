@@ -1,5 +1,6 @@
 index,Lambda calculus
 cl,Combinators
+quine,Quines
 sk,SK Compiler
 kiselyov,Kiselyov's Pearl
 crazyl,Crazy L

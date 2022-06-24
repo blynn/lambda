@@ -26,7 +26,7 @@ WCC=clang -O3 -c --target=wasm32 -Wall
 WASMLINK=wasm-ld
 WLD=$(WASMLINK) --initial-memory=41943040 --export-dynamic --allow-undefined --no-entry
 
-SITE=$(LHSFILES) $(LHSWFILES) menu.html
+SITE=$(LHSFILES) $(LHSWFILES) menu.html quine.html
 
 site: $(SITE)
 
