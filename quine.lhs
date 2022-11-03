@@ -554,6 +554,11 @@ M &= SII
 Our remarks mostly apply if we choose weak head normalization instead of
 normalization, though $M = SII$ no longer works.
 
+Smullyan, in _Diagonalization and Self-Reference_, attempts natural-language
+versions of some of the above, but
+https://www.jamesrmeyer.com/paradoxes/smullyan-paradox.html[his examples turn
+out to be flawed].
+
 Amazingly, von Neumann figured out self-replication years before DNA was
 discovered. DNA can be viewed as a program. In some contexts, DNA plays a
 passive role (mention) and is simply duplicated, and in others, DNA plays an

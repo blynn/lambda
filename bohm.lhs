@@ -410,9 +410,9 @@ B = λ^l v S_1 ... S_n
 
 with $m < n$. Consider the terms:
 
-  * $v T_1 ... T_m a_1 ... a_{n-m}$
+  * $v T_1 ... T_m a_1 ... a_{n-m+1}$
 
-  * $v S_1 ... S_n a_1 ... a_{n-m}$
+  * $v S_1 ... S_n a_1 ... a_{n-m+1}$
 
 Then substituting:
 
@@ -420,7 +420,7 @@ Then substituting:
 
   * $a_1 \mapsto λ^{n-m} V$
 
-  * $a_{n-m} \mapsto U$
+  * $a_{n-m+1} \mapsto U$
 
 reduces the body of $A$ to $U$ and the body of $B$ to $V$.
 

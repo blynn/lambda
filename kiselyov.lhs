@@ -263,7 +263,7 @@ Adding a little code turns the above bracket abstraction for variable-sharing
 eta-expansions into an algorithm for translating any lambda calculus term to
 combinators.
 
-But first, let's recall some standard combinators:
+Some standard combinators:
 
 \[
 \begin{align}
@@ -276,7 +276,7 @@ But first, let's recall some standard combinators:
 (Schönfinkel would have written $I, C, T$; in Haskell, these are `id`, `const`,
 and `flip`.)
 
-Now, given a lmabda term, we rewrite it in De Bruijn form, where each index is
+Now, given a lambda term, we rewrite it in De Bruijn form, where each index is
 written using a unary representation known as the Peano numbers:
 
 \[
@@ -609,7 +609,7 @@ rawBulk = convertBulk bulk where
 
 What if we disallow families of combinators?
 
-If we allow sharing (memoization), then define the following consins of $B, C,
+If we allow sharing (memoization), then define the following cousins of $B, C,
 S$ (Smullyan might call them "once removed"):
 
 \[
