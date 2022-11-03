@@ -211,9 +211,9 @@ We choose the combinators $B, R, S$:
 
 \[
 \begin{align}
-  Bxyz & = x(yz) \\
-  Rxyz & = yzx \\
-  Sxyz & = xz(yz)
+  Babc & = a(bc) \\
+  Rabc & = bca \\
+  Sabc & = ac(bc)
 \end{align}
 \]
 
@@ -267,9 +267,9 @@ Some standard combinators:
 
 \[
 \begin{align}
-  Ix & = x \\
-  Kxy & = x \\
-  Cxyz & = xzy
+  Ia & = a \\
+  Kab & = a \\
+  Cabc & = acb
 \end{align}
 \]
 
@@ -280,16 +280,16 @@ Now, given a lambda term, we rewrite it in De Bruijn form, where each index is
 written using a unary representation known as the Peano numbers:
 
 \[
-Z, SZ, SSZ, SSSZ, ...
+z, sz, ssz, sssz, ...
 \]
 
 For example, the standard combinators we just mentioned are:
 
 \[
 \begin{align}
-  I & = \lambda Z \\
-  K & = \lambda \lambda SZ \\
-  C & = \lambda \lambda \lambda (SSZ)Z(SZ)
+  I & = \lambda z \\
+  K & = \lambda \lambda sz \\
+  C & = \lambda \lambda \lambda (ssz)z(sz)
 \end{align}
 \]
 
@@ -314,8 +314,8 @@ Define:
 \[
 \newcommand{\ceil}[1]{\lceil #1 \rceil}
 \begin{array}{c c l}
-\ceil{Z} &=& 1 \models I \\
-\ceil{S e} &=& n + 1 \models (0 \models K \amalg n \models d) \\
+\ceil{z} &=& 1 \models I \\
+\ceil{s e} &=& n + 1 \models (0 \models K \amalg n \models d) \\
 \ceil{\lambda e} &=&
   \left\{ 
     \begin{array}{ c l }
@@ -345,7 +345,7 @@ and $d$ is the bracket abstractions of the result.
 We'll wave our hands to explain the algorithm and hope informality helps us
 get away with less theory. See Kiselyov for details.
 
-The first rule says $Z$ translates to $1\models I$, namely a thing that becomes
+The first rule says $z$ translates to $1\models I$, namely a thing that becomes
 the $I$ combinator after adding one lambda. Indeed, if we apply the third rule,
 we find $\ceil{\lambda Z} = 0\models I$, as expected.
 
@@ -353,12 +353,12 @@ For the second rule, consider the example:
 
 \[
 \begin{align}
-\ceil{S Z} &=& 2 \models (0 \models K \amalg 1 \models I) \\
+\ceil{s z} &=& 2 \models (0 \models K \amalg 1 \models I) \\
 &=& 2 \models BKI
 \end{align}
 \]
 
-As expected, we need 2 lambdas to close the term $SZ$, and roughly speaking,
+As expected, we need 2 lambdas to close the term $sz$, and roughly speaking,
 the $K$ combinator shifts the focus from the second variable to the first. This
 generalizes to higher De Bruijn indices.
 
@@ -411,32 +411,32 @@ industriousness leads to better performance.
 
 == Lazy Weakening ==
 
-Consider the term $\lambda y x.y y$, or in De Bruijn notation:
+Consider the De Bruijn lambda term:
 
 \[
-\lambda \lambda (SZ) (SZ)
+\lambda \lambda (sz) (sz)
 \]
 
 The second variable is unused, so we could derive the following combinator:
 
 \[
-K(\lambda Z Z) = K(SII)
+K(\lambda z z) = K(SII)
 \]
 
 However, recall:
 
 \[
-\ceil{SZ} = 2 \models BKI
+\ceil{sz} = 2 \models BKI
 \]
 
 which leads to the verbose:
 
 \[
-\ceil{\lambda \lambda (SZ) (SZ)} = 0 \models S(BS(BKI))(BKI)
+\ceil{\lambda \lambda (sz) (sz)} = 0 \models S(BS(BKI))(BKI)
 \]
 
-A better strategy is to refrain from immediately converting terms like $SZ$ to
-combinators. Instead, on encountering $S$, we leave a sort of IOU that we
+A better strategy is to refrain from immediately converting terms like $sz$ to
+combinators. Instead, on encountering $s$, we leave a sort of IOU that we
 eventually redeem with a combinator. If both sides of an application turn out
 to ignore the same variable, we merge the IOUs into one, resulting in savings.
 
@@ -476,8 +476,8 @@ They also complicate the connection with the specialized bracket abstraction:
 
 \[
 \begin{array}{c c l}
-\ceil{Z} &=& T : \emptyset \models I \\
-\ceil{S e} &=& F : \Gamma \models d \quad \textrm{where } \Gamma \models d = \ceil{e} \\
+\ceil{z} &=& T : \emptyset \models I \\
+\ceil{s e} &=& F : \Gamma \models d \quad \textrm{where } \Gamma \models d = \ceil{e} \\
 \ceil{\lambda e} &=&
   \left\{ 
     \begin{array}{ c l }
@@ -531,6 +531,11 @@ a dedicated type. Kiselyov's `C` can be thought of as the empty list, while `N`
 and `W` add True and False to an existing list. It's like Peano arithmetic with
 two kinds of successors.
 
+To compute the OR of two lists, we clumsily traverse two lists with
+`zipWithDefault` even though the recursive calls to `(#)` have already examined
+the same booleans. We sacrificed elegance so that `(#)` corresponds to the
+$\amalg$ operation. Kiselyov instead builds the output list while recursing.
+
 As Kiselyov notes, lazy weakening is precisely link:cl.html[the famous
 K-optimization of textbook bracket abstraction]. It fits snugly here, whereas
 the bracket abstraction algorithms awkwardly require extra passes to detect the
@@ -538,8 +543,8 @@ absence of a variable in a subtree for each lambda.
 
 == The Eta Optimization ==
 
-The above postpones the conversion of $S$ to a $K$ combinator. Section 4.1 of
-Kiselyov describes how to postpone the conversion of $Z$ to an $I$ combinator.
+The above postpones the conversion of $s$ to a $K$ combinator. Section 4.1 of
+Kiselyov describes how to postpone the conversion of $z$ to an $I$ combinator.
 The `V` that appears in his code is an IOU that is either eventually redeemed
 for an $I$ combinator or optimized away.
 
@@ -552,7 +557,7 @@ This may be messy, but on the other hand, we have no need to extend the list of
 booleans to a more complex data type, and we simply omit the `(N e, V)` and
 `(V, N e)` cases where no optimizations apply.
 
-Here, we prefer the combinator $T$ given by $Txy = yx$ to the $CI$ in the
+Here, we prefer the combinator $T$ given by $Tab = ba$ to the $CI$ in the
 paper.
 
 \begin{code}
@@ -738,6 +743,9 @@ with the following demo, which breaks down a single bulk combinator.
 Combinators were abandoned by compiler authors long ago: how do you optimize a
 combinator term? It seems we must simulate it in order to undertand it enough
 to tinker with it, but doesn't this simulation convert it back to a lamda term?
+See Peyton Jones,
+https://www.microsoft.com/en-us/research/wp-content/uploads/1987/01/slpj-book-1987-small.pdf['The
+Implementation of Functional Programming Languages'], section 16.5.
 
 Kiselyov suggests combinators may be worth considering again. Unlike existing
 approaches, his algorithm understands lambda terms, so it might be suitable for
