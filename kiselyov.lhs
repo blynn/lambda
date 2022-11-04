@@ -2,15 +2,18 @@
 
 [pass]
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-<p>Lambda term: <textarea id="input" rows="1" cols="40">\a b c d.d b c a</textarea></p>
+<p>Lambda term: <textarea id="input" rows="1" cols="40">\a b c d.d c b a</textarea></p>
 
 <button id="plain">Plain</button>
 <button id="optimizeK">K-optimized</button>
 <button id="optimizeEta">Eta-optimized</button>
 <br>
 <button id="rawBulk">Bulk</button>
-<button id="linBulk">Bulk, Linear</button>
-<button id="logBulk">Bulk, Logarithmic</button>
+<button id="optimizeBulk">Bulk, Optimized</button>
+<button id="linBulk">Bulk, Linear Expand</button>
+<button id="logBulk">Bulk, Log Expand</button>
+<br>
+<br>
 <p><textarea id="output" rows="3" cols="80" readonly></textarea></p>
 
 <script>
@@ -38,6 +41,8 @@ function setup(instance) {
   go("rawBulk", "input", "output");
   go("linBulk", "input", "output");
   go("logBulk", "input", "output");
+
+  go("optimizeBulk", "input", "output");
 
   go("linearbb", "inputbb", "outputbb");
   go("logbb", "inputbb", "outputbb");
@@ -71,18 +76,23 @@ import Control.Arrow
 module Main where
 import Base
 import System
+
+demo f = interact $ either id (show . snd . f . deBruijn) . parseLC
+
 foreign export ccall "plainMain" plainMain
-plainMain = interact $ either id (show . snd . plain . deBrujin) . parseLC
+plainMain = demo plain
 foreign export ccall "optimizeKMain" optimizeKMain
-optimizeKMain = interact $ either id (show . snd . optK . deBrujin) . parseLC
+optimizeKMain = demo optK
 foreign export ccall "optimizeEtaMain" optimizeEtaMain
-optimizeEtaMain = interact $ either id (show . snd . optEta . deBrujin) . parseLC
+optimizeEtaMain = demo optEta
 foreign export ccall "rawBulkMain" rawBulkMain
-rawBulkMain = interact $ either id (show . snd . rawBulk . deBrujin) . parseLC
+rawBulkMain = demo rawBulk
+foreign export ccall "optimizeBulkMain" optimizeBulkMain
+optimizeBulkMain = demo bulkOpt
 foreign export ccall "linBulkMain" linBulkMain
-linBulkMain = interact $ either id (show . snd . linBulk . deBrujin) . parseLC
+linBulkMain = demo linBulk
 foreign export ccall "logBulkMain" logBulkMain
-logBulkMain = interact $ either id (show . snd . logBulk . deBrujin) . parseLC
+logBulkMain = demo logBulk
 foreign export ccall "linearbbMain" linearbbMain
 linearbbMain = interact $ either id (show . uncurry breakBulkLinear) . parseBulk
 foreign export ccall "logbbMain" logbbMain
@@ -302,7 +312,7 @@ data DB = N Peano | L DB | A DB DB | Free String
 
 index x xs = lookup x $ zip xs $ iterate S Z
 
-deBrujin = go [] where
+deBruijn = go [] where
   go binds = \case
     Var x -> maybe (Free x) N $ index x binds
     Lam x t -> L $ go (x:binds) t
@@ -519,10 +529,9 @@ optK = convertBool (#) where
   (True:g1, d1) # (False:g2, d2) = (g1, ([], Com "C") # (g1, d1)) # (g2, d2)
   (False:g1, d1) # (False:g2, d2) = (g1, d1) # (g2, d2)
 
-zipWithDefault d _     []     [] = []
+zipWithDefault d f     []     ys = f d <$> ys
+zipWithDefault d f     xs     [] = flip f d <$> xs
 zipWithDefault d f (x:xt) (y:yt) = f x y : zipWithDefault d f xt yt
-zipWithDefault d f (x:xt)     [] = f x d : zipWithDefault d f xt []
-zipWithDefault d f     [] (y:yt) = f d y : zipWithDefault d f [] yt
 \end{code}
 
 This corresponds with Kiselyov's OCaml implementation from Section 4, but we're
@@ -605,10 +614,70 @@ convertBulk bulk = convert (#) where
            | n < m     ->                      bulk "B" (m - n) :@ (bulk "S" n :@ x) :@ y
            | otherwise -> bulk "C" (n - m) :@ (bulk "B" (n - m) :@  bulk "S" m :@ x) :@ y
 
-rawBulk = convertBulk bulk where
-  bulk c 1 = Com c
-  bulk c n = Com (c ++ show n)
+rawBulk = convertBulk bulk
+
+bulk c 1 = Com c
+bulk c n = Com (c ++ show n)
 \end{code}
+
+We write a version with K-optimization and eta-optimization. Again we replace
+counts with lists of booelans indicating whether a variable is used in a term.
+To exploit bulk combinators, we look for repetitions of the same booleans.
+
+This time, our `(##)` function returns the list of booleans along with the
+combinator term, so the caller has no need to compute it.
+
+\begin{code}
+bulkOpt = \case
+  N Z -> (True:[], Com "I")
+  N (S e) -> first (False:) $ bulkOpt $ N e
+  L e -> case bulkOpt e of
+    ([], d) -> ([], Com "K" :@ d)
+    (False:g, d) -> ([], Com "K") ## (g, d)
+    (True:g, d) -> (g, d)
+  A e1 e2 -> bulkOpt e1 ## bulkOpt e2
+  Free s -> ([], Com s)
+  where
+  ([], d1) ## ([], d2) = ([], d1 :@ d2)
+  ([], d1) ## ([True], Com "I") = ([True], d1)
+  ([], d1) ## (g2@(h:_), d2) = first (pre++) $ ([], fun1 d1) ## (post, d2)
+    where
+    fun1 = case h of
+      True -> (bulk "B" (length pre) :@)
+      False -> id
+    (pre, post) = span (h ==) g2
+
+  ([True], Com "I") ## ([], d2) = ([True], Com "T" :@ d2)
+  (g1@(h:_), d1) ## ([], d2) = first (pre++) $ case h of
+    True -> ([], Com "C" :@ bulk "C" (length pre) :@ d2) ## (post, d1)
+    False -> (post, d1) ## ([], d2)
+    where
+    (pre, post) = span (h ==) g1
+
+  ([True], Com "I") ## (False:g2, d2) = first (True:) $ ([], Com "T") ## (g2, d2)
+  (False:g1, d1) ## ([True], Com "I") = (True:g1, d1)
+  (g1, d1) ## (g2, d2) = pre $ fun1 (drop count g1, d1) ## (drop count g2, d2)
+    where
+    (h, count) = headGroup $ zip g1 g2
+    fun1 = case h of
+      (False, False) -> id
+      (False, True) -> apply "B"
+      (True, False) -> apply "C"
+      (True, True) -> apply "S"
+    pre = first (replicate count (uncurry (||) h) ++)
+    apply s = (([], bulk s count) ##)
+
+headGroup (h:t) = (h, 1 + length (takeWhile (== h) t))
+\end{code}
+
+Classic bracket abstraction algorithms blow up quadratically on lambdas terms
+of the form:
+
+\[ \lambda ... \lambda 0 ... n \]
+
+In contrast, our implementation finds:
+
+\[ C_n (...(C_2 T)) \]
 
 == No bulk combinators ==
 
