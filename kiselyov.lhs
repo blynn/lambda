@@ -811,8 +811,8 @@ with the following demo, which breaks down a single bulk combinator.
 
 Combinators were abandoned by compiler authors long ago: how do you optimize a
 combinator term? It seems we must simulate it in order to undertand it enough
-to tinker with it, but doesn't this simulation convert it back to a lamda term?
-See Peyton Jones,
+to tinker with it, but doesn't this simulation convert it back to a lambda
+term? See Peyton Jones,
 https://www.microsoft.com/en-us/research/wp-content/uploads/1987/01/slpj-book-1987-small.pdf['The
 Implementation of Functional Programming Languages'], section 16.5.
 
