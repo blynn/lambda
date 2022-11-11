@@ -621,11 +621,11 @@ bulk c n = Com (c ++ show n)
 \end{code}
 
 We write a version with K-optimization and eta-optimization. Again we replace
-counts with lists of booelans indicating whether a variable is used in a term.
+counts with lists of booleans indicating whether a variable is used in a term.
 To exploit bulk combinators, we look for repetitions of the same booleans.
 
 This time, our `(##)` function returns the list of booleans along with the
-combinator term, so the caller has no need to compute it.
+combinator term, so the caller need not compute it.
 
 \begin{code}
 bulkOpt = \case

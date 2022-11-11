@@ -96,8 +96,8 @@ self-replicating machine with three parts]:
 
  * a 'universal copy machine', which can duplicate a given string of bits.
 
-The constructor builds the new machine except for its program; duplicating the
-program is the job of the copy machine.
+The constructor builds the new machine except for its program. The copy machine
+duplicates the program.
 
 https://www.scientificamerican.com/article/go-forth-and-replicate-2008-02/[Scientific
 American describes a delightful analogy] involving an architect drawing a
@@ -272,8 +272,8 @@ x f \rightarrow f(x f)
 \]
 
 where we consider $xf$ to be complete original program: one could argue $x$
-alone is incomplete because it needs to be given a syscall to work, so $f$
-ought to print $xf$.
+alone is incomplete because it needs to be given a syscall to work and $f$
+ought to appear as well.
 
 == Curry ==
 
@@ -337,9 +337,7 @@ where $W x y = x y y$.
 
 However, in 1929 Curry wrote $(\lambda y.N(y y))(\lambda y.N(y y))$ in a letter
 to Hilbert, where $N$ represents negation. It seems likely Curry had something
-like the Y combinator in his head all along, but only wrote applications of it
-such as $YN$. He probably could have explicitly defined a fixed-point
-combinator had he wanted.
+like the Y combinator in his head all along.
 
 Another example is Curry's 1942 paper, 'The Inconsistency of Certain Formal
 Logics', where he introduces what is now known as
@@ -348,12 +346,12 @@ order to find a combinator that satisfies a certain recurrence, he writes down
 $YX$ for a particular function $X$, rather than define $Y$ separately, before
 employing a trick that we'll demonstrate shortly.
 
-This motivates us to credit Curry for the Y combinator, so we can say Curry
-proved Curry's paradox arises in certain logics by using Curry's Y combinator!
+Thus we credit Curry for the Y combinator. This allows us to say Curry proved
+Curry's paradox arises in certain logics with Curry's Y combinator!
 
-Now that we've brought it up, we may as well at least state Curry's paradox.
-Like Quine, Curry sought a paradox satisfying certain constraints. Quine wanted
-to avoid direct self-reference, while Curry wanted to avoid negation.
+What is Curry's paradox? Like Quine, Curry sought a paradox satisfying certain
+constraints. Quine wanted to avoid direct self-reference, while Curry wanted to
+avoid negation.
 
 Russell's paradox is often told in the form of
 https://en.wikipedia.org/wiki/Barber_paradox[a story about a barber]. It so
