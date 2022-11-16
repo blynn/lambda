@@ -525,6 +525,7 @@ David Turner found enough optimizations to enable a practical
 https://www.cs.kent.ac.uk/people/staff/dat/miranda/downloads/[compiler for his
 Miranda language], that is, we implement a small set of combinators, then
 rewrite the input program in terms of those combinators.
+link:sk.html[Our lambda-calculus-to-wasm compiler] demonstrates this approach.
 
 Early Haskell compilers took the same approach, and later Haskell compilers
 extended this approach by generating custom combinators that are tailor-made
@@ -532,9 +533,6 @@ for each input program. These are known as 'supercombinators' in the
 literature. However, modern GHC shuns combinators in favour of
 https://www.microsoft.com/en-us/research/wp-content/uploads/1992/04/spineless-tagless-gmachine.pdf[the
 Spineless Tagless G-Machine].
-
-See the effectiveness of this approach in link:sk.html[our
-lambda-calculus-to-wasm compiler].
 
 == Iverson ==
 
@@ -545,8 +543,8 @@ is known as https://en.wikipedia.org/wiki/Tacit_programming[point-free style or
 tacit programming].
 
 Ken Iverson's APL language pioneered this technique, and developed it to such
-an extent that it avoiding variables became idiomatic. John Backus was
-inspired, as can be observed in
+an extent that avoiding variables became idiomatic. John Backus was inspired,
+as can be observed in
 http://www.dgp.toronto.edu/~wael/teaching/324-03f/papers/backus.pdf[his
 renowned Turing award lecture], though oddly, he accuses the closely related
 lambda calculus of fomenting chaos; perhaps he was overly enamoured by APL's

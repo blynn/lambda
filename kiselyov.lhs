@@ -86,13 +86,13 @@ optimizeKMain = demo optK
 foreign export ccall "optimizeEtaMain" optimizeEtaMain
 optimizeEtaMain = demo optEta
 foreign export ccall "rawBulkMain" rawBulkMain
-rawBulkMain = demo rawBulk
+rawBulkMain = demo $ bulkPlain bulk
 foreign export ccall "optimizeBulkMain" optimizeBulkMain
-optimizeBulkMain = demo bulkOpt
+optimizeBulkMain = demo $ bulkOpt bulk
 foreign export ccall "linBulkMain" linBulkMain
-linBulkMain = demo linBulk
+linBulkMain = demo $ bulkOpt breakBulkLinear
 foreign export ccall "logBulkMain" logBulkMain
-logBulkMain = demo logBulk
+logBulkMain = demo $ bulkOpt breakBulkLog
 foreign export ccall "linearbbMain" linearbbMain
 linearbbMain = interact $ either id (show . uncurry breakBulkLinear) . parseBulk
 foreign export ccall "logbbMain" logbbMain
@@ -407,7 +407,6 @@ plain = convert (#) where
   (0 , d1) # (n , d2) = (0, Com "B" :@ d1) # (n - 1, d2)
   (n , d1) # (0 , d2) = (0, Com "R" :@ d2) # (n - 1, d1)
   (n1, d1) # (n2, d2) = (n1 - 1, (0, Com "S") # (n1 - 1, d1)) # (n2 - 1, d2)
-
 \end{code}
 
 I have a poor intuitive grasp why Kiselyov's algorithm seems to beat
@@ -605,7 +604,7 @@ S_n f g x_n ... x_1&=  f x_n ... x_1 &&(g x_n ... x_1)  \\
 These perfectly suit shared-eta bracket abstraction:
 
 \begin{code}
-convertBulk bulk = convert (#) where
+bulkPlain bulk = convert (#) where
   (a, x) # (b, y) = case (a, b) of
     (0, 0)             ->               x :@ y
     (0, n)             -> bulk "B" n :@ x :@ y
@@ -614,32 +613,33 @@ convertBulk bulk = convert (#) where
            | n < m     ->                      bulk "B" (m - n) :@ (bulk "S" n :@ x) :@ y
            | otherwise -> bulk "C" (n - m) :@ (bulk "B" (n - m) :@  bulk "S" m :@ x) :@ y
 
-rawBulk = convertBulk bulk
-
 bulk c 1 = Com c
 bulk c n = Com (c ++ show n)
 \end{code}
 
-We write a version with K-optimization and eta-optimization. Again we replace
-counts with lists of booleans indicating whether a variable is used in a term.
-To exploit bulk combinators, we look for repetitions of the same booleans.
+We write a version with K-optimization and eta-optimization, the latter
+generalized to bulk $B_n$ combinators. Again we replace counts with lists of
+booleans indicating whether a variable is used in a term. To exploit bulk
+combinators, we look for repetitions of the same booleans.
 
 This time, our `(##)` function returns the list of booleans along with the
 combinator term, so the caller need not compute it.
 
 \begin{code}
-bulkOpt = \case
+bulkOpt bulk = \case
   N Z -> (True:[], Com "I")
-  N (S e) -> first (False:) $ bulkOpt $ N e
-  L e -> case bulkOpt e of
+  N (S e) -> first (False:) $ rec $ N e
+  L e -> case rec e of
     ([], d) -> ([], Com "K" :@ d)
     (False:g, d) -> ([], Com "K") ## (g, d)
     (True:g, d) -> (g, d)
-  A e1 e2 -> bulkOpt e1 ## bulkOpt e2
+  A e1 e2 -> rec e1 ## rec e2
   Free s -> ([], Com s)
   where
+  rec = bulkOpt bulk
   ([], d1) ## ([], d2) = ([], d1 :@ d2)
   ([], d1) ## ([True], Com "I") = ([True], d1)
+  ([], d1) ## (g2, Com "I") | and g2 = (g2, bulk "B" (length g2 - 1) :@ d1)
   ([], d1) ## (g2@(h:_), d2) = first (pre++) $ ([], fun1 d1) ## (post, d2)
     where
     fun1 = case h of
@@ -656,6 +656,8 @@ bulkOpt = \case
 
   ([True], Com "I") ## (False:g2, d2) = first (True:) $ ([], Com "T") ## (g2, d2)
   (False:g1, d1) ## ([True], Com "I") = (True:g1, d1)
+  (g1, d1) ## (g2, Com "I") | and g2, let n = length g2, all not $ take n g1 =
+    first (g2++) $ ([], bulk "B" $ n - 1) ## (drop n g1, d1)
   (g1, d1) ## (g2, d2) = pre $ fun1 (drop count g1, d1) ## (drop count g2, d2)
     where
     (h, count) = headGroup $ zip g1 g2
@@ -725,8 +727,6 @@ breakBulkLinear "S" n = iterate (comS' :@) (Com "S") !! (n - 1)
 comB' = Com "B":@ Com "B"
 comC' = Com "B":@ (Com "B" :@ Com "C"):@ Com "B"
 comS' = Com "B":@ (Com "B" :@ Com "S"):@ Com "B"
-
-linBulk = convertBulk breakBulkLinear
 \end{code}
 
 Our interactive demo supports this translation, but shows the combinator term
@@ -781,8 +781,6 @@ The $B_n$ case is simpler because there's no need for $B'$.
 \begin{code}
 bits n = r:if q == 0 then [] else bits q where (q, r) = divMod n 2
 
-logBulk = convertBulk breakBulkLog
-
 breakBulkLog c 1 = Com c
 breakBulkLog "B" n = foldr (:@) (Com "B") $ map (bs!!) $ init $ bits n where
   bs = [sbi, Com "B" :@ (Com "B" :@ Com "B") :@ sbi]
@@ -796,9 +794,8 @@ sbi = Com "S" :@ Com "B" :@ Com "I"
 Thus we can break down bulk combinators into standard combinators without
 sharing if we pay a factor logarithmic in the input size.
 
-As we've described it without any optimizations, the benefits are only
-noticeable for deeply nested lambda terms. The savings are more easily seen
-with the following demo, which breaks down a single bulk combinator.
+The savings are more easily seen with the following demo, which breaks down a
+single bulk combinator.
 
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 <p>Bulk combinator: <textarea id="inputbb" rows="1" cols="40">S50</textarea></p>
