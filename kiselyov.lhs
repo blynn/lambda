@@ -350,7 +350,7 @@ n_2 \models d_2 = \ceil{e_2}
 If $e$ is a closed lambda term and $n \models d = \ceil{e}$, then $n = 0$ and
 the combinator $d$ is the bracket abstraction of $e$. More generally, for any
 (possibly open) lambda term $e$, adding $n$ abstractions to $e$ will close it,
-and $d$ is the bracket abstractions of the result.
+and $d$ is the bracket abstraction of the result.
 
 We'll wave our hands to explain the algorithm and hope informality helps us
 get away with less theory. See Kiselyov for details.

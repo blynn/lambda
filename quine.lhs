@@ -172,7 +172,7 @@ main = let f s = (toEnum <$> s) ++ show s in putStrLn $ f t
 t = fromEnum <$> "main = let f s = (toEnum <$> s) ++ show s in putStrLn $ f"
 ------------------------------------------------------------------------
 
-Howeever, it produces the following program, which is a quine where the string
+However, it produces the following program, which is a quine where the string
 has been replaced by a list of ASCII codes:
 
 ------------------------------------------------------------------------
@@ -235,7 +235,7 @@ which is why we only revealed it now.
 
 Given a combinator term, suppose performing a single reduction counts as
 running a program.
-Define the $M$ is the combinator that Smullyan dubbed the "mockingbird" by:
+Let $M$ be the combinator that Smullyan dubbed the "mockingbird":
 
 \[
 Mx = xx
@@ -284,9 +284,9 @@ the same term is called a 'fixed-point combinator' (or the easier-to-say
 We use the equals sign to indicate this: $x f = f(x f)$. We've also been using
 the equals sign to define combinators, so we rely on context to distinguish the
 two. That is, in a combinator definition, the equals sign defines the meaning
-of the combinator, otherwise it indicates that both sides can be reduced to the
-same term. (Some authors avoid any possible confusion by writing, say, the
-triple bar (&equiv;) for definitions.)
+of the combinator, while in other contexts it indicates that both sides can be
+reduced to the same term. (Some authors avoid any possible confusion by
+writing, say, the triple bar (&equiv;) for definitions.)
 
 In mathematics, a fixed point of a function $f$ is a solution of $f(z) = z$,
 and https://en.wikipedia.org/wiki/Fixed-point_theorems[fixed-point theorems are
@@ -342,9 +342,9 @@ like the Y combinator in his head all along.
 Another example is Curry's 1942 paper, 'The Inconsistency of Certain Formal
 Logics', where he introduces what is now known as
 https://en.wikipedia.org/wiki/Curry%27s_paradox[Curry's paradox]. Again, in
-order to find a combinator that satisfies a certain recurrence, he writes down
-$YX$ for a particular function $X$, rather than define $Y$ separately, before
-employing a trick that we'll demonstrate shortly.
+order to find a combinator that satisfies a certain recurrence, rather than
+define $Y$ separately, he writes down a normalized $YX$ for a particular
+function $X$.
 
 Thus we credit Curry for the Y combinator. This allows us to say Curry proved
 Curry's paradox arises in certain logics with Curry's Y combinator!
@@ -469,20 +469,19 @@ F &= G G
 \]
 
 However, now that we have derived $Y$ and $\Theta$, a simpler approach is to
-replace each $F$ with a single copy of a variable bound in a new outermost
-lambda:
+replace each $F$ with $f$ and prepend $\lambda f$:
 
 \[
 G = \lambda f n . A (f (P n)) (f (P (P n))))
 \]
 
-and pass the whole thing to a fixed-point combinator like $\Theta$:
+then pass the whole thing to a fixed-point combinator like $\Theta$:
 
 \[
 F = \Theta G
 \]
 
-Then:
+We find:
 
 \[
 \begin{align}
