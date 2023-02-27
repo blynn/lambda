@@ -209,10 +209,11 @@ data CL = Com [[Bool]] | ComFree String | CL :@ CL
 instance Show CL where
   showsPrec p = \case
     Com xs -> case xs of
-      [] -> ('I':)
+      [] -> str "I"
       _ -> ('[':) . foldr (.) (']':) (intersperse (',':) $ foldr (.) id . map (shows . fromEnum) <$> xs)
-    ComFree s -> (if p > 0 then (' ':) else id) . (s++)
+    ComFree s -> str s
     t :@ u -> showParen (p > 0) $ showsPrec 0 t . showsPrec 1 u
+    where str s = (if p > 0 then (' ':) else id) . (s++)
 
 matrix = \case
   N Z -> ([True], Com [])
@@ -245,12 +246,13 @@ node in one step, generating a matrix with $m$ rows for a Böhm node with $m$
 children. This may result in savings. For example, the term $\lambda a b c d .
 a (b d) (c d)$ could be written $[0, 1, 1]$ rather than $[1101,0011] [0,1]$.
 
-A few more lines give us eta-optimization. We generalize $BIx \rightarrow x$
-by looking for $[0 ... 0] I x$. A recursive helper `etaRight` handles the
-$BxI \rightarrow x$ case.
+A few more lines give us eta-optimization. We generalize $BIx \rightarrow x$ by
+looking for $[0 ... 0] I x$. A simple helper `etaRight` handles the $BxI
+\rightarrow x$  case.
 
 We also apply the optimizations:
 
+  * $[1x] I \rightarrow [x]$
   * $[10x, 01y] I I \rightarrow [x, y]$
   * $[1 ... 10, 0 ... 01] I I \rightarrow I$
 
@@ -269,6 +271,7 @@ matrixOpt = \case
       present = reverse $ take n (g ++ repeat False)
       in (if and present then id else (([], Com [present]) ##)) (drop n g, d)
 
+([], Com [True:rest]) ## ([], Com []) = ([], Com [rest])
 ([], d1) ## ([], d2) = ([], d1 :@ d2)
 (g1, d1) ## (g2, d2)
   | Com [] <- d1, Com [] <- d2 = \cases
@@ -278,12 +281,13 @@ matrixOpt = \case
   | Com [] <- d1, not $ or p1 = go d2
   | otherwise = common
   where
-  x = Com [p1, p2]
-  common = go $ x :@ d1 :@ d2
+  common = go $ etaRight $ Com [p1, p2] :@ d1 :@ d2
   zs = zipWithDefault False (,) g1 g2
-  go = (uncurry (||) <$> zs,) . etaRight
+  go = (uncurry (||) <$> zs,)
   (p1, p2) = unzip $ reverse $ filter (uncurry (||)) zs
-  etaRight (Com [False:t1, True:t2] :@ d :@ Com []) = etaRight $ Com [t1, t2] :@ d
+  etaRight (Com [False:t1, True:t2] :@ d :@ Com []) = case t1 of
+    [] -> d
+    _ -> Com [t1, t2] :@ d
   etaRight d = d
 \end{code}
 

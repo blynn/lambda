@@ -359,7 +359,10 @@ The first rule says $z$ translates to $1\models I$, namely a thing that becomes
 the $I$ combinator after adding one lambda. Indeed, if we apply the third rule,
 we find $\ceil{\lambda Z} = 0\models I$, as expected.
 
-For the second rule, consider the example:
+The second rule uses $K$ to shield $d$ and its $n$ arguments while destroying the
+argument at position $n + 1$.
+
+For example:
 
 \[
 \begin{align}
@@ -368,9 +371,8 @@ For the second rule, consider the example:
 \end{align}
 \]
 
-As expected, we need 2 lambdas to close the term $sz$, and roughly speaking,
-the $K$ combinator shifts the focus from the second variable to the first. This
-generalizes to higher De Bruijn indices.
+As expected, we need 2 lambdas to close the term $sz$, and
+$BKI ab = a = (\lambda\lambda 1) ab$.
 
 The third rule has two cases. If the $d$ is already a closed term, then the $K$
 combinator ignores the new variable and simply returns $d$. Otherwise, we

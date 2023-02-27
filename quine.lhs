@@ -272,8 +272,8 @@ x f \rightarrow f(x f)
 \]
 
 where we consider $xf$ to be complete original program: one could argue $x$
-alone is incomplete because it needs to be given a syscall to work and $f$
-ought to appear as well.
+alone is incomplete because it needs to be given a syscall to work so $f$ ought
+to appear as well.
 
 == Curry ==
 
@@ -428,15 +428,15 @@ We apply the use-mention trick to remove the $Z$ on the right-hand side:
 
 \[
 \begin{align}
-Z' z &= f z z \\
-Z &= Z' Z' = (\lambda z . f z z)(\lambda z . f z z)
+Z' z &= f (z z) \\
+Z &= Z' Z' = (\lambda z . f (z z))(\lambda z . f (z z))
 \end{align}
 \]
 
 If we now bind $f$ with a lambda, we wind up with the $Y$ combinator:
 
 \[
-Y = \lambda f . (\lambda z . f z z)(\lambda z . f z z)
+Y = \lambda f . (\lambda z . f (z z))(\lambda z . f (z z))
 \]
 
 == Recursion ==
