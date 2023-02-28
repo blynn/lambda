@@ -301,9 +301,8 @@ renaming (which is called 'alpha-conversion').
 norm :: [(String, Term)] -> Term -> Term
 norm env term = case eval env term of
   Var v   -> Var v
-  Lam v m -> Lam v (rec m)
-  App m n -> App (rec m) (rec n)
-  where rec = norm env
+  Lam v m -> Lam v (norm (filter (\(w,t) -> w /= v) env) m)
+  App m n -> App (norm env m) (norm env n)
 \end{code}
 
 A term with no free variables is called a 'closed lambda expression' or
