@@ -237,8 +237,7 @@ first `x` and find `(\y -> \x1 -> y)x` reduces to `\x1 -> x`.
 More precisely, we say a variable `v` is 'bound' if it appears in the right
 subtree of a lambda abstraction node whose left child is `v`. Otherwise `v` is
 'free'. If a substitution would cause a free variable `x` to become bound, then
-we rename bound occurrences of `x` to before proceeding. The new name must
-differ from all other free variables.
+we rename bound occurrences of `x` to before proceeding.
 
 We store the let definitions in an associative list named `env`, and perform
 lookups on demand to see if a given string is a variable or shorthand for
@@ -278,13 +277,17 @@ fv env vs (App x y)                        = fv env vs x `union` fv env vs y
 fv env vs (Lam s f)                        = fv env (s:vs) f
 \end{code}
 
-To pick a new name, we increment the number at the end of the name (or append
-"1" if there is no number) until we've avoided all the given names.
+To pick a new name, we append "_1" if the name contains no underscore, and
+otherwise increment the number after the underscore until we've avoided names
+of other free variables.
+
+Our parser rejects underscores in variable names, so the new name never clashes
+with a name chosen by the user.
 
 \begin{code}
 newName :: String -> [String] -> String
-newName x ys = head $ filter (`notElem` ys) $ (s ++) . show <$> [1..] where
-  s = dropWhileEnd isDigit x
+newName x ys = head $ filter (`notElem` ys) $ (s ++) . ('_':) . show <$> [1..] where
+  s = takeWhile (/= '_') x
 \end{code}
 
 Renaming a free variable is a tree traversal that skips lambda abstractions
